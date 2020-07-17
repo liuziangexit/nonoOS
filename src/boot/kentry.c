@@ -110,5 +110,5 @@ void kernel_main(void)
 	terminal_initialize();
  
 	/* Newline support is left as an exercise. */
-	terminal_writestring("hello! im nono, miao miao miao");
+	terminal_writestring("hello! im nono, miao miao miao　 shshi");
 }
