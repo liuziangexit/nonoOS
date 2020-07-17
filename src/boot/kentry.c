@@ -56,7 +56,7 @@ static const size_t VGA_HEIGHT = 25;
 size_t terminal_row;
 size_t terminal_column;
 uint8_t terminal_color;
-uint16_t* terminal_buffer;
+volatile uint16_t* terminal_buffer;
  
 void terminal_initialize(void) 
 {
@@ -110,5 +110,6 @@ void kernel_main(void)
 	terminal_initialize();
  
 	/* Newline support is left as an exercise. */
-	terminal_writestring("hello! im nono, miao miao miao　 shshi");
+	for(int i=0;i<10;i++)
+	terminal_writestring("hello! im nono");
 }
