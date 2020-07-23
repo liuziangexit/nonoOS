@@ -28,7 +28,7 @@ _start:
 	call _init
 
 	# transfer control to the main kernel
-	call kernel_main
+	call kentry
 	
 	call _fini
 	cli

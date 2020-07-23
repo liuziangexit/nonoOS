@@ -1,1 +1,3 @@
-rm -rf build
+make clean
+rm -f nonoOS.iso
+rm -rf isodir
