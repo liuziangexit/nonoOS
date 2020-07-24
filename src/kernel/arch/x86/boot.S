@@ -23,13 +23,8 @@ stack_top:
 .type _start, @function
 _start:
 	movl $stack_top, %esp
-
-	# initialize CPP global object
 	call _init
-
-	# transfer control to the main kernel
 	call kentry
-	
 	call _fini
 	cli
 hang:
