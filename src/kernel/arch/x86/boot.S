@@ -25,6 +25,7 @@ stack_top:
 .global _start
 .type _start, @function
 _start:
+	cli
 seta20.1:
 	inb     $0x64,%al               # Wait for not busy
 	testb   $0x2,%al
@@ -57,9 +58,10 @@ kernel:
 	call kentry
 	call _fini
 	cli
-hang:
+
+spin:
 	hlt
-	jmp hang
+	jmp spin
 
 # Bootstrap GDT
 .p2align 2                                # force 4 byte alignment
