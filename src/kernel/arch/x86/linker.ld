@@ -3,7 +3,7 @@ ENTRY(_start)
 SECTIONS
 {
 	/* Begin putting sections at 1 MiB, a conventional place for kernels to be
-	   loaded at by the bootloader. */
+	   loaded at by the bootloader...因为1M以下的地址是为硬件保留的 */
 	. = 1M;
 
 	/* First put the multiboot header, as it is required to be put very early

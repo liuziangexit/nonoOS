@@ -1,3 +1,6 @@
+#include "segment.h"
+#include "mmu.h"
+
 # declare constants for the multiboot header.
 .set ALIGN,    1<<0             # align loaded modules on page boundaries
 .set MEMINFO,  1<<1             # provide memory map
@@ -38,6 +41,16 @@ seta20.2:
 	movb    $0xdf,%al               # 0xdf -> port 0x60
 	outb    %al,$0x60
 
+setgdt:
+	lgdt    gdtdesc
+	movl    %cr0, %eax
+	orl     $CR0_PE, %eax
+	movl    %eax, %cr0
+	# Complete the transition to 32-bit protected mode by using a long jmp
+	# to reload %cs and %eip.  The segment descriptors are set up with no
+	# translation, so that the mapping is still the identity mapping.
+	#ljmp    $(SEG_KCODE<<3), $kernel
+
 kernel:
 	movl $stack_top, %esp
 	call _init
@@ -47,4 +60,16 @@ kernel:
 hang:
 	hlt
 	jmp hang
+
+# Bootstrap GDT
+.p2align 2                                # force 4 byte alignment
+gdt:
+  SEG_NULLASM                             # null seg
+  SEG_ASM(STA_X|STA_R, 0x0, 0xffffffff)   # code seg
+  SEG_ASM(STA_W, 0x0, 0xffffffff)         # data seg
+
+gdtdesc:
+  .word   (gdtdesc - gdt - 1)             # sizeof(gdt) - 1
+  .long   gdt         
+
 .size _start, . - _start
