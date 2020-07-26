@@ -1,6 +1,6 @@
 set -e
 make
-tools/mkfs fs.img
+make fs.img
 
 CPU=1
 MEM=256

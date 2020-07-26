@@ -3,6 +3,9 @@
 
 all: nonoOS.img
 
+fs.img: tools
+	tools/mkfs fs.img
+
 nonoOS.img: kernel
 	dd if=/dev/zero of=nonoOS.img count=10000
 	dd if=kernel/bootblock of=nonoOS.img conv=notrunc
@@ -19,6 +22,7 @@ tools:
 
 clean:
 	rm -f nonoOS.img
+	rm -f fs.img
 	cd kernel;	make clean
 	cd tools;	make clean
 	cd libno;	make clean
