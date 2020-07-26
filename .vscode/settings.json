@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "vga.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "vga_color.h": "c"
     }
 }
