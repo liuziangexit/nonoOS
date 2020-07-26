@@ -1,5 +1,4 @@
 *.o
 *.iso
 *.a
-isodir
-nonoOS.kernel
+*.img

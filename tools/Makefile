@@ -4,11 +4,15 @@ LDFLAGS=-O3
 .PHONY: all clean
 .SUFFIXES: .o .c
 
-all: sign
+all: sign mkfs
 
-sign: sign.c
+sign: src/sign/sign.c
 	$(CC) -c $< -o $@.o $(CFLAGS)
+	$(CC) $@.o -o $@ $(LDFLAGSm)
+
+mkfs: src/mkfs
+	$(CC) -c $</mkfs.c -o $@.o $(CFLAGS)
 	$(CC) $@.o -o $@ $(LDFLAGS)
 
 clean:
-	rm -rf sign sign.o
+	rm -rf sign* mkfs*
