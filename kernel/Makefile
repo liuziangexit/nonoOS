@@ -11,17 +11,17 @@ LIBS=-nostdlib -L../libno -lno
 INCLUDE=-Iinclude -I../libno/include
 
 KERNEL_OBJS=\
-src/tty.o\
-src/kernel.o
+src/kernel.o\
+src/tty.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
 
 all: bootblock kernel
 
-bootblock: arch/x86/bootloader.S arch/x86/bootloader.c
-	$(CC) $(CFLAGS) -fno-pic -Os -nostdinc -Iinclude -c arch/x86/bootloader.c -o arch/x86/bootc.o
-	$(CC) $(CFLAGS) -fno-pic -Os -nostdinc -Iinclude -c arch/x86/bootloader.S -o arch/x86/bootasm.o
+bootblock:
+	$(CC) $(CFLAGS) -fno-pic -Os -g -nostdinc -Iinclude -c arch/x86/bootloader.c -o arch/x86/bootc.o
+	$(CC) $(CFLAGS) -fno-pic -Os -g -nostdinc -Iinclude -c arch/x86/bootloader.S -o arch/x86/bootasm.o
 	$(LD) -N -e start -Ttext 0x7C00 -o arch/x86/bootblock.o arch/x86/bootasm.o arch/x86/bootc.o
 	$(OBJCOPY) -S -O binary -j .text arch/x86/bootblock.o unsigned_bootblock
 	../tools/sign unsigned_bootblock bootblock

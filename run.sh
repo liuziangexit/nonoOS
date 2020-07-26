@@ -1,6 +1,6 @@
 set -e
-make
-make fs.img
+
+source ./clean_build.sh
 
 CPU=1
 MEM=256
