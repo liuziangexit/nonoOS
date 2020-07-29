@@ -4,8 +4,7 @@
 # Entering xv6 on boot processor, with paging off.
 .align 4
 .text
-.globl entry
-entry:
+pgsetup:
   # Turn on page size extension for 4Mbyte pages
   movl    %cr4, %eax
   orl     $(CR4_PSE), %eax

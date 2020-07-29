@@ -31,9 +31,12 @@ typedef uint32_t uintptr_t;
 typedef uintptr_t size_t;
 
 /* booleans */
+#ifndef __bool_true_false_are_defined
 typedef int32_t bool;
 #define true 1
 #define false 0
+#define __bool_true_false_are_defined
+#endif
 
 /* used for page numbers */
 typedef size_t ppn_t;

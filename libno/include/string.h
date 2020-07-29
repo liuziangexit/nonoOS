@@ -2,8 +2,7 @@
 #define _STRING_H 1
 
 #include <sys/cdefs.h>
-
-#include <stddef.h>
+#include <defs.h>
 
 #ifdef __cplusplus
 extern "C" {

@@ -2,6 +2,7 @@
 #include <memlayout.h>
 #include <mmu.h>
 #include <stdio.h>
+#include <string.h>
 #include <tty.h>
 #include <vga_color.h>
 
@@ -23,6 +24,17 @@ void init_terminal() {
 void init_paging() {}
 
 void kentry(void) {
+  //临时小测试
+  memset((void *)0x3FFC00, 0x8, 128);
+  unsigned char look[128];
+  memcpy((void *)look, (void *)(P2V(0x3FFC00)), 128);
+  for (int32_t i = 0; i < 128; i++) {
+    if (look[i] != 0x8) {
+      while (1)
+        ;
+    }
+  }
+
   init_terminal();
   printf("Welcome...\n");
   printf("Initializing nonoOS...\n");
