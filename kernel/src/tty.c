@@ -1,8 +1,5 @@
 #include "vga_color.h"
-#include <stdbool.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <string.h>
+#include <defs.h>
 #include <tty.h>
 
 static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {

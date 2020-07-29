@@ -2,7 +2,7 @@
 #define __KERNEL_TTY_H
 
 #include "vga_color.h"
-#include <stddef.h>
+#include <defs.h>
 
 void terminal_initialize(enum vga_color fg, enum vga_color bg);
 void terminal_putchar(char c);
