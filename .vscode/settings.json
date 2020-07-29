@@ -11,6 +11,8 @@
         "memory": "cpp",
         "random": "cpp",
         "ranges": "cpp",
-        "memlayout.h": "c"
+        "memlayout.h": "c",
+        "tty.h": "c",
+        "defs.h": "c"
     }
 }
