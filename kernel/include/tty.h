@@ -1,5 +1,5 @@
-#ifndef _KERNEL_TTY_H
-#define _KERNEL_TTY_H
+#ifndef __KERNEL_TTY_H
+#define __KERNEL_TTY_H
 
 #include "vga_color.h"
 #include <stddef.h>

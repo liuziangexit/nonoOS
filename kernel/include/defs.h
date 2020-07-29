@@ -1,5 +1,5 @@
-#ifndef __LIBS_DEFS_H__
-#define __LIBS_DEFS_H__
+#ifndef __KERNEL_DEFS_H__
+#define __KERNEL_DEFS_H__
 
 #ifndef NULL
 #define NULL ((void *)0)

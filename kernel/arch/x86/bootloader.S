@@ -1,13 +1,10 @@
-#include "gdt_helper.h"
+#include <gdt_helper.h>
+#include <mmu.h>
 
 # Start the CPU: switch to 32-bit protected mode, jump into C.
 # The BIOS loads this code from the first sector of the hard disk into
 # memory at physical address 0x7c00 and starts executing in real mode
 # with %cs=0 %ip=7c00.
-
-.set PROT_MODE_CSEG,        0x8                     # kernel code segment selector
-.set PROT_MODE_DSEG,        0x10                    # kernel data segment selector
-.set CR0_PE_ON,             0x1                     # protected mode enable flag
 
 # start address should be 0:7c00, in real mode, the beginning address of the running bootloader
 .globl start
@@ -50,16 +47,16 @@ switchpe:
     # effective memory map does not change during the switch.
     lgdt gdtdesc
     movl %cr0, %eax
-    orl $CR0_PE_ON, %eax
+    orl $CR0_PE, %eax
     movl %eax, %cr0
 
     #set cs and eip register
-    ljmp $PROT_MODE_CSEG, $protcseg
+    ljmp $SEG_KCODE, $protcseg
 
 .code32                                             # Assemble for 32-bit mode
 protcseg:
     # Set up the protected-mode data segment registers
-    movw $PROT_MODE_DSEG, %ax                       # Our data segment selector
+    movw $SEG_KDATA, %ax                       # Our data segment selector
     movw %ax, %ds                                   # -> DS: Data Segment
     movw %ax, %es                                   # -> ES: Extra Segment
     movw %ax, %ss                                   # -> SS: Stack Segment

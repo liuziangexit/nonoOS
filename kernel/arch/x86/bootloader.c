@@ -82,7 +82,7 @@ static void readseg(uintptr_t va, uint32_t count, uint32_t offset) {
 /* bootmain - the entry of bootloader */
 void bootmain(void) {
   // read the 1st page off disk
-  readseg((uintptr_t)ELFHDR, SECTSIZE * 8, 0);
+  readseg((uintptr_t)ELFHDR, 512 * 8, 0);
 
   // is this a valid ELF?
   if (ELFHDR->e_magic != ELF_MAGIC) {

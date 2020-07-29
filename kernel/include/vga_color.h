@@ -1,5 +1,5 @@
-#ifndef __VGA_COLOR_H
-#define __VGA_COLOR_H
+#ifndef __KERNEL_VGA_COLOR_H
+#define __KERNEL_VGA_COLOR_H
 
 enum vga_color {
   VGA_COLOR_BLACK = 0,

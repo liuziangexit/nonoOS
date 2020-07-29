@@ -11,6 +11,7 @@ LIBS=-nostdlib -L../libno -lno
 INCLUDE=-Iinclude -I../libno/include
 
 KERNEL_OBJS=\
+src/pgsetup.o\
 src/kernel.o\
 src/tty.o
 
@@ -28,12 +29,12 @@ bootblock:
 	cp arch/x86/bootblock.o unsigned_bootblock
 
 kernel: $(KERNEL_OBJS)
-	$(CC) -T kernel.ld -o kernel $(CFLAGS) $(KERNEL_OBJS) -nostdlib -L../libno -lno
+	$(CC) -T kernel.ld -e 0xC0100000 -o kernel $(CFLAGS) $(KERNEL_OBJS) -nostdlib -L../libno -lno
 	
 %.o: %.c
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
 
-%.S: %.c
+%.o: %.S
 	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE)
 
 clean:

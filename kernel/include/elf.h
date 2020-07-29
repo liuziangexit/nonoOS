@@ -1,5 +1,5 @@
-#ifndef __LIBS_ELF_H__
-#define __LIBS_ELF_H__
+#ifndef __KERNEL_ELF_H__
+#define __KERNEL_ELF_H__
 
 #include <defs.h>
 

@@ -1,8 +1,7 @@
-#ifndef __NONO_GDT_HELPER_H__
-#define __NONO_GDT_HELPER_H__
+#ifndef __KERNEL_GDT_HELPER_H__
+#define __KERNEL_GDT_HELPER_H__
 
 /* Assembler macros to create x86 segments */
-
 /* Normal segment */
 #define SEG_NULLASM                                                            \
   .word 0, 0;                                                                  \

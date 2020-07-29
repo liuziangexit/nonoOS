@@ -1,0 +1,8 @@
+#ifndef __KERNEL_MEMLAYOUT_H
+#define __KERNEL_MEMLAYOUT_H
+
+#define KERNEL_VIRTUAL_BASE 0xC0100000
+#define V2P(n) (n-0xC0100000)
+#define KERNEL_STACK_SIZE 0x2000
+
+#endif
