@@ -1,7 +1,7 @@
 #include "vga_color.h"
 #include <defs.h>
-#include <tty.h>
 #include <string.h>
+#include <tty.h>
 
 static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
   return fg | bg << 4;
@@ -42,6 +42,12 @@ void terminal_putentryat(unsigned char c, uint8_t color, size_t x, size_t y) {
 
 void terminal_putchar(char c) {
   unsigned char uc = c;
+  if (uc == '\n') {
+    terminal_column = 0;
+    terminal_row++;
+    terminal_putentryat(' ', terminal_color, terminal_column, terminal_row);
+    return;
+  }
   terminal_putentryat(uc, terminal_color, terminal_column, terminal_row);
   if (++terminal_column == VGA_WIDTH) {
     terminal_column = 0;
