@@ -1,16 +1,15 @@
 #include <memlayout.h>
 #include <mmu.h>
 
-# Entering xv6 on boot processor, with paging off.
 .align 4
 .text
-pgsetup:
-  # Turn on page size extension for 4Mbyte pages
+entry:
+  # Turn on page size extension for 4MB pages
   movl    %cr4, %eax
   orl     $(CR4_PSE), %eax
   movl    %eax, %cr4
-  # Set page directory(呱呱呱)
-  movl    $(V2P(page_directory)), %eax
+  # Set page directory
+  movl    $(V2P(kernel_page_directory)), %eax
   movl    %eax, %cr3
   # Turn on paging.
   movl    %cr0, %eax
@@ -18,13 +17,11 @@ pgsetup:
   movl    %eax, %cr0
 
   # Set up the stack pointer.
-  movl $(stack + KERNEL_STACK_SIZE), %esp
-
-  # Jump to main(), and switch to executing at
+  movl $(P2V(KERNEL_STACK + KERNEL_STACK_SIZE)), %esp
+  
+  # Jump to kentry(), and switch to executing at
   # high addresses. The indirect call is needed because
   # the assembler produces a PC-relative instruction
   # for a direct jump.
   mov $kentry, %eax
   jmp *%eax
-
-.comm stack, KERNEL_STACK_SIZE

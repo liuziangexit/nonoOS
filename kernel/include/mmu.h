@@ -89,6 +89,7 @@ struct segdesc {
 #define PGADDR(d, t, o) ((uint32_t)((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // Page directory and page table constants.
+// https://www.youtube.com/watch?v=jkGZDb3100Q&t=867s
 #define NPDENTRIES 1024 // # directory entries per page directory
 #define NPTENTRIES 1024 // # PTEs per page table
 #define PGSIZE 4096     // bytes mapped by a page

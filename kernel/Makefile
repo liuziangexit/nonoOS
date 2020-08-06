@@ -11,8 +11,9 @@ LIBS=-nostdlib -L../libno -lno
 INCLUDE=-Iinclude -I../libno/include
 
 KERNEL_OBJS=\
-src/pgsetup.o\
+src/entry.o\
 src/kernel.o\
+src/kernel_pgd.o\
 src/tty.o
 
 .PHONY: all clean
