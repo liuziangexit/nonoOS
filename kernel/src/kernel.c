@@ -3,7 +3,7 @@
 #include <mmu.h>
 #include <stdio.h>
 #include <string.h>
-#include <tty.h>
+#include <driver/tty.h>
 #include <vga_color.h>
 
 void init_terminal() {

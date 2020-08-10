@@ -14,7 +14,7 @@ KERNEL_OBJS=\
 src/entry.o\
 src/kernel.o\
 src/kernel_pgd.o\
-src/tty.o
+src/driver/tty.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
