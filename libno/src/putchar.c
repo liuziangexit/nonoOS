@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-#include <driver/tty.h>
+#include <tty.h>
 
 int putchar(int ic) {
   char c = (char)ic;

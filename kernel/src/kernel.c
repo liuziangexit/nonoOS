@@ -3,11 +3,11 @@
 #include <mmu.h>
 #include <stdio.h>
 #include <string.h>
-#include <driver/tty.h>
-#include <vga_color.h>
+#include <tty.h>
+#include <cga.h>
 
 void init_terminal() {
-  terminal_initialize(VGA_COLOR_BLACK, VGA_COLOR_LIGHT_GREY);
+  terminal_initialize(CGA_COLOR_BLACK, CGA_COLOR_LIGHT_GREY);
 }
 
 void init_paging() {}

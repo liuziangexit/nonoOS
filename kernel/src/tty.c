@@ -1,9 +1,9 @@
-#include "vga_color.h"
+#include "cga.h"
 #include <defs.h>
 #include <string.h>
-#include <driver/tty.h>
+#include <tty.h>
 
-static inline uint8_t vga_entry_color(enum vga_color fg, enum vga_color bg) {
+static inline uint8_t vga_entry_color(enum cga_color fg, enum cga_color bg) {
   return fg | bg << 4;
 }
 
@@ -20,7 +20,7 @@ static size_t terminal_column;
 static uint8_t terminal_color;
 static uint16_t *terminal_buffer;
 
-void terminal_initialize(enum vga_color fg, enum vga_color bg) {
+void terminal_initialize(enum cga_color fg, enum cga_color bg) {
   terminal_row = 0;
   terminal_column = 0;
   terminal_color = vga_entry_color(fg, bg);

@@ -46,8 +46,8 @@ uint16_t cga_get_cursor() {
   return pos;
 }
 
-static inline uint16_t cga_entry(unsigned char uc, enum vga_color fg,
-                                 enum vga_color bg) {
+static inline uint16_t cga_entry(unsigned char uc, enum cga_color fg,
+                                 enum cga_color bg) {
   return (((uint16_t)((bg << 4) | fg)) << 8) | uc;
 }
 
