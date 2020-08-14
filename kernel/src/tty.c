@@ -25,11 +25,8 @@ void terminal_initialize(enum cga_color fg, enum cga_color bg) {
   terminal_column = 0;
   terminal_color = vga_entry_color(fg, bg);
   terminal_buffer = VGA_DIRECT_MEMORY;
-  for (size_t y = 0; y < VGA_HEIGHT; y++) {
-    for (size_t x = 0; x < VGA_WIDTH; x++) {
-      const size_t index = y * VGA_WIDTH + x;
-      terminal_buffer[index] = vga_entry(' ', terminal_color);
-    }
+  for (int i = 0; i < VGA_HEIGHT * VGA_WIDTH; i++) {
+    terminal_buffer[i] = vga_entry(' ', terminal_color);
   }
 }
 
