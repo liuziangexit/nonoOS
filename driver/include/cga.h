@@ -1,7 +1,9 @@
-#ifndef __KERNEL_VGA_COLOR_H
-#define __KERNEL_VGA_COLOR_H
+#ifndef __DRIVER_CGA_H
+#define __DRIVER_CGA_H
 
-enum vga_color {
+#include <defs.h>
+
+enum cga_color {
   VGA_COLOR_BLACK = 0,
   VGA_COLOR_BLUE = 1,
   VGA_COLOR_GREEN = 2,
@@ -19,5 +21,12 @@ enum vga_color {
   VGA_COLOR_LIGHT_BROWN = 14,
   VGA_COLOR_WHITE = 15
 };
+
+void cga_init();
+void cga_move_cursor(uint16_t pos);
+uint16_t cga_get_cursor();
+void cga_write(uint16_t pos, enum cga_color bg, enum cga_color fg,
+               unsigned char *src, uint16_t size);
+uint16_t *cga_buf();
 
 #endif
