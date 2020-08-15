@@ -15,22 +15,6 @@ void kentry(void) {
   printf("Welcome...\n");
   printf("Loading nonoOS...\n");
   printf("Initializing Paging...\n");
-  const char *mes1 =
-      "1suuuuuuppppppppperrrrrrrrrrlllllloooooonnnnnggggggggggg11"
-      "111111111111111111111111111111111111111110\n";
-  const char *mes2 =
-      "2suuuuuuppppppppperrrrrrrrrrlllllloooooonnnnngggggggggggww"
-      "wwwwewewewewewewe1111111111111111111119999";
-  terminal_write_string(mes1);
-  terminal_write_string(mes2);
-  terminal_write_string("\naaa\n");
-  printf("\naaa\n");
-  terminal_write_string("111111111111111111111111111111111111111111111111111111"
-                        "11111111111111111111111111\n2222222");
-  printf("\n\n");
-  printf("111111111111111111111111111111111111111111111111111111"
-         "111111111111111111111111112\n222222");
-  printf("\n\n");
   init_paging();
 
   //
