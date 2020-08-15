@@ -4,9 +4,9 @@
 #include <cga.h>
 #include <defs.h>
 
-void terminal_initialize(enum cga_color fg, enum cga_color bg);
+void terminal_init(enum cga_color fg, enum cga_color bg);
 void terminal_putchar(char c);
 void terminal_write(const char *data, size_t size);
-void terminal_writestring(const char *data);
+void terminal_write_string(const char *s);
 
 #endif

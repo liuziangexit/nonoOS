@@ -1,4 +1,5 @@
 #include <cga.h>
+#include <defs.h>
 #include <x86.h>
 
 #define MONO_BASE 0x3B4
@@ -46,15 +47,15 @@ uint16_t cga_get_cursor() {
   return pos;
 }
 
-static inline uint16_t cga_entry(unsigned char uc, enum cga_color fg,
+static inline uint16_t cga_entry(char uc, enum cga_color fg,
                                  enum cga_color bg) {
   return (((uint16_t)((bg << 4) | fg)) << 8) | uc;
 }
 
 void cga_write(uint16_t pos, enum cga_color bg, enum cga_color fg,
-               unsigned char *src, uint16_t size) {
-  for (; src < src + size; src++) {
-    crt_buf[pos] = cga_entry(*src, fg, bg);
+               const char *src, uint16_t size) {
+  for (const char *w = src; w != src + size; w++) {
+    crt_buf[pos + (uint16_t)(intptr_t)(w - src)] = cga_entry(*w, fg, bg);
   }
 }
 

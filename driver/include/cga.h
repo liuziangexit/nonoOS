@@ -26,7 +26,7 @@ void cga_init();
 void cga_move_cursor(uint16_t pos);
 uint16_t cga_get_cursor();
 void cga_write(uint16_t pos, enum cga_color bg, enum cga_color fg,
-               unsigned char *src, uint16_t size);
+               const char *src, uint16_t size);
 uint16_t *cga_buf();
 
 #endif
