@@ -25,6 +25,12 @@ void kentry(void) {
   terminal_write_string(mes2);
   terminal_write_string("\naaa\n");
   printf("\naaa\n");
+  terminal_write_string("111111111111111111111111111111111111111111111111111111"
+                        "11111111111111111111111111\n2222222");
+  printf("\n\n");
+  printf("111111111111111111111111111111111111111111111111111111"
+         "111111111111111111111111112\n222222");
+  printf("\n\n");
   init_paging();
 
   //

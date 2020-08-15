@@ -47,10 +47,13 @@ void terminal_write(const char *data, size_t size) {
     if (write_row + (tail - head) == CGA_WIDTH //
         || data[tail] == '\n') {
       cga_write(index(write_col, write_row), bg, fg, data + head, tail - head);
-      if (data[tail] == '\n')
-        head = tail + 1;
-      else
-        head = tail;
+    }
+    if (write_row + (tail - head) == CGA_WIDTH) {
+      head = tail;
+      nextline();
+    }
+    if (data[tail] == '\n') {
+      head = tail + 1;
       nextline();
     }
   }
