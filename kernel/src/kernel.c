@@ -1,14 +1,12 @@
+#include <cga.h>
 #include <defs.h>
 #include <memlayout.h>
 #include <mmu.h>
 #include <stdio.h>
 #include <string.h>
-#include <driver/tty.h>
-#include <vga_color.h>
+#include <tty.h>
 
-void init_terminal() {
-  terminal_initialize(VGA_COLOR_BLACK, VGA_COLOR_LIGHT_GREY);
-}
+void init_terminal() { terminal_init(CGA_COLOR_BLACK, CGA_COLOR_LIGHT_GREY); }
 
 void init_paging() {}
 
@@ -17,6 +15,22 @@ void kentry(void) {
   printf("Welcome...\n");
   printf("Loading nonoOS...\n");
   printf("Initializing Paging...\n");
+  const char *mes1 =
+      "1suuuuuuppppppppperrrrrrrrrrlllllloooooonnnnnggggggggggg11"
+      "111111111111111111111111111111111111111110\n";
+  const char *mes2 =
+      "2suuuuuuppppppppperrrrrrrrrrlllllloooooonnnnngggggggggggww"
+      "wwwwewewewewewewe1111111111111111111119999";
+  terminal_write_string(mes1);
+  terminal_write_string(mes2);
+  terminal_write_string("\naaa\n");
+  printf("\naaa\n");
+  terminal_write_string("111111111111111111111111111111111111111111111111111111"
+                        "11111111111111111111111111\n2222222");
+  printf("\n\n");
+  printf("111111111111111111111111111111111111111111111111111111"
+         "111111111111111111111111112\n222222");
+  printf("\n\n");
   init_paging();
 
   //

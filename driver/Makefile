@@ -7,21 +7,17 @@ LD=$(CCPREFIX)LD
 CFLAGS=-O0 -g -Wall -Wextra -ffreestanding
 CVERSION=-std=gnu11
 LIBS=-nostdlib -lgcc
-INCLUDE=-Iinclude -I../kernel/include -I../driver/include
+INCLUDE=-Iinclude -I../kernel/include
 
 OBJS=\
-src/abort.o\
-src/printf.o\
-src/putchar.o\
-src/puts.o\
-src/string.o
+src/cga.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
 
-all: libno.a
+all: libdriver.a
 
-libno.a: $(OBJS)
+libdriver.a: $(OBJS)
 	$(AR) rcs $@ $(OBJS)
 
 %.o: %.c

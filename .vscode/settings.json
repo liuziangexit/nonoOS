@@ -15,6 +15,10 @@
         "tty.h": "c",
         "defs.h": "c",
         "nono_defs.h": "c",
-        "cdefs.h": "c"
+        "cdefs.h": "c",
+        "cga.h": "c",
+        "stdbool.h": "c",
+        "stdint.h": "c",
+        "stddef.h": "c"
     }
 }
