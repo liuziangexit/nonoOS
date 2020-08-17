@@ -19,6 +19,10 @@
         "cga.h": "c",
         "stdbool.h": "c",
         "stdint.h": "c",
-        "stddef.h": "c"
+        "stddef.h": "c",
+        "stdio.h": "c",
+        "ring_buffer.h": "c",
+        "panic.h": "c",
+        "assert.h": "c"
     }
 }

@@ -7,8 +7,8 @@
 extern "C" {
 #endif
 
-__attribute__((__noreturn__))
 void abort(void);
+void exit(int);
 
 #ifdef __cplusplus
 }

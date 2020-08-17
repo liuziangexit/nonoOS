@@ -18,13 +18,12 @@ static inline uint16_t index(uint16_t col, uint16_t row) {
 
 static void update_cursor() { cga_move_cursor(index(write_col, write_row)); }
 
-void terminal_init(enum cga_color _fg, enum cga_color _bg) {
+void terminal_init() {
   cga_init();
   write_col = 0;
   write_row = 0;
   update_cursor();
-  fg = _fg;
-  bg = _bg;
+  terminal_default_color();
 
   for (uint16_t i = 0; i < CGA_HEIGHT * CGA_WIDTH; i++) {
     cga_write(i, bg, fg, " ", 1);
@@ -65,3 +64,14 @@ void terminal_write(const char *data, size_t size) {
 }
 
 void terminal_write_string(const char *s) { terminal_write(s, strlen(s)); }
+
+void terminal_color(enum cga_color _fg, enum cga_color _bg) {
+  fg = _fg;
+  bg = _bg;
+}
+
+void terminal_fgcolor(enum cga_color _fg) { fg = _fg; }
+
+void terminal_default_color() {
+  terminal_color(CGA_COLOR_BLACK, CGA_COLOR_LIGHT_GREY);
+}

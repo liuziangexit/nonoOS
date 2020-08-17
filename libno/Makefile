@@ -10,11 +10,12 @@ LIBS=-nostdlib -lgcc
 INCLUDE=-Iinclude -I../kernel/include -I../driver/include
 
 OBJS=\
-src/abort.o\
 src/printf.o\
 src/putchar.o\
 src/puts.o\
-src/string.o
+src/string.o\
+src/ring_buffer.o\
+src/abort_exit.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
