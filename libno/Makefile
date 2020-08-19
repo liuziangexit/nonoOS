@@ -10,9 +10,8 @@ LIBS=-nostdlib -lgcc
 INCLUDE=-Iinclude -I../kernel/include -I../driver/include
 
 OBJS=\
-src/printf.o\
-src/putchar.o\
-src/puts.o\
+src/stdout.o\
+src/stdin.o\
 src/string.o\
 src/ring_buffer.o\
 src/abort_exit.o

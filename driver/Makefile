@@ -6,11 +6,12 @@ LD=$(CCPREFIX)LD
 
 CFLAGS=-O0 -g -Wall -Wextra -ffreestanding
 CVERSION=-std=gnu11
-LIBS=-nostdlib -lgcc
-INCLUDE=-Iinclude -I../kernel/include
+LIBS=-nostdlib -lgcc #-L../libno -lno
+INCLUDE=-Iinclude -I../kernel/include -I../libno/include
 
 OBJS=\
-src/cga.o
+src/cga.o\
+src/kbd.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

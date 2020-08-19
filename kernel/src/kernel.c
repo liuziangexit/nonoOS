@@ -1,25 +1,26 @@
+#include "../test/ring_buffer.h"
 #include <cga.h>
 #include <defs.h>
+#include <kbd.h>
 #include <memlayout.h>
 #include <mmu.h>
 #include <stdio.h>
 #include <string.h>
 #include <tty.h>
-#include "../test/ring_buffer.h"
-
-void init_terminal() { terminal_init(CGA_COLOR_BLACK, CGA_COLOR_LIGHT_GREY); }
 
 void init_paging() {}
 
 void kentry(void) {
-  init_terminal();
+  terminal_init();
+  kbd_init();
   printf("Welcome...\n");
-  printf("Loading nonoOS...\n");
-  printf("Initializing Paging...\n");
-  init_paging();
   printf("\n\n");
   ring_buffer_test();
-
+  printf("\n\n");
+  printf("nonoOS:$ ");
+  while (1) {
+    putchar(getchar());
+  }
   //
   while (1)
     ;
