@@ -3,6 +3,9 @@
 
 .align 4
 .text
+entry_flag:
+    .long 8899174
+
 entry:
   # Turn on page size extension for 4MB pages
   movl    %cr4, %eax

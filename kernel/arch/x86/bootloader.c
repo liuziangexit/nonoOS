@@ -89,19 +89,26 @@ void bootmain(void) {
     goto bad;
   }
 
-  struct proghdr *ph, *eph;
+  struct proghdr *ph, *ph_end;
 
   // load each program segment (ignores ph flags)
   ph = (struct proghdr *)((uintptr_t)ELFHDR + ELFHDR->e_phoff);
-  eph = ph + ELFHDR->e_phnum;
-  for (; ph < eph; ph++) {
+  ph_end = ph + ELFHDR->e_phnum;
+  for (; ph < ph_end; ph++) {
     readseg(ph->p_va & 0xFFFFFF, ph->p_memsz, ph->p_offset);
   }
 
-  // call the entry point from the ELF header
-  // note: does not return
-  //((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();
-  ((void (*)(void))(0xc0100148 & 0xFFFFFF))();
+  // search entry_flag
+  uintptr_t entry = 0xffffffff;
+  for (uint32_t *p = ELFHDR->e_entry; p < ELFHDR->e_entry + 1024; p++) {
+    if (*(uint32_t *)((uintptr_t)p & 0xFFFFFF) == 8899174) {
+      entry = (uintptr_t)(p + 1) & 0xFFFFFF;
+      break;
+    }
+  }
+  if (entry != 0xffffffff) {
+    ((void (*)(void))entry)();
+  }
 
 bad:
   outw(0x8A00, 0x8A00);
