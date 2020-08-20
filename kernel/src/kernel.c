@@ -8,8 +8,6 @@
 #include <string.h>
 #include <tty.h>
 
-void init_paging() {}
-
 void kentry(void) {
   terminal_init();
   kbd_init();
