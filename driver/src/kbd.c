@@ -382,7 +382,11 @@ static uint8_t *charcode[4] = {normalmap, shiftmap, ctlmap, ctlmap};
 static int kbd_hw_read(void) {
   int c;
   uint8_t data;
-  static uint32_t shift;
+  // FIXME 因为没有连接gcc生成的那些constructor相关的对象文件
+  // 所以实际上这里的初始化为0的工作没有做。。。
+  // 记得把那几个.o连接上！
+  static uint32_t shift = 0;
+  shift = 0;
 
   if ((inb(KBSTATP) & KBS_DIB) == 0) {
     return -1;
@@ -410,11 +414,10 @@ static int kbd_hw_read(void) {
 
   c = charcode[shift & (CTL | SHIFT)][data];
   if (shift & CAPSLOCK) {
-    if ('a' <= c && c <= 'z') {
+    if ('a' <= c && c <= 'z')
       c += 'A' - 'a';
-    } else if ('A' <= c && c <= 'Z') {
+    else if ('A' <= c && c <= 'Z')
       c += 'a' - 'A';
-    }
   }
 
   // Process special keys
