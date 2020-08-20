@@ -3,9 +3,6 @@
 
 .align 4
 .text
-entry_flag:
-    .long 8899174
-
 entry:
   # Turn on page size extension for 4MB pages
   movl    %cr4, %eax
@@ -28,3 +25,8 @@ entry:
   # for a direct jump.
   mov $kentry, %eax
   jmp *%eax
+
+.align 4
+entry_flag:
+    .long 8899174
+    .word (entry_flag - entry)
