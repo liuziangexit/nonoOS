@@ -382,11 +382,7 @@ static uint8_t *charcode[4] = {normalmap, shiftmap, ctlmap, ctlmap};
 static int kbd_hw_read(void) {
   int c;
   uint8_t data;
-  // FIXME 因为没有连接gcc生成的那些constructor相关的对象文件
-  // 所以实际上这里的初始化为0的工作没有做。。。
-  // 记得把那几个.o连接上！
   static uint32_t shift = 0;
-  shift = 0;
 
   if ((inb(KBSTATP) & KBS_DIB) == 0) {
     return -1;

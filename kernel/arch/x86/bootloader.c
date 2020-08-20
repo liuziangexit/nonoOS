@@ -100,7 +100,8 @@ void bootmain(void) {
 
   // call the entry point from the ELF header
   // note: does not return
-  ((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();
+  //((void (*)(void))(ELFHDR->e_entry & 0xFFFFFF))();
+  ((void (*)(void))(0xc0100148 & 0xFFFFFF))();
 
 bad:
   outw(0x8A00, 0x8A00);

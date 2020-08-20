@@ -29,9 +29,15 @@ bootblock:
 	../tools/sign bootblock bootblock
 	cp arch/x86/bootblock.o unsigned_bootblock
 
-kernel: $(KERNEL_OBJS)
-	$(CC) -T kernel.ld -e 0xC0100000 -o kernel $(CFLAGS) $(KERNEL_OBJS) -nostdlib -L../libno -lno -L../driver -ldriver
-	
+kernel: $(KERNEL_OBJS) arch/x86/crti.o arch/x86/crtn.o arch/x86/crtbegin.o arch/x86/crtend.o 
+	$(CC) -T kernel.ld -e 0xC0100000 -o kernel $(CFLAGS) \
+	arch/x86/crti.o arch/x86/crtbegin.o \
+	$(KERNEL_OBJS) -nostdlib -L../libno -lno -L../driver -ldriver \
+	arch/x86/crtend.o arch/x86/crtn.o
+
+arch/x86/crtbegin.o arch/x86/crtend.o:
+	CPFROM=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$CPFROM" $@
+
 %.o: %.c
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
 
