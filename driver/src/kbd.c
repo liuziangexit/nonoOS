@@ -2,6 +2,7 @@
 #include <kbd.h>
 #include <ring_buffer.h>
 #include <stdio.h>
+#include <tty.h>
 
 // Special keycodes
 #define KEY_HOME 0xE0
@@ -425,17 +426,7 @@ static int kbd_hw_read(void) {
   return c;
 }
 
-/* *
- * Here we manage the console input buffer, where we stash characters
- * received from the keyboard or serial port whenever the corresponding
- * interrupt occurs.
- * */
-#define BUF_LEN 512
-static unsigned char _buf[BUF_LEN];
-static struct ring_buffer kbd_buffer;
-
 void kbd_init(void) {
-  ring_buffer_init(&kbd_buffer, _buf, BUF_LEN);
   // drain the kbd buffer
   kbd_isr();
 }
@@ -445,16 +436,10 @@ void kbd_isr(void) {
   int c;
   while ((c = kbd_hw_read()) != EOF) {
     if (c != 0) {
-      ring_buffer_write(&kbd_buffer, &c, 1);
+      // copy to console buffer
+      ring_buffer_write(terminal_input_buffer(), &c, 1);
+      // echo
+      terminal_write(&c, 1);
     }
   }
-}
-
-size_t kbd_read(char *dst, size_t len) {
-  // FIXME 有中断之后不需要这样
-  kbd_isr();
-  const size_t readable = ring_buffer_readable(&kbd_buffer);
-  const size_t actual_read = len < readable ? len : readable;
-  ring_buffer_read(&kbd_buffer, dst, actual_read);
-  return actual_read;
 }

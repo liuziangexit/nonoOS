@@ -11,5 +11,6 @@ void terminal_write_string(const char *s);
 void terminal_color(enum cga_color _fg, enum cga_color _bg);
 void terminal_fgcolor(enum cga_color _fg);
 void terminal_default_color();
-
+struct ring_buffer *terminal_input_buffer();
+int terminal_read_line(char *dst, int len);
 #endif

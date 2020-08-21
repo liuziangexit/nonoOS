@@ -5,6 +5,5 @@
 
 void kbd_init();
 void kbd_isr();
-size_t kbd_read(char *dst, size_t len);
 
 #endif

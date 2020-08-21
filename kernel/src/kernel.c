@@ -17,7 +17,7 @@ void kentry(void) {
   printf("\n\n");
   printf("nonoOS:$ ");
   while (1) {
-    putchar(getchar());
+    kbd_isr();
   }
   //
   while (1)
