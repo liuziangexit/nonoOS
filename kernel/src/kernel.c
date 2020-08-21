@@ -16,9 +16,12 @@ void kentry(void) {
   ring_buffer_test();
   printf("\n\n");
   printf("nonoOS:$ ");
-  while (1) {
+  for (int a = 0; a < 4; a++) {
     kbd_isr();
   }
+  char buf[10];
+  gets(buf);
+  printf("we have: %s", buf);
   //
   while (1)
     ;
