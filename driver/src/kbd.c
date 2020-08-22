@@ -439,7 +439,7 @@ void kbd_isr(void) {
       // copy to console buffer
       ring_buffer_write(terminal_input_buffer(), &c, 1);
       // echo
-      terminal_write(&c, 1);
+      terminal_write((char *)&c, 1);
     }
   }
 }

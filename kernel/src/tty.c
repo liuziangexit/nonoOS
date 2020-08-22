@@ -4,8 +4,8 @@
 #include <string.h>
 #include <tty.h>
 
-static const size_t CGA_WIDTH = 80;
-static const size_t CGA_HEIGHT = 25;
+#define CGA_WIDTH 80
+#define CGA_HEIGHT 25
 
 static enum cga_color fg;
 static enum cga_color bg;
@@ -95,8 +95,8 @@ struct ring_buffer *terminal_input_buffer() {
 //返回值末尾给了\0标记结束
 int terminal_read_line(char *dst, int len) {
   //首先看看距离第一个\n有多远
-  size_t max = ring_buffer_readable(&input_buffer);
-  size_t n = 0;
+  int max = ring_buffer_readable(&input_buffer);
+  int n = 0;
   for (; n < max; n++) {
     if (*(dst + n) == '\n') {
       break;

@@ -11,7 +11,8 @@ INCLUDE=-Iinclude -I../kernel/include -I../libno/include
 
 OBJS=\
 src/cga.o\
-src/kbd.o
+src/kbd.o\
+src/picirq.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

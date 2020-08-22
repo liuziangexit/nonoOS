@@ -100,7 +100,8 @@ void bootmain(void) {
 
   // search entry_flag
   uintptr_t entry = 0xffffffff;
-  for (uint32_t *p = ELFHDR->e_entry; p < ELFHDR->e_entry + 512; p++) {
+  for (uint32_t *p = (uint32_t *)ELFHDR->e_entry;
+       p < (uint32_t *)(ELFHDR->e_entry + 512); p++) {
     if (*(uint32_t *)((uintptr_t)p & 0xFFFFFF) == 8899174) {
       uintptr_t diff = *(uint16_t *)((uintptr_t)(p + 1) & 0xFFFFFF);
       entry = ((uintptr_t)p - diff) & 0xFFFFFF;

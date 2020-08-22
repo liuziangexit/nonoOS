@@ -24,6 +24,7 @@ uint32_t ring_buffer_readable(const struct ring_buffer *buf) {
   } else if (buf->wpos < buf->rpos) {
     return buf->wpos + (buf->cap - buf->rpos);
   }
+  __builtin_unreachable();
 }
 
 uint32_t ring_buffer_read(struct ring_buffer *buf, void *dst, uint32_t len) {

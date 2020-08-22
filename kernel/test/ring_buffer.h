@@ -9,7 +9,7 @@
 #undef NDEBUG
 #endif
 
-bool ring_buffer_test() {
+void ring_buffer_test() {
   printf("running ring_buffer_test\n");
   struct ring_buffer buffer;
   char b[5], tmp[5];

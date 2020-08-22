@@ -2,7 +2,6 @@
 #define _STDIO_H 1
 
 #include <defs.h>
-#include <sys/cdefs.h>
 
 #define EOF (-1)
 
