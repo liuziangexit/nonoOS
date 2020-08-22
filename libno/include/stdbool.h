@@ -1,5 +1,5 @@
-#ifndef _STDBOOL_H
-#define _STDBOOL_H 1
+#ifndef __LIBNO_STDBOOL_H__
+#define __LIBNO_STDBOOL_H__
 #include <stdint.h>
 
 /* booleans */

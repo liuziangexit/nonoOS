@@ -1,5 +1,5 @@
-#ifndef _ASSERT_H
-#define _ASSERT_H 1
+#ifndef __LIBNO_ASSERT_H__
+#define __LIBNO_ASSERT_H__
 #include <stdlib.h>
 
 #ifdef NDEBUG

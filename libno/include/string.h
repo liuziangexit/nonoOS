@@ -1,5 +1,5 @@
-#ifndef _STRING_H
-#define _STRING_H 1
+#ifndef __LIBNO_STRING_H__
+#define __LIBNO_STRING_H__
 
 #include <defs.h>
 

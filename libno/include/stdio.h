@@ -1,5 +1,5 @@
-#ifndef _STDIO_H
-#define _STDIO_H 1
+#ifndef __LIBNO_STDIO_H__
+#define __LIBNO_STDIO_H__
 
 #include <defs.h>
 

@@ -1,5 +1,5 @@
-#ifndef __DRIVER_KBD_H
-#define __DRIVER_KBD_H
+#ifndef __DRIVER_KBD_H__
+#define __DRIVER_KBD_H__
 #include <defs.h>
 #include <x86.h>
 

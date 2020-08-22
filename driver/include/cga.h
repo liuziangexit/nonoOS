@@ -1,5 +1,5 @@
-#ifndef __DRIVER_CGA_H
-#define __DRIVER_CGA_H
+#ifndef __DRIVER_CGA_H__
+#define __DRIVER_CGA_H__
 
 #include <defs.h>
 

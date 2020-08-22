@@ -1,5 +1,5 @@
-#ifndef _STDDEF_H
-#define _STDDEF_H 1
+#ifndef __LIBNO_STDDEF_H_
+#define __LIBNO_STDDEF_H_
 #include <stdint.h>
 
 #ifndef NULL

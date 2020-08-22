@@ -1,5 +1,5 @@
-#ifndef _STDLIB_H
-#define _STDLIB_H 1
+#ifndef __LIBNO_STDLIB_H__
+#define __LIBNO_STDLIB_H__
 
 #ifdef __cplusplus
 extern "C" {

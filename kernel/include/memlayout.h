@@ -1,5 +1,5 @@
-#ifndef __KERNEL_MEMLAYOUT_H
-#define __KERNEL_MEMLAYOUT_H
+#ifndef __KERNEL_MEMLAYOUT_H__
+#define __KERNEL_MEMLAYOUT_H__
 
 /*
 注意，这里的物理地址就是线性地址，因为我们有平坦的segementation

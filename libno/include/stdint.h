@@ -1,5 +1,5 @@
-#ifndef _STDINT_H
-#define _STDINT_H 1
+#ifndef __LIBNO_STDINT_H__
+#define __LIBNO_STDINT_H__
 
 /* Explicitly-sized versions of integer types */
 typedef char int8_t;

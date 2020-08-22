@@ -1,7 +1,7 @@
 // This file contains definitions for the
 // x86 memory management unit (MMU).
-#ifndef __KERNEL_MMU_H
-#define __KERNEL_MMU_H
+#ifndef __KERNEL_MMU_H__
+#define __KERNEL_MMU_H__
 
 // Eflags register
 #define FL_IF 0x00000200 // Interrupt Enable

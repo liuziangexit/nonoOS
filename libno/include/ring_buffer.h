@@ -1,5 +1,5 @@
-#ifndef _RING_BUFFER_H
-#define _RING_BUFFER_H 1
+#ifndef __LIBNO_RING_BUFFER_H__
+#define __LIBNO_RING_BUFFER_H__
 #include <stdbool.h>
 #include <stdint.h>
 
