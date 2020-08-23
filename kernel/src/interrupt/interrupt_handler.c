@@ -112,7 +112,7 @@ void print_regs(struct gprs *regs) {
 }
 
 /* trap_dispatch - dispatch based on what type of trap occurred */
-static void trap_dispatch(struct trapframe *tf) {
+void interrupt_handler(struct trapframe *tf) {
   switch (tf->tf_trapno) {
   case IRQ_OFFSET + IRQ_TIMER:
     /*
@@ -133,11 +133,3 @@ static void trap_dispatch(struct trapframe *tf) {
     }
   }
 }
-
-/* *
- * trap - handles or dispatches an exception/interrupt. if and when trap()
- * returns, the code in kern/trap/trapentry.S restores the old CPU state saved
- * in the trapframe and then uses the iret instruction to return from the
- * exception.
- * */
-void trap(struct trapframe *tf) { trap_dispatch(tf); }

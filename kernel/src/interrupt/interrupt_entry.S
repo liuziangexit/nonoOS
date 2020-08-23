@@ -21,7 +21,7 @@ __interrupt_entry:
     pushl %esp
 
     # call trap(tf), where tf=%esp
-    call trap
+    call interrupt_handler
 
     # pop the pushed stack pointer
     popl %esp
@@ -41,4 +41,3 @@ __interrupt_ret:
     # get rid of the trap number and error code
     addl $0x8, %esp
     iret
-

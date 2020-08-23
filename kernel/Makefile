@@ -16,9 +16,9 @@ src/kernel.o\
 src/kernel_pgd.o\
 src/panic.o\
 src/tty.o\
+src/interrupt/interrupt_handler.o\
 src/interrupt/idtvector.o\
-src/interrupt/interrupt_entry.o\
-src/interrupt/interrupt_handler.o
+src/interrupt/interrupt_entry.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
