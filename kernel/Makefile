@@ -14,7 +14,11 @@ KERNEL_OBJS=\
 src/entry.o\
 src/kernel.o\
 src/kernel_pgd.o\
-src/tty.o
+src/panic.o\
+src/tty.o\
+src/interrupt/idtvector.o\
+src/interrupt/interrupt_entry.o\
+src/interrupt/interrupt_handler.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
@@ -38,6 +42,10 @@ kernel: $(KERNEL_OBJS) arch/x86/crti.o arch/x86/crtn.o arch/x86/crtbegin.o arch/
 arch/x86/crtbegin.o arch/x86/crtend.o:
 	CPFROM=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$CPFROM" $@
 
+src/interrupt/idtvector.o:
+	../tools/idtgen src/interrupt/idtvector.S
+	$(CC) -c src/interrupt/idtvector.S -o $@ $(CFLAGS) $(INCLUDE)
+
 %.o: %.c
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
 
@@ -46,5 +54,6 @@ arch/x86/crtbegin.o arch/x86/crtend.o:
 
 clean:
 	rm -f *bootblock kernel
+	rm -f src/interrupt/idtvector.S
 	find . -name "*.o"  | xargs rm -f
 	find . -name "*.a"  | xargs rm -f

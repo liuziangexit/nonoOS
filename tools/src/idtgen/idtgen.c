@@ -13,7 +13,7 @@ int main(int argc, char **args) {
 
   fprintf(fp, "# handler\n");
   fprintf(fp, ".text\n");
-  fprintf(fp, ".globl __alltraps\n");
+  fprintf(fp, ".globl __interrupt_entry\n");
 
   int i;
   for (i = 0; i < 256; i++) {
@@ -23,13 +23,13 @@ int main(int argc, char **args) {
       fprintf(fp, "  pushl $0\n");
     }
     fprintf(fp, "  pushl $%d\n", i);
-    fprintf(fp, "  jmp __alltraps\n");
+    fprintf(fp, "  jmp __interrupt_entry\n");
   }
   fprintf(fp, "\n");
   fprintf(fp, "# vector table\n");
   fprintf(fp, ".data\n");
-  fprintf(fp, ".globl __vectors\n");
-  fprintf(fp, "__vectors:\n");
+  fprintf(fp, ".globl __idt_vectors\n");
+  fprintf(fp, "__idt_vectors:\n");
   for (i = 0; i < 256; i++) {
     fprintf(fp, "  .long vector%d\n", i);
   }

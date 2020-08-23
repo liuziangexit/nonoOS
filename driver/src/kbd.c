@@ -1,5 +1,7 @@
 #include <assert.h>
+#include <interrupt.h>
 #include <kbd.h>
+#include <picirq.h>
 #include <ring_buffer.h>
 #include <stdio.h>
 #include <tty.h>
@@ -420,7 +422,7 @@ static int kbd_hw_read(void) {
   // Process special keys
   // Ctrl-Alt-Del: reboot
   if (!(~shift & (CTL | ALT)) && c == KEY_DEL) {
-    // cprintf("Rebooting!\n");
+    printf("Rebooting!\n");
     outb(0x92, 0x3); // courtesy of Chris Frost
   }
   return c;
@@ -429,6 +431,8 @@ static int kbd_hw_read(void) {
 void kbd_init(void) {
   // drain the kbd buffer
   kbd_isr();
+  // enable kbd interrupt
+  pic_enable(IRQ_KBD);
 }
 
 /* kbd_intr - try to feed input characters from keyboard */
