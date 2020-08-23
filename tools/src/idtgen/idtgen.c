@@ -20,8 +20,10 @@ int main(int argc, char **args) {
     fprintf(fp, ".globl vector%d\n", i);
     fprintf(fp, "vector%d:\n", i);
     if ((i < 8 || i > 14) && i != 17) {
+      //对于没有errcode的，手动push一个0
       fprintf(fp, "  pushl $0\n");
     }
+    //push异常编号
     fprintf(fp, "  pushl $%d\n", i);
     fprintf(fp, "  jmp __interrupt_entry\n");
   }
