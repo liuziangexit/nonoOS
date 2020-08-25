@@ -26,20 +26,20 @@ src/interrupt_entry.o
 all: bootblock kernel
 
 bootblock:
-	$(CC) $(CFLAGS) -fno-pic -Os -g -nostdinc -Iinclude $(INCLUDE) -c arch/x86/bootloader.c -o arch/x86/bootc.o
-	$(CC) $(CFLAGS) -fno-pic -Os -g -nostdinc -Iinclude $(INCLUDE) -c arch/x86/bootloader.S -o arch/x86/bootasm.o
-	$(LD) -nostdlib -N -e start -Ttext 0x7C00 -o arch/x86/bootblock.o arch/x86/bootasm.o arch/x86/bootc.o
-	$(OBJCOPY) -S -O binary -j .text arch/x86/bootblock.o bootblock
+	$(CC) $(CFLAGS) -fno-pic -Os -g -nostdinc -Iinclude $(INCLUDE) -c bootloader/bootloader.c -o bootloader/bootc.o
+	$(CC) $(CFLAGS) -fno-pic -Os -g -nostdinc -Iinclude $(INCLUDE) -c bootloader/bootloader.S -o bootloader/bootasm.o
+	$(LD) -nostdlib -N -e start -Ttext 0x7C00 -o bootloader/bootblock.o bootloader/bootasm.o bootloader/bootc.o
+	$(OBJCOPY) -S -O binary -j .text bootloader/bootblock.o bootblock
 	../tools/sign bootblock bootblock
-	cp arch/x86/bootblock.o unsigned_bootblock
+	cp bootloader/bootblock.o unsigned_bootblock
 
-kernel: $(KERNEL_OBJS) arch/x86/crti.o arch/x86/crtn.o arch/x86/crtbegin.o arch/x86/crtend.o 
+kernel: $(KERNEL_OBJS) crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o 
 	$(CC) -T kernel.ld -e 0xC0100000 -o kernel $(CFLAGS) \
-	arch/x86/crti.o arch/x86/crtbegin.o \
+	crt/crti.o crt/crtbegin.o \
 	$(KERNEL_OBJS) -nostdlib -L../libno -lno -L../driver -ldriver \
-	arch/x86/crtend.o arch/x86/crtn.o
+	crt/crtend.o crt/crtn.o
 
-arch/x86/crtbegin.o arch/x86/crtend.o:
+crt/crtbegin.o crt/crtend.o:
 	CPFROM=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$CPFROM" $@
 
 src/idtvector.o:
