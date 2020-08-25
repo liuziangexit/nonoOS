@@ -16,9 +16,9 @@ src/kernel.o\
 src/kernel_pgd.o\
 src/panic.o\
 src/tty.o\
-src/interrupt/interrupt_handler.o\
-src/interrupt/idtvector.o\
-src/interrupt/interrupt_entry.o
+src/interrupt_handler.o\
+src/idtvector.o\
+src/interrupt_entry.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
@@ -42,9 +42,9 @@ kernel: $(KERNEL_OBJS) arch/x86/crti.o arch/x86/crtn.o arch/x86/crtbegin.o arch/
 arch/x86/crtbegin.o arch/x86/crtend.o:
 	CPFROM=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$CPFROM" $@
 
-src/interrupt/idtvector.o:
-	../tools/idtgen src/interrupt/idtvector.S
-	$(CC) -c src/interrupt/idtvector.S -o $@ $(CFLAGS) $(INCLUDE)
+src/idtvector.o:
+	../tools/idtgen src/idtvector.S
+	$(CC) -c src/idtvector.S -o $@ $(CFLAGS) $(INCLUDE)
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
