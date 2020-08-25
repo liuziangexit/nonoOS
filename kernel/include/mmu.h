@@ -26,16 +26,30 @@
 #define FL_VIP 0x00100000       // Virtual Interrupt Pending
 #define FL_ID 0x00200000        // ID flag
 
-// Control Register flags
-#define CR0_PE 0x00000001 // Protection Enable
-#define CR0_WP 0x00010000 // Write Protect
-#define CR0_PG 0x80000000 // Paging
+// Application segment type bits
+#define STA_X 0x8 // Executable segment
+#define STA_E 0x4 // Expand down (non-executable segments)
+#define STA_C 0x4 // Conforming code segment (executable only)
+#define STA_W 0x2 // Writeable (non-executable segments)
+#define STA_R 0x2 // Readable (executable segments)
+#define STA_A 0x1 // AccessedF
 
+// System segment type bits
+#define STS_T32A 0x9 // Available 32-bit TSS
+#define STS_IG32 0xE // 32-bit Interrupt Gate
+#define STS_TG32 0xF // 32-bit Trap Gate
+
+// Control Register flags
+#define CR0_PE 0x00000001  // Protection Enable
+#define CR0_WP 0x00010000  // Write Protect
+#define CR0_PG 0x80000000  // Paging
 #define CR4_PSE 0x00000010 // Page size extension
 
 // various segment selectors.
 #define SEG_KCODE 0x8  // kernel code
-#define SEG_KDATA 0x10 // kernel data+stack
+#define SEG_KDATA 0x10 // kernel data + stack
+#define SEG_UCODE 0x18 // user code
+#define SEG_UDATA 0x20 // user data + stack
 
 #define DPL_KERNEL (0)
 #define DPL_USER (3)
@@ -65,30 +79,32 @@ struct segdesc {
   uint32_t base_31_24 : 8; // High bits of segment base address
 };
 
-// Normal segment
+#define SEG_NULL                                                               \
+  (struct segdesc) { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+
 #define SEG(type, base, lim, dpl)                                              \
   (struct segdesc) {                                                           \
-    ((lim) >> 12) & 0xffff, (uint32_t)(base)&0xffff,                           \
-        ((uint32_t)(base) >> 16) & 0xff, type, 1, dpl, 1,                      \
-        (uint32_t)(lim) >> 28, 0, 0, 1, 1, (uint32_t)(base) >> 24              \
+    ((lim) >> 12) & 0xffff, (base)&0xffff, ((base) >> 16) & 0xff, type, 1,     \
+        dpl, 1, (unsigned)(lim) >> 28, 0, 0, 1, 1, (unsigned)(base) >> 24      \
   }
-#define SEG16(type, base, lim, dpl)                                            \
+
+#define SEGTSS(type, base, lim, dpl)                                           \
   (struct segdesc) {                                                           \
-    (lim) & 0xffff, (uint32_t)(base)&0xffff, ((uint32_t)(base) >> 16) & 0xff,  \
-        type, 1, dpl, 1, (uint32_t)(lim) >> 16, 0, 0, 1, 0,                    \
-        (uint32_t)(base) >> 24                                                 \
+    (lim) & 0xffff, (base)&0xffff, ((base) >> 16) & 0xff, type, 0, dpl, 1,     \
+        (unsigned)(lim) >> 16, 0, 0, 1, 0, (unsigned)(base) >> 24              \
   }
+#else
+
+#define SEG_NULLASM                                                            \
+  .word 0, 0;                                                                  \
+  .byte 0, 0, 0, 0
+
+#define SEG_ASM(type, base, lim)                                               \
+  .word(((lim) >> 12) & 0xffff), ((base)&0xffff);                              \
+  .byte(((base) >> 16) & 0xff), (0x90 | (type)),                               \
+      (0xC0 | (((lim) >> 28) & 0xf)), (((base) >> 24) & 0xff)
+
 #endif
-
-// Application segment type bits
-#define STA_X 0x8 // Executable segment
-#define STA_W 0x2 // Writeable (non-executable segments)
-#define STA_R 0x2 // Readable (executable segments)
-
-// System segment type bits
-#define STS_T32A 0x9 // Available 32-bit TSS
-#define STS_IG32 0xE // 32-bit Interrupt Gate
-#define STS_TG32 0xF // 32-bit Trap Gate
 
 // A virtual address 'la' has a three-part structure as follows:
 //
