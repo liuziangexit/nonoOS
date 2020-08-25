@@ -46,16 +46,25 @@
 #define CR4_PSE 0x00000010 // Page size extension
 
 // various segment selectors.
-#define SEG_KCODE 0x8  // kernel code
-#define SEG_KDATA 0x10 // kernel data + stack
-#define SEG_UCODE 0x18 // user code
-#define SEG_UDATA 0x20 // user data + stack
+#define SEG_IDX_KCODE 1
+#define SEG_IDX_KDATA 2
+#define SEG_IDX_UCODE 3
+#define SEG_IDX_UDATA 4
+#define SEG_IDX_TSS 5
+
+#define SEG_KCODE (SEG_IDX_KCODE * 8) // kernel code
+#define SEG_KDATA (SEG_IDX_KDATA * 8) // kernel data + stack
+#define SEG_UCODE (SEG_IDX_UCODE * 8) // user code
+#define SEG_UDATA (SEG_IDX_UDATA * 8) // user data + stack
+#define SEG_TSS (SEG_IDX_TSS * 8)     // user data + stack
 
 #define DPL_KERNEL (0)
 #define DPL_USER (3)
 
 #define KERNEL_CS ((SEG_KCODE) | DPL_KERNEL)
 #define KERNEL_DS ((SEG_KDATA) | DPL_KERNEL)
+#define USER_CS ((SEG_UCODE) | DPL_USER)
+#define USER_DS ((SEG_UDATA) | DPL_USER)
 
 // cpu->gdt[NSEGS] holds the above segments.
 #define NSEGS 6

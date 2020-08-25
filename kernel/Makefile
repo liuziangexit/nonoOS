@@ -46,6 +46,9 @@ src/idtvector.o:
 	../tools/idtgen src/idtvector.S
 	$(CC) -c src/idtvector.S -o $@ $(CFLAGS) $(INCLUDE)
 
+src/interrupt_handler.o: src/interrupt_handler.c
+	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) -Wno-address-of-packed-member $(INCLUDE)
+
 %.o: %.c
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
 
