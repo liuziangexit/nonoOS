@@ -13,6 +13,7 @@ INCLUDE=-Iinclude -I../libno/include -I../driver/include
 KERNEL_OBJS=\
 src/entry.o\
 src/kernel.o\
+src/gdt.o\
 src/kernel_pgd.o\
 src/panic.o\
 src/tty.o\

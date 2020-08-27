@@ -1,6 +1,7 @@
 #include "../test/ring_buffer.h"
 #include <cga.h>
 #include <defs.h>
+#include <gdt.h>
 #include <interrupt.h>
 #include <kbd.h>
 #include <memlayout.h>
@@ -12,11 +13,12 @@
 #include <x86.h>
 
 void kentry(void) {
-  terminal_init();
+  gdt_init();
   pic_init();
   idt_init();
   kbd_init();
   sti();
+  terminal_init();
   printf("Welcome...\n");
   printf("\n\n");
   ring_buffer_test();
