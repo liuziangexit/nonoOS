@@ -65,7 +65,7 @@ int printf(const char *restrict format, ...) {
       written += len;
     } else if (*format == 'd') {
       format++;
-      int v = va_arg(parameters, int);
+      int32_t v = va_arg(parameters, int);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
         return -1;
@@ -83,7 +83,8 @@ int printf(const char *restrict format, ...) {
       int digit_cnt = *format - '0';
       format++;
       format++; // skip x
-      int v = va_arg(parameters, int);
+      // 16进制是无符号的，所以应该用uint32t，不然可能溢出
+      uint32_t v = va_arg(parameters, int);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
         return -1;
