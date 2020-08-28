@@ -55,10 +55,13 @@ void kentry(void) {
   printf("nonoOS:$ ");
   printf("\n\n");
   print_cur_status();
+  asm("int %0" ::"i"(T_SWITCH_USER));
   printf("\n\n");
   print_cur_status();
+  asm("int %0" ::"i"(T_SWITCH_KERNEL));
   printf("\n\n");
   print_cur_status();
+  asm("int %0" ::"i"(T_SWITCH_USER));
   //
   while (1)
     ;

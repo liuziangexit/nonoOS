@@ -67,69 +67,72 @@ bool trap_in_kernel(struct trapframe *tf) {
   return (tf->tf_cs == (uint16_t)KERNEL_CS);
 }
 
-static const char *IA32flags[] = {
-    "CF", NULL, "PF", NULL, "AF", NULL, "ZF", "SF",  "TF",  "IF", "DF", "OF",
-    NULL, NULL, "NT", NULL, "RF", "VM", "AC", "VIF", "VIP", "ID", NULL, NULL,
-};
-
-void print_trapframe(struct trapframe *tf) {
-  printf("trapframe at %p\n", tf);
-  print_regs(&tf->tf_gprs);
-  printf("  ds   0x----%04x\n", tf->tf_ds);
-  printf("  es   0x----%04x\n", tf->tf_es);
-  printf("  fs   0x----%04x\n", tf->tf_fs);
-  printf("  gs   0x----%04x\n", tf->tf_gs);
-  printf("  trap 0x%08x %s\n", tf->tf_trapno, trapname(tf->tf_trapno));
-  printf("  err  0x%08x\n", tf->tf_err);
-  printf("  eip  0x%08x\n", tf->tf_eip);
-  printf("  cs   0x----%04x\n", tf->tf_cs);
-  printf("  flag 0x%08x ", tf->tf_eflags);
-
-  int i, j;
-  for (i = 0, j = 1; i < sizeof(IA32flags) / sizeof(IA32flags[0]);
-       i++, j <<= 1) {
-    if ((tf->tf_eflags & j) && IA32flags[i] != NULL) {
-      printf("%s,", IA32flags[i]);
-    }
-  }
-  printf("IOPL=%d\n", (tf->tf_eflags & FL_IOPL_MASK) >> 12);
-
-  if (!trap_in_kernel(tf)) {
-    printf("  esp  0x%08x\n", tf->tf_esp);
-    printf("  ss   0x----%04x\n", tf->tf_ss);
-  }
+static __always_inline uintptr_t rcr2(void) {
+  uintptr_t cr2;
+  asm volatile("mov %%cr2, %0" : "=r"(cr2)::"memory");
+  return cr2;
 }
 
-void print_regs(struct gprs *regs) {
-  printf("  edi  0x%08x\n", regs->reg_edi);
-  printf("  esi  0x%08x\n", regs->reg_esi);
-  printf("  ebp  0x%08x\n", regs->reg_ebp);
-  printf("  oesp 0x%08x\n", regs->reg_oesp);
-  printf("  ebx  0x%08x\n", regs->reg_ebx);
-  printf("  edx  0x%08x\n", regs->reg_edx);
-  printf("  ecx  0x%08x\n", regs->reg_ecx);
-  printf("  eax  0x%08x\n", regs->reg_eax);
+static inline void print_pgfault(struct trapframe *tf) {
+  /* error_code:
+   * bit 0 == 0 means no page found, 1 means protection fault
+   * bit 1 == 0 means read, 1 means write
+   * bit 2 == 0 means kernel, 1 means user
+   * */
+  printf("page fault at 0x%08x: %c/%c [%s].\n", rcr2(),
+         (tf->tf_err & 4) ? 'U' : 'K', (tf->tf_err & 2) ? 'W' : 'R',
+         (tf->tf_err & 1) ? "protection fault" : "no page found");
 }
+
+/* temporary trapframe or pointer to trapframe */
+struct trapframe switchk2u, *switchu2k;
 
 /* trap_dispatch - dispatch based on what type of trap occurred */
 void interrupt_handler(struct trapframe *tf) {
   switch (tf->tf_trapno) {
-  case IRQ_OFFSET + IRQ_TIMER:
-    /*
-      ticks++;
-      if (ticks % TICK_NUM == 0) {
-        print_ticks();
-      }
-      */
-    break;
   case IRQ_OFFSET + IRQ_KBD:
     kbd_isr();
     break;
-  default:
-    // in kernel, it must be a mistake
-    if ((tf->tf_cs & 3) == 0) {
-      print_trapframe(tf);
-      panic("unexpected trap in kernel.\n");
+  case T_SWITCH_USER:
+    if (tf->tf_cs != USER_CS) {
+      switchk2u = *tf;
+      switchk2u.tf_cs = USER_CS;
+      switchk2u.tf_ds = switchk2u.tf_es = USER_DS;
+      switchk2u.tf_ss = USER_DS;
+      // set eflags, make sure ucore can use io under user mode.
+      // if CPL > IOPL, then cpu will generate a general protection.
+      switchk2u.tf_eflags |= FL_IOPL_MASK;
+
+      switchk2u.tf_esp = (uint32_t)tf + sizeof(struct trapframe) - 8;
+
+      // set temporary stack
+      // then iret will jump to the right stack
+      *((uint32_t *)tf - 1) = (uint32_t)&switchk2u;
     }
+    break;
+  case T_SWITCH_KERNEL:
+    if (tf->tf_cs != KERNEL_CS) {
+      tf->tf_cs = KERNEL_CS;
+      tf->tf_ds = tf->tf_es = KERNEL_DS;
+      tf->tf_eflags &= ~FL_IOPL_MASK;
+      switchu2k =
+          (struct trapframe *)(tf->tf_esp - (sizeof(struct trapframe) - 8));
+      memmove(switchu2k, tf, sizeof(struct trapframe) - 8);
+      *((uint32_t *)tf - 1) = (uint32_t)switchu2k;
+    }
+    break;
+  case T_PGFLT: {
+    print_pgfault(tf);
+  }
+  default: {
+    // if ((tf->tf_cs & 3) == 0) {
+    // in kernel, it must be a mistake
+    // TODO
+    // 这里我想打印一下trap的number，所以在这里必须用一个sprintf去组装一个字符串，
+    //然后再丢到panic里面，但是printf那边还比较乱，没有办法搞一个sprintf出来
+    //必须先重构printf那块，做出sprintf，然后再改这个地方
+    printf("%s\n", trapname(tf->tf_trapno));
+    panic("unexpected trap in kernel.\n");
+  }
   }
 }

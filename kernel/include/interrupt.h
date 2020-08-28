@@ -38,6 +38,10 @@
 #define IRQ_ERROR 19
 #define IRQ_SPURIOUS 31
 
+// 软中断
+#define T_SWITCH_KERNEL         120 // 内核态
+#define T_SWITCH_USER           121 //用户态
+
 /* pushal储存的General-purpose registers */
 struct gprs {
   uint32_t reg_edi;
