@@ -93,6 +93,7 @@ void interrupt_handler(struct trapframe *tf) {
   case IRQ_OFFSET + IRQ_KBD:
     kbd_isr();
     break;
+  // TODO 看看为啥switchk2u需要拷贝，而switchu2k只是指针就够了
   case T_SWITCH_USER:
     if (tf->tf_cs != USER_CS) {
       switchk2u = *tf;
@@ -115,6 +116,7 @@ void interrupt_handler(struct trapframe *tf) {
       tf->tf_cs = KERNEL_CS;
       tf->tf_ds = tf->tf_es = KERNEL_DS;
       tf->tf_eflags &= ~FL_IOPL_MASK;
+      // FIXME 下面这两行是不是在做无用功？看起来是的！
       switchu2k =
           (struct trapframe *)(tf->tf_esp - (sizeof(struct trapframe) - 8));
       memmove(switchu2k, tf, sizeof(struct trapframe) - 8);
@@ -123,16 +125,19 @@ void interrupt_handler(struct trapframe *tf) {
     break;
   case T_PGFLT: {
     print_pgfault(tf);
+    panic("Page Fault?\n");
   }
-  default: {
-    // if ((tf->tf_cs & 3) == 0) {
-    // in kernel, it must be a mistake
-    // TODO
-    // 这里我想打印一下trap的number，所以在这里必须用一个sprintf去组装一个字符串，
-    //然后再丢到panic里面，但是printf那边还比较乱，没有办法搞一个sprintf出来
-    //必须先重构printf那块，做出sprintf，然后再改这个地方
-    printf("%s\n", trapname(tf->tf_trapno));
-    panic("unexpected trap in kernel.\n");
-  }
+  default:
+    if ((tf->tf_cs & 3) == 0) {
+      // in kernel, it must be a mistake
+      /*
+      TODO
+      这里我想打印一下trap的number，所以在这里必须用一个sprintf去组装一个字符串，
+      然后再丢到panic里面，但是printf那边还比较乱，没有办法搞一个sprintf出来
+      必须先重构printf那块，做出sprintf，然后再改这个地方
+      */
+      printf("%s\n", trapname(tf->tf_trapno));
+      panic("unexpected trap in kernel.\n");
+    }
   }
 }
