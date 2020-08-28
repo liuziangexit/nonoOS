@@ -12,6 +12,22 @@
 #include <tty.h>
 #include <x86.h>
 
+static void print_cur_status(void) {
+  uint16_t reg[6];
+  asm volatile("mov %%cs, %0;"
+               "mov %%ds, %1;"
+               "mov %%es, %2;"
+               "mov %%fs, %3;"
+               "mov %%gs, %4;"
+               "mov %%ss, %5;"
+               : "=m"(reg[0]), "=m"(reg[1]), "=m"(reg[2]), "=m"(reg[3]),
+                 "=m"(reg[4]), "=m"(reg[5]));
+  printf("current status:");
+  printf("ring %d, cs = %02x, ds = %02x, es = %02x, fs = %02x, gs = %02x, ss = "
+         "%02x\n",
+         reg[0] & 3, reg[0], reg[1], reg[2], reg[3], reg[4], reg[5]);
+}
+
 void kentry(void) {
   /*
   实际上在编译器与loader之间有一个约定，就是loader要负责把bss段全部清0
@@ -37,6 +53,12 @@ void kentry(void) {
   ring_buffer_test();
   printf("\n\n");
   printf("nonoOS:$ ");
+  printf("\n\n");
+  print_cur_status();
+  printf("\n\n");
+  print_cur_status();
+  printf("\n\n");
+  print_cur_status();
   //
   while (1)
     ;
