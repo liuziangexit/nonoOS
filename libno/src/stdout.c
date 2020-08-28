@@ -95,7 +95,7 @@ int printf(const char *restrict format, ...) {
       if (len < digit_cnt) {
         int ph_add = digit_cnt - len;
         if (len + ph_add <= sizeof(sv) - 1) {
-          memcpy(sv + ph_add, sv, len);
+          memmove(sv + ph_add, sv, len);
           memset(sv, placeholder, ph_add);
           len += ph_add;
           sv[len] = 0;
