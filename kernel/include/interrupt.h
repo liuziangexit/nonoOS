@@ -1,4 +1,3 @@
-//从linux偷来的
 #ifndef __KERNEL_INTERRUPT_H__
 #define __KERNEL_INTERRUPT_H__
 #include <defs.h>

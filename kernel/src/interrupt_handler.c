@@ -89,8 +89,7 @@ static inline void print_pgfault(struct trapframe *tf) {
          (tf->tf_err & 1) ? "protection fault" : "no page found");
 }
 
-/* temporary trapframe or pointer to trapframe */
-struct trapframe switchk2u, *switchu2k;
+static struct trapframe switchk2u, *switchu2k;
 
 /* trap_dispatch - dispatch based on what type of trap occurred */
 void interrupt_handler(struct trapframe *tf) {
@@ -98,7 +97,6 @@ void interrupt_handler(struct trapframe *tf) {
   case IRQ_OFFSET + IRQ_KBD:
     kbd_isr();
     break;
-  // TODO 看看为啥switchk2u需要拷贝，而switchu2k只是指针就够了
   case T_SWITCH_USER:
     if (tf->tf_cs != USER_CS) {
       //将tf的内容拷贝到switchk2u，然后把寄存器们都改成用户权限
@@ -109,6 +107,13 @@ void interrupt_handler(struct trapframe *tf) {
       // set eflags, make sure ucore can use io under user mode.
       // if CPL > IOPL, then cpu will generate a general protection.
       switchk2u.tf_eflags |= FL_IOPL_MASK;
+
+      /*
+      为了解决下面说的esp错误指向switchk2u附近的问题，我们在这里把switchk2u.tf_esp设置为esp应该指向的正确位置，也就是tf之前()
+      (“tf之前”是从栈的角度讲的，如果是从地址空间的角度讲，应该是“tf之后”)
+      又：T_SWITCH_USER的tf是没有最后8字节的
+      */
+      switchk2u.tf_esp = (uint32_t)tf + sizeof(struct trapframe) - 8;
 
       /*
       这个*((uint32_t *)tf - 1)是指向我们在__interrupt_entry里call
@@ -126,12 +131,14 @@ void interrupt_handler(struct trapframe *tf) {
       *((uint32_t *)tf - 1) = (uint32_t)&switchk2u;
 
       /*
-      为了解决上面说的esp错误指向switchk2u附近的问题，我们在这里把switchk2u.tf_esp设置为esp应该指向的正确位置，也就是tf之前()
-      (“tf之前”是从栈的角度讲的，如果是从地址空间的角度讲，应该是“tf之后”)
+      最后一个问题，硬件进来（int）的时候push trapframe没有push
+      ss和esp，那为什么返回（iret）的时候硬件自动就知道要多pop ss和esp了呢？
+      原理是硬件检查了特权级是否发生了变化，如果有变化，就去多pop那两个东西出来。
+      硬件怎么看特权级是否有变化呢？看cs寄存器里的某些bit就知道了
 
-      又：T_SWITCH_USER的tf是没有最后8字节的
+      所以这实际上也解释了为啥switchk2u是一个tf对象，而switchu2k只是一个tf指针，
+      因为switchu2k的时候要转换特权级，所以硬件就在
       */
-      switchk2u.tf_esp = (uint32_t)tf + sizeof(struct trapframe) - 8;
     }
     break;
   case T_SWITCH_KERNEL:
