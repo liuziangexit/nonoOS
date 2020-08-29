@@ -422,8 +422,8 @@ static int kbd_hw_read(void) {
   // Process special keys
   // Ctrl-Alt-Del: reboot
   if (!(~shift & (CTL | ALT)) && c == KEY_DEL) {
-    printf("Rebooting!\n");
-    outb(0x92, 0x3); // courtesy of Chris Frost
+    //printf("Rebooting!\n");
+    //outb(0x92, 0x3); // courtesy of Chris Frost
   }
   return c;
 }
