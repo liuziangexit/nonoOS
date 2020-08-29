@@ -146,10 +146,17 @@ void interrupt_handler(struct trapframe *tf) {
       tf->tf_cs = KERNEL_CS;
       tf->tf_ds = tf->tf_es = KERNEL_DS;
       tf->tf_eflags &= ~FL_IOPL_MASK;
-      // FIXME 下面这两行是不是在做无用功？看起来是的！
+
+      /*
+      由于现在已经在内核态了，所以iret的时候硬件不会弹出esp和ss
+      那怎么办呢，那就把现在完整的tf在末尾砍一刀：把除了最后8字节的tf的值，向下移动8字节
+      */
       switchu2k =
           (struct trapframe *)(tf->tf_esp - (sizeof(struct trapframe) - 8));
       memmove(switchu2k, tf, sizeof(struct trapframe) - 8);
+
+      //然后把esp指向修改过的tf的位置，以便从那里开始恢复寄存器
+      //另外，这一句也将栈从当前使用的tss栈切换回到了我们此前在使用的栈
       *((uint32_t *)tf - 1) = (uint32_t)switchu2k;
     }
     break;
