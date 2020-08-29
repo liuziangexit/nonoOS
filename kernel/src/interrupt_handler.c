@@ -6,6 +6,7 @@
 #include <mmu.h>
 #include <panic.h>
 #include <stdio.h>
+#include <string.h>
 #include <x86.h>
 
 /* *

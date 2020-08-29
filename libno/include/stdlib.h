@@ -10,7 +10,7 @@ void abort(void);
 void exit(int);
 
 //将数字转为其字符串表示
-int itoa(uint32_t num, unsigned char *str, uint32_t len, uint32_t base);
+int itoa(uint32_t num, char *str, uint32_t len, uint32_t base);
 
 #ifdef __cplusplus
 }

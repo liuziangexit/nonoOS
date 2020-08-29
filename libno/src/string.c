@@ -49,7 +49,7 @@ size_t strlen(const char *str) {
   return len;
 }
 
-void strrev(unsigned char *str) {
+void strrev(char *str) {
   int i;
   int j;
   unsigned char a;

@@ -3,6 +3,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <tty.h>
 
@@ -80,7 +81,7 @@ int printf(const char *restrict format, ...) {
                isdigit(*(format + 1)) && *(format + 2) == 'x') {
       char placeholder = *format;
       format++;
-      int digit_cnt = *format - '0';
+      uint32_t digit_cnt = *format - '0';
       format++;
       format++; // skip x
       // 16进制是无符号的，所以应该用uint32t，不然可能溢出

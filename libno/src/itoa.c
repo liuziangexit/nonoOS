@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-int itoa(uint32_t num, unsigned char *str, uint32_t len, uint32_t base) {
+int itoa(uint32_t num, char *str, uint32_t len, uint32_t base) {
   uint32_t sum = num;
   uint32_t i = 0;
   uint32_t digit;
