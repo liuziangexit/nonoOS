@@ -27,6 +27,10 @@ void idt_init(void) {
     SETGATE(idt[i], 0, SEG_KCODE, __idt_vectors[i], DPL_KERNEL);
   }
 
+  //用户态转内核态的中断的特权级改为最低
+  SETGATE(idt[T_SWITCH_KERNEL], 0, SEG_KCODE, __idt_vectors[T_SWITCH_KERNEL],
+          DPL_USER);
+
   // load the IDT
   lidt(&idt_pd);
 }
@@ -123,10 +127,13 @@ void interrupt_handler(struct trapframe *tf) {
       *((uint32_t *)tf - 1) = (uint32_t)switchu2k;
     }
     break;
+  case T_GPFLT: {
+    panic(trapname(T_GPFLT));
+  } break;
   case T_PGFLT: {
     print_pgfault(tf);
-    panic("Page Fault?\n");
-  }
+    panic(trapname(T_PGFLT));
+  } break;
   default:
     if ((tf->tf_cs & 3) == 0) {
       // in kernel, it must be a mistake
