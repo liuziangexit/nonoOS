@@ -1,4 +1,4 @@
 set -e
+cd ..
 make clean
-make
-make fs.img
+cd -
