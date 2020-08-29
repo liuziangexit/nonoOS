@@ -101,6 +101,7 @@ void interrupt_handler(struct trapframe *tf) {
   // TODO 看看为啥switchk2u需要拷贝，而switchu2k只是指针就够了
   case T_SWITCH_USER:
     if (tf->tf_cs != USER_CS) {
+      //将tf的内容拷贝到switchk2u，然后把寄存器们都改成用户权限
       switchk2u = *tf;
       switchk2u.tf_cs = USER_CS;
       switchk2u.tf_ds = switchk2u.tf_es = USER_DS;
@@ -109,11 +110,28 @@ void interrupt_handler(struct trapframe *tf) {
       // if CPL > IOPL, then cpu will generate a general protection.
       switchk2u.tf_eflags |= FL_IOPL_MASK;
 
-      switchk2u.tf_esp = (uint32_t)tf + sizeof(struct trapframe) - 8;
+      /*
+      这个*((uint32_t *)tf - 1)是指向我们在__interrupt_entry里call
+      interrupt_handler之前push进去的那个esp的 当时push
+      esp的意图是，将tf作为interrupt_handler的参数传递（因为当时esp指向tf）
 
-      // set temporary stack
-      // then iret will jump to the right stack
+      call完interrupt_handler之后，__interrupt_entry的最后又把*((uint32_t *)tf -
+      1)这个值读回esp寄存器去了 利用这一点，我们在此处修改*((uint32_t *)tf -
+      1)，将它设置为switchk2u，
+      实际上能使__interrupt_ret从switchk2u而不是tf恢复其他寄存器
+
+      好吧，那你说，__interrupt_ret从switchk2u恢复完其他寄存器后又该怎么办呢，此时esp不就在错误的位置（switchk2u附近）了吗
+      为了解决这个问题，请看下一行代码
+      */
       *((uint32_t *)tf - 1) = (uint32_t)&switchk2u;
+
+      /*
+      为了解决上面说的esp错误指向switchk2u附近的问题，我们在这里把switchk2u.tf_esp设置为esp应该指向的正确位置，也就是tf之前()
+      (“tf之前”是从栈的角度讲的，如果是从地址空间的角度讲，应该是“tf之后”)
+
+      又：T_SWITCH_USER的tf是没有最后8字节的
+      */
+      switchk2u.tf_esp = (uint32_t)tf + sizeof(struct trapframe) - 8;
     }
     break;
   case T_SWITCH_KERNEL:
