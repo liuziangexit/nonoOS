@@ -72,7 +72,7 @@ struct trapframe {
   uint32_t tf_eflags;
   /* below here only when crossing rings, such as from user to kernel */
   //int指令发生的时候，处理器会检查RPL(IDT里gate的seg指示)是否小于CPL
-  //如果小于的话1.切换到RPL并且使用TSS里指定的栈2.会额外push下面8字节的数据
+  //如果小于的话1.使用TSS里指定的ring0栈2.会额外push下面8字节的数据
   uintptr_t tf_esp;
   uint16_t tf_ss;
   uint16_t tf_padding5;
