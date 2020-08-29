@@ -33,6 +33,7 @@ static inline void lgdt(struct pseudodesc *pd) {
 unsigned char stack0[1024];
 
 void gdt_init() {
+  // TSS目前唯一的用途是实现用户态到内核态的转换
   ts.esp0 = (uint32_t)stack0 + sizeof(stack0);
   ts.ss0 = KERNEL_DS;
 
