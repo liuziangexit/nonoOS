@@ -14,7 +14,9 @@ src/stdout.o\
 src/stdin.o\
 src/string.o\
 src/ring_buffer.o\
-src/abort_exit.o
+src/abort_exit.o\
+src/itoa.o\
+src/ctype.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

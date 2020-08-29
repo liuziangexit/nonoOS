@@ -1,6 +1,6 @@
 #include <string.h>
 
-//TODO SIMD
+// TODO SIMD
 
 int memcmp(const void *aptr, const void *bptr, size_t size) {
   const unsigned char *a = (const unsigned char *)aptr;
@@ -47,4 +47,16 @@ size_t strlen(const char *str) {
   while (str[len])
     len++;
   return len;
+}
+
+void strrev(char *str) {
+  int i;
+  int j;
+  unsigned char a;
+  unsigned len = strlen((const char *)str);
+  for (i = 0, j = len - 1; i < j; i++, j--) {
+    a = str[i];
+    str[i] = str[j];
+    str[j] = a;
+  }
 }

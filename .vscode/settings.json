@@ -23,6 +23,10 @@
         "stdio.h": "c",
         "ring_buffer.h": "c",
         "panic.h": "c",
-        "assert.h": "c"
+        "assert.h": "c",
+        "mmu.h": "c",
+        "x86.h": "c",
+        "interrupt.h": "c",
+        "stdlib.h": "c"
     }
 }

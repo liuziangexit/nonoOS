@@ -26,11 +26,11 @@ SECTIONS {
 		*(.data)
 	}
 
-	PROVIDE(edata = .);
+	PROVIDE(bss_begin = .);
 
 	.bss : {
 		*(.bss)
 	}
 
-	PROVIDE(end = .);
+	PROVIDE(bss_end = .);
 }
