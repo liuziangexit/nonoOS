@@ -27,6 +27,7 @@
         "mmu.h": "c",
         "x86.h": "c",
         "interrupt.h": "c",
-        "stdlib.h": "c"
+        "stdlib.h": "c",
+        "kbd.h": "c"
     }
 }

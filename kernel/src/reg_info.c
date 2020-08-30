@@ -1,5 +1,6 @@
 #include <reg_info.h>
 #include <stdint.h>
+#include <stdio.h>
 
 void print_cur_status() {
   uint16_t reg[6];

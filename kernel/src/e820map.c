@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <tty.h>
 
-struct e820map_t *e820map = P2V(0x8000);
+struct e820map_t *e820map = (struct e820map_t *)P2V(0x8000);
 
 void print_e820() {
   printf("****************\n");
