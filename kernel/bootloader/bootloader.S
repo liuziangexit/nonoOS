@@ -39,6 +39,26 @@ seta20.2:
     movb $0xdf, %al                                 # 0xdf -> port 0x60
     outb %al, $0x60                                 # 0xdf = 11011111, means set P2's A20 bit(the 1 bit) to 1
 
+probe_memory:
+    movl $0, 0x8000    #计数设为0
+    xorl %ebx, %ebx    
+    movw $0x8004, %di  #AR描述符存放地址
+start_probe:
+    movl $0xE820, %eax
+    movl $20, %ecx     #存放地址长度
+    movl $0x534d4150, %edx #SMAP字符串的ASCII表示
+    int $0x15          #调BIOS
+    jnc next           #如果成功，cflags的cf会为1，跳到next
+    #如果失败，把计数设为12345
+    movw $12345, 0x8000
+    jmp finish_probe
+next:
+    addw $20, %di
+    incl 0x8000
+    cmpl $0, %ebx      #如果没有更多ARD了，ebx会是0。否则，跳到start_probe
+    jnz start_probe
+finish_probe:
+
 switchpe:
     # Switch from real to protected mode, using a bootstrap GDT
     # and segment translation that makes virtual addresses

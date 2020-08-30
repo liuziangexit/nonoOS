@@ -2,6 +2,7 @@
 #define __KERNEL_MEMLAYOUT_H__
 
 /*
+TODO 这个现在还不是这样的
 注意，这里的物理地址就是线性地址，因为我们有平坦的segementation
 Physical Address        |        Virtual Address        |
 [0x0, 0x7C00)           |    [0xC0000000, 0xC0007C00)   | bootloader栈
@@ -29,5 +30,29 @@ Physical Address        |        Virtual Address        |
 #define KERNEL_STACK_SIZE 0x4000
 //内核kmalloc区域
 #define KERNEL_FREESPACE 0x804000
+
+#ifndef __ASSEMBLER__
+#include <stdint.h>
+
+// some constants for bios interrupt 15h AX = 0xE820
+#define E820MAX 20 // number of entries in E820MAP
+#define E820_ADDR_AVAILABLE(type) ((type == 1) ? 1 : 0)
+
+struct e820map_t {
+  int count;
+
+  //Address Range Descriptor
+  struct {
+    uint64_t addr;
+    uint64_t size;
+    uint32_t type;
+  } __attribute__((packed)) ard[E820MAX];
+};
+
+extern struct e820map_t *e820map;
+
+void print_e820();
+
+#endif
 
 #endif

@@ -20,7 +20,8 @@ src/tty.o\
 src/interrupt_handler.o\
 src/idtvector.o\
 src/interrupt_entry.o\
-src/reg_info.o
+src/reg_info.o\
+src/e820map.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
