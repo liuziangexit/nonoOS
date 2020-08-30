@@ -3,6 +3,10 @@
 
 #include <defs.h>
 
+#define CRT_ROWS 25
+#define CRT_COLS 80
+#define CRT_SIZE (CRT_ROWS * CRT_COLS)
+
 enum cga_color {
   CGA_COLOR_BLACK = 0,
   CGA_COLOR_BLUE = 1,

@@ -28,6 +28,7 @@
         "x86.h": "c",
         "interrupt.h": "c",
         "stdlib.h": "c",
-        "kbd.h": "c"
+        "kbd.h": "c",
+        "ctl_char_handler.h": "c"
     }
 }
