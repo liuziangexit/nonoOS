@@ -33,6 +33,10 @@ void kentry(void) {
   kbd_init();
   sti();
   terminal_init();
+  //https://en.wikipedia.org/wiki/Code_page_437
+  putchar(1);
+  putchar(1);
+  putchar(1);
   printf("Welcome...\n");
   printf("\n\n");
   ring_buffer_test();
