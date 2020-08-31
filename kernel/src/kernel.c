@@ -54,6 +54,7 @@ void kentry(void) {
   printf("\n\n");
   print_cur_status();
   asm("int %0" ::"i"(T_SWITCH_USER));
+  cga_hide_cursor();
   //
   while (1)
     ;
