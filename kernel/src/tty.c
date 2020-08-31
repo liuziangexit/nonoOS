@@ -10,7 +10,7 @@ static enum cga_color fg;
 static enum cga_color bg;
 
 // 现在viewport显示的页面
-static uint16_t viewport_page = 0;
+static uint16_t viewport = 0;
 
 //输入缓冲区
 #define TER_IN_BUF_LEN 512
@@ -19,9 +19,10 @@ struct ring_buffer input_buffer;
 
 //输出缓冲区
 //储存最近4页的输出内容，用来实现滚屏
+//必须是2的倍数并且大于2页，不然cut那里会有bug
 #define TER_OUT_BUF_LEN (CRT_SIZE * 4)
-static unsigned char _out_buf[TER_OUT_BUF_LEN];
-struct ring_buffer output_buffer;
+static char output_buffer[TER_OUT_BUF_LEN];
+static uint16_t ob_wpos = 0;
 
 static const char whitespace = ' ';
 
@@ -34,20 +35,20 @@ static void viewport_clear() {
 
 //看看一个位置在不在viewport里
 static bool in_viewport(uint16_t pos) {
-  if (pos < viewport_page)
+  if (pos < viewport)
     return false;
-  if (pos == viewport_page)
+  if (pos == viewport)
     return true;
-  if (pos > viewport_page)
-    return pos < viewport_page + CRT_SIZE;
+  if (pos > viewport)
+    return pos < viewport + CRT_SIZE;
   __builtin_unreachable();
 }
 
 //更新光标位置到写位置，如果写位置不在viewport里，则不显示光标
 static void viewport_update_cursor() {
-  uint32_t write_pos = ring_buffer_readable(&output_buffer);
+  uint32_t write_pos = ob_wpos;
   if (in_viewport(write_pos)) {
-    cga_move_cursor(write_pos - viewport_page);
+    cga_move_cursor(write_pos - viewport);
   } else {
     cga_hide_cursor();
   }
@@ -55,42 +56,52 @@ static void viewport_update_cursor() {
 
 //刷新viewport
 static void viewport_update() {
-  assert(viewport_page % CRT_COLS == 0);
-  uint32_t tail = ring_buffer_readable(&output_buffer);
-  if (viewport_page >= tail) {
+  assert(viewport % CRT_COLS == 0);
+  uint32_t tail = ob_wpos;
+  if (viewport >= tail) {
     viewport_clear();
     viewport_update_cursor();
     return;
   }
 
-  uint32_t end = viewport_page + CRT_SIZE;
+  uint32_t end = viewport + CRT_SIZE;
   if (tail < end)
     end = tail;
-  uint32_t it = viewport_page;
-  void *p;
   viewport_clear();
   uint16_t write_idx = 0;
-  while ((p = ring_buffer_foreach(&output_buffer, &it, end))) {
-    cga_write(write_idx++, bg, fg, (char *)p, 1);
+  for (uint16_t it = viewport; it < end; it++, write_idx++) {
+    cga_write(write_idx, bg, fg, output_buffer + it, 1);
   }
   viewport_update_cursor();
 }
 
 void terminal_init() {
   ring_buffer_init(&input_buffer, _in_buf, TER_IN_BUF_LEN);
-  ring_buffer_init(&output_buffer, _out_buf, TER_OUT_BUF_LEN);
   cga_init();
   viewport_update_cursor();
   terminal_default_color();
   viewport_clear();
 }
 
+//把output buffer切两半，只留后面一半
+static void ob_cut() {
+  memcpy(output_buffer, output_buffer + TER_OUT_BUF_LEN / 2,
+         TER_OUT_BUF_LEN / 2);
+  viewport = 0;
+  ob_wpos = TER_OUT_BUF_LEN / 2;
+}
+
 void terminal_putchar(char c) {
-  uint32_t write_pos = ring_buffer_readable(&output_buffer);
+  uint32_t write_pos = ob_wpos;
   if (c == '\n') {
     //写进buffer
     for (uint32_t i = 0; i < CRT_COLS - write_pos % CRT_COLS; i++) {
-      ring_buffer_write(&output_buffer, true, &whitespace, 1);
+      output_buffer[ob_wpos++] = whitespace;
+    }
+    //如果缓冲区满了，就切一半
+    if (ob_wpos == TER_OUT_BUF_LEN) {
+      ob_cut();
+      write_pos = ob_wpos;
     }
     //显示出来
     if (in_viewport(write_pos + CRT_COLS)) {
@@ -98,24 +109,26 @@ void terminal_putchar(char c) {
       //更新光标位置
       viewport_update_cursor();
     } else {
-      //如果下一行不在viewport中，则需要1.将viewport移动到最底下+1行2.重绘整个viewport
-      // TODO 这里实际上重绘了两次，应该抽一个draw函数出来
+      //如果下一行不在viewport中，则需要1.将viewport移动到最底下2.重绘整个viewport
       terminal_viewport_bottom();
-      terminal_viewport_down();
     }
   } else {
     //写进buffer
-    ring_buffer_write(&output_buffer, true, &c, 1);
+    output_buffer[ob_wpos++] = c;
+    //如果缓冲区满了，就切一半
+    if (ob_wpos == TER_OUT_BUF_LEN) {
+      ob_cut();
+      write_pos = ob_wpos;
+    }
     //显示出来
     if (in_viewport(write_pos)) {
       //如果写位置在viewport中，不需要重绘整个viewport
-      cga_write((write_pos - viewport_page) % CRT_SIZE, bg, fg, &c, 1);
+      cga_write((write_pos - viewport) % CRT_SIZE, bg, fg, &c, 1);
       //更新光标位置
       viewport_update_cursor();
     } else {
-      //如果写位置不在viewport中，则需要1.将viewport移动到最底下+1行2.重绘整个viewport
+      //如果写位置不在viewport中，则需要1.将viewport移动到最底下2.重绘整个viewport
       terminal_viewport_bottom();
-      terminal_viewport_down();
     }
   }
 }
@@ -167,42 +180,42 @@ int terminal_read_line(char *dst, int len) {
 
 // viewport向上移动一行
 void terminal_viewport_up() {
-  uint32_t written = ring_buffer_readable(&output_buffer);
-  if (written < CRT_SIZE || viewport_page == 0) {
+  uint32_t written = ob_wpos;
+  if (written < CRT_SIZE || viewport == 0) {
     return;
   }
-  viewport_page -= CRT_COLS;
+  viewport -= CRT_COLS;
   viewport_update();
 }
 
 // viewport向下移动一行
 void terminal_viewport_down() {
-  uint32_t written = ring_buffer_readable(&output_buffer);
+  uint32_t written = ob_wpos;
   if (written < CRT_SIZE) {
     return;
   }
-  viewport_page += CRT_COLS;
+  viewport += CRT_COLS;
   viewport_update();
 }
 
 // viewport移动到最顶部
 void terminal_viewport_top() {
-  uint32_t written = ring_buffer_readable(&output_buffer);
+  uint32_t written = ob_wpos;
   if (written < CRT_SIZE) {
     return;
   }
-  viewport_page = 0;
+  viewport = 0;
   viewport_update();
 }
 
 // viewport移动到最底部
 void terminal_viewport_bottom() {
-  uint32_t written = ring_buffer_readable(&output_buffer);
+  uint32_t written = ob_wpos;
   if (written < CRT_SIZE) {
     return;
   }
-  viewport_page = written - CRT_SIZE;
-  viewport_page = viewport_page - viewport_page % CRT_COLS;
-  viewport_page += CRT_COLS;
+  viewport = written - CRT_SIZE;
+  viewport = viewport - viewport % CRT_COLS;
+  viewport += CRT_COLS;
   viewport_update();
 }

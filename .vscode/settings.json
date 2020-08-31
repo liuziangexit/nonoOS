@@ -42,6 +42,7 @@
         "string_view": "c",
         "unordered_map": "c",
         "vector": "c",
-        "tuple": "c"
+        "tuple": "c",
+        "chrono": "cpp"
     }
 }
