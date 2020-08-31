@@ -194,7 +194,10 @@ void terminal_viewport_down() {
   if (written < CRT_SIZE) {
     return;
   }
-  viewport += CRT_COLS;
+  int new_vp = viewport + CRT_COLS;
+  if (new_vp > written)
+    return;
+  viewport = new_vp;
   viewport_update();
 }
 
