@@ -29,6 +29,19 @@
         "interrupt.h": "c",
         "stdlib.h": "c",
         "kbd.h": "c",
-        "ctl_char_handler.h": "c"
+        "ctl_char_handler.h": "c",
+        "__bit_reference": "c",
+        "__hash_table": "c",
+        "__split_buffer": "c",
+        "array": "c",
+        "deque": "c",
+        "hash_map": "c",
+        "initializer_list": "c",
+        "ios": "c",
+        "string": "c",
+        "string_view": "c",
+        "unordered_map": "c",
+        "vector": "c",
+        "tuple": "c"
     }
 }

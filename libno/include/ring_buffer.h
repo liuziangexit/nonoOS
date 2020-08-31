@@ -27,4 +27,9 @@ bool ring_buffer_write(struct ring_buffer *buf, bool force, const void *src,
 void ring_buffer_copyout(struct ring_buffer *buf, uint32_t begin, uint32_t end,
                          void *dst);
 
+//遍历readable数据，就像缓冲区是线性的一样
+//如果遍历完了，返回null
+void *ring_buffer_foreach(struct ring_buffer *buf, uint32_t *iterator,
+                          uint32_t end);
+
 #endif

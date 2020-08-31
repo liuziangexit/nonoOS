@@ -74,3 +74,15 @@ void ring_buffer_copyout(struct ring_buffer *buf, uint32_t begin, uint32_t end,
     bdst[i] = bsrc[(buf->rpos + (begin + i)) % buf->cap];
   }
 }
+
+//遍历readable数据，就像缓冲区是线性的一样
+//如果遍历完了，返回null
+void *ring_buffer_foreach(struct ring_buffer *buf, uint32_t *iterator,
+                          uint32_t end) {
+  if (*iterator != end) {
+    void *ret = buf->buf + ((buf->rpos + *iterator) % buf->cap);
+    (*iterator)++;
+    return ret;
+  }
+  return 0;
+}

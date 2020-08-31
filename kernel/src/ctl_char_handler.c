@@ -1,6 +1,6 @@
-#include <cga.h>
 #include <ctl_char_handler.h>
 #include <kbd.h>
+#include <tty.h>
 
 void control_character_handler(int32_t *c, uint32_t *shift) {
   //方向键
@@ -8,35 +8,19 @@ void control_character_handler(int32_t *c, uint32_t *shift) {
     uint16_t pos;
   case KEY_UP:
     *c = -1;
-    pos = cga_get_cursor();
-    if (pos >= CRT_COLS) {
-      cga_move_cursor(cga_get_cursor() - CRT_COLS);
-    } else {
-      cga_move_cursor(0);
-    }
+    terminal_viewport_up();
     break;
   case KEY_DN:
     *c = -1;
-    pos = cga_get_cursor();
-    if (pos + CRT_COLS < CRT_SIZE) {
-      cga_move_cursor(pos + CRT_COLS);
-    } else {
-      cga_move_cursor(CRT_SIZE - 1);
-    }
+    terminal_viewport_down();
     break;
   case KEY_LF:
     *c = -1;
-    pos = cga_get_cursor();
-    if (pos != 0) {
-      cga_move_cursor(pos - 1);
-    }
+    terminal_viewport_top();
     break;
   case KEY_RT:
     *c = -1;
-    pos = cga_get_cursor();
-    if (pos != (CRT_SIZE - 1)) {
-      cga_move_cursor(pos + 1);
-    }
+    terminal_viewport_bottom();
     break;
   }
 

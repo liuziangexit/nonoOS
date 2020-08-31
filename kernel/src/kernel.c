@@ -33,7 +33,8 @@ void kentry(void) {
   kbd_init();
   sti();
   terminal_init();
-  //https://en.wikipedia.org/wiki/Code_page_437
+
+  // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
   putchar(1);
   putchar(1);
@@ -42,8 +43,6 @@ void kentry(void) {
   ring_buffer_test();
   printf("\n\n");
   print_e820();
-  printf("\n\n");
-  printf("nonoOS:$ ");
   printf("\n\n");
 
   print_cur_status();
@@ -54,7 +53,7 @@ void kentry(void) {
   printf("\n\n");
   print_cur_status();
   asm("int %0" ::"i"(T_SWITCH_USER));
-  cga_hide_cursor();
+  printf("nonoOS:$ ");
   //
   while (1)
     ;
