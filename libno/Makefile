@@ -30,6 +30,9 @@ libno.a: $(OBJS)
 %.o: %.c
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
 
+src/round.o: src/round.c
+	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE) -w
+
 clean:
 	find . -name "*.o"  | xargs rm -f
 	find . -name "*.a"  | xargs rm -f
