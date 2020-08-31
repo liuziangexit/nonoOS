@@ -5,7 +5,6 @@
 void control_character_handler(int32_t *c, uint32_t *shift) {
   //方向键
   switch (*c) {
-    uint16_t pos;
   case KEY_UP:
     *c = -1;
     terminal_viewport_up();

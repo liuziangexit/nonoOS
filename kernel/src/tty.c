@@ -99,7 +99,7 @@ void terminal_putchar(char c) {
       viewport_update_cursor();
     } else {
       //如果下一行不在viewport中，则需要1.将viewport移动到最底下+1行2.重绘整个viewport
-      // TODO 抽出来draw
+      // TODO 这里实际上重绘了两次，应该抽一个draw函数出来
       terminal_viewport_bottom();
       terminal_viewport_down();
     }
