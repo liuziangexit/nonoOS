@@ -4,73 +4,49 @@
 #include <string.h>
 #include <tty.h>
 
-#define CGA_WIDTH 80
-#define CGA_HEIGHT 25
-
 static enum cga_color fg;
 static enum cga_color bg;
 
-static uint16_t write_col;
-static uint16_t write_row;
+static uint16_t write_idx = 0;
 
-static inline uint16_t index(uint16_t col, uint16_t row) {
-  return col * CGA_WIDTH + row;
-}
+static void update_cursor() { cga_move_cursor(write_idx); }
 
-static void update_cursor() { cga_move_cursor(index(write_col, write_row)); }
-
-/* *
- * Here we manage the console input buffer, where we stash characters
- * received from the keyboard or serial port whenever the corresponding
- * interrupt occurs.
- * */
-#define TER_BUF_LEN 512
-static unsigned char _buf[TER_BUF_LEN];
+//输入缓冲区
+#define TER_IN_BUF_LEN 512
+static unsigned char _in_buf[TER_IN_BUF_LEN];
 struct ring_buffer input_buffer;
 
+//输出缓冲区
+#define TER_OUT_BUF_LEN (CRT_SIZE * 4)
+static unsigned char _out_buf[TER_OUT_BUF_LEN];
+struct ring_buffer output_buffer;
+
 void terminal_init() {
-  ring_buffer_init(&input_buffer, _buf, TER_BUF_LEN);
+  ring_buffer_init(&input_buffer, _in_buf, TER_IN_BUF_LEN);
+  ring_buffer_init(&output_buffer, _out_buf, TER_OUT_BUF_LEN);
   cga_init();
-  write_col = 0;
-  write_row = 0;
   update_cursor();
   terminal_default_color();
 
-  for (uint16_t i = 0; i < CGA_HEIGHT * CGA_WIDTH; i++) {
-    cga_write(i, bg, fg, " ", 1);
+  for (uint16_t i = 0; i < CRT_SIZE; i++) {
+    terminal_putchar(' ');
   }
 }
 
-void terminal_putchar(char c) { terminal_write(&c, 1); }
-
-static void nextline() {
-  write_row = 0;
-  if (++write_col == CGA_HEIGHT) {
-    write_col = 0;
+void terminal_putchar(char c) {
+  if (c == '\n') {
+    write_idx += CRT_COLS - write_idx % CRT_COLS;
+  } else {
+    cga_write(write_idx % CRT_SIZE, bg, fg, &c, 1);
+    write_idx++;
   }
-  update_cursor();
+  write_idx %= CRT_SIZE;
+  cga_move_cursor(write_idx);
 }
 
 void terminal_write(const char *data, size_t size) {
-  uint16_t head = 0, tail = 0;
-  for (; tail < size; tail++) {
-    if (write_row + (tail - head) == CGA_WIDTH //
-        || data[tail] == '\n') {
-      cga_write(index(write_col, write_row), bg, fg, data + head, tail - head);
-    }
-    if (write_row + (tail - head) == CGA_WIDTH) {
-      head = tail;
-      nextline();
-    }
-    if (data[tail] == '\n') {
-      head = tail + 1;
-      nextline();
-    }
-  }
-  if (head != tail) {
-    cga_write(index(write_col, write_row), bg, fg, data + head, tail - head);
-    write_row += tail - head;
-    update_cursor();
+  for (uint32_t i = 0; i < size; i++) {
+    terminal_putchar(data[i]);
   }
 }
 
@@ -90,7 +66,7 @@ void terminal_default_color() {
 struct ring_buffer *terminal_input_buffer() {
   return &input_buffer;
 }
-//
+
 //返回0成功，返回-1失败表示没有找到行结尾，返回正数表示缓冲区过小，返回值是所需的缓冲区大小
 //返回值末尾给了\0标记结束
 int terminal_read_line(char *dst, int len) {
