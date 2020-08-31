@@ -33,15 +33,6 @@ void kentry(void) {
   kbd_init();
   sti();
   terminal_init();
-  for (int p = 0; p < 300; p++) {
-    for (int i = 0; i < 25; i++) {
-      if (p == 3 && i == 24) {
-        printf("page %d last!\n", p + 1);
-      } else {
-        printf("page %d\n", p + 1);
-      }
-    }
-  }
 
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
