@@ -24,7 +24,7 @@ bool ring_buffer_write(struct ring_buffer *buf, bool force, const void *src,
                        uint32_t len);
 //把缓冲区里的数据拷出来，就像缓冲区是线性的一样
 //这不会影响内部的读写位置
-void *ring_buffer_copyout(struct ring_buffer *buf, uint32_t begin, uint32_t end,
-                          void *dst);
+void ring_buffer_copyout(struct ring_buffer *buf, uint32_t begin, uint32_t end,
+                         void *dst);
 
 #endif

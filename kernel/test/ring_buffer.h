@@ -52,6 +52,15 @@ void ring_buffer_test() {
   assert(4 == ring_buffer_read(&buffer, tmp, 4));
   assert(!memcmp("3412", tmp, 4));
 
+  // b test/ring_buffer.h:56
+  assert(ring_buffer_write(&buffer, false, "1234", 4));
+  assert(ring_buffer_write(&buffer, true, "12", 2));
+  ring_buffer_copyout(&buffer, 0, 4, tmp);
+  assert(!memcmp("3412", tmp, 4));
+  assert(ring_buffer_write(&buffer, true, "12", 2));
+  ring_buffer_copyout(&buffer, 0, 4, tmp);
+  assert(!memcmp("1212", tmp, 4));
+
   terminal_fgcolor(CGA_COLOR_BLUE);
   printf("ring_buffer_test passed!!!\n");
   terminal_default_color();

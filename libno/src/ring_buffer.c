@@ -54,7 +54,6 @@ bool ring_buffer_write(struct ring_buffer *buf, bool force, const void *src,
   }
 
   //修改读写位置
-
   if (force && (len + ring_buffer_readable(buf)) >= buf->cap) {
     //如果写的时候覆盖了未读内容
     buf->wpos = (buf->wpos + len) % buf->cap;
@@ -65,7 +64,13 @@ bool ring_buffer_write(struct ring_buffer *buf, bool force, const void *src,
   return true;
 }
 
-//把缓冲区里的数据拷出来，就像缓冲区是线性的一样
+//把缓冲区里readable的数据拷出来，就像缓冲区是线性的一样
 //这不会影响内部的读写位置
-void *ring_buffer_copyout(struct ring_buffer *buf, uint32_t begin, uint32_t end,
-                          void *dst) {}
+void ring_buffer_copyout(struct ring_buffer *buf, uint32_t begin, uint32_t end,
+                         void *dst) {
+  unsigned char *bdst = (unsigned char *)dst;
+  unsigned char *bsrc = (unsigned char *)buf->buf;
+  for (uint32_t i = 0; i <= end - begin; i++) {
+    bdst[i] = bsrc[(buf->rpos + (begin + i)) % buf->cap];
+  }
+}
