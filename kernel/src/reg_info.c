@@ -1,4 +1,4 @@
-#include <reg_info.h>
+#include <debug.h>
 #include <stdint.h>
 #include <stdio.h>
 

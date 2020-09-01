@@ -1,5 +1,6 @@
 #include "../test/ring_buffer.h"
 #include <cga.h>
+#include <debug.h>
 #include <defs.h>
 #include <gdt.h>
 #include <interrupt.h>
@@ -7,7 +8,6 @@
 #include <memlayout.h>
 #include <mmu.h>
 #include <picirq.h>
-#include <reg_info.h>
 #include <stdio.h>
 #include <string.h>
 #include <tty.h>
@@ -42,9 +42,10 @@ void kentry(void) {
   printf("\n\n");
   ring_buffer_test();
   printf("\n\n");
+  print_kernel_size();
+  printf("\n");
   print_e820();
   printf("\n\n");
-
   print_cur_status();
   asm("int %0" ::"i"(T_SWITCH_USER));
   printf("\n\n");

@@ -22,7 +22,8 @@ src/idtvector.o\
 src/interrupt_entry.o\
 src/reg_info.o\
 src/e820map.o\
-src/ctl_char_handler.o
+src/ctl_char_handler.o\
+src/kernel_size.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

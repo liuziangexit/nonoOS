@@ -1,2 +1,9 @@
+实现task（进程/线程）
+实现按时间片的简单调度算法
+实现malloc
+实现swap
+实现同步原语
+GUI
+多核心支持
 加一个脚本文件来存tool prefix
-加docker支持，这样可以在开飞机的电脑上调试
+加docker支持
