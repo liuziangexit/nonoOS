@@ -17,13 +17,8 @@ _Alignas(PGSIZE) int32_t kernel_page_directory[NPDENTRIES] = {
     // Map Virtual's [KERNBASE + 4MB, KERNBASE + 8MB) to Physical's [4MB, 8MB)
     [(KERNEL_VIRTUAL_BASE + 0x400000) >> PDXSHIFT] = 0x400000 | PTE_P | PTE_W |
                                                      PTE_PS | PTE_U,
-    // 映射16KB的内核栈
+    // 映射4M的内核栈
     [(KERNEL_VIRTUAL_BASE + KERNEL_STACK) >> PDXSHIFT] = KERNEL_STACK | PTE_P |
-                                                         PTE_W | PTE_PS | PTE_U,
-    [(KERNEL_VIRTUAL_BASE + KERNEL_STACK + 0x400000) >>
-        PDXSHIFT] = (KERNEL_STACK + 0x400000) | PTE_P | PTE_W | PTE_PS | PTE_U,
-    [(KERNEL_VIRTUAL_BASE + KERNEL_STACK + 0x800000) >>
-        PDXSHIFT] = (KERNEL_STACK + 0x800000) | PTE_P | PTE_W | PTE_PS | PTE_U,
-    [(KERNEL_VIRTUAL_BASE + KERNEL_STACK + 0x1000000) >>
-        PDXSHIFT] = (KERNEL_STACK + 0x1000000) | PTE_P | PTE_W | PTE_PS |
-                    PTE_U};
+                                                         PTE_W | PTE_PS | PTE_U
+    //
+};
