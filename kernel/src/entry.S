@@ -26,6 +26,10 @@ entry:
   mov $kentry, %eax
   jmp *%eax
 
+spin:
+  hlt
+  jmp spin
+
 .align 4
 entry_flag:
     .long 8899174
