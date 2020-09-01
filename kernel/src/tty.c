@@ -22,6 +22,7 @@ struct ring_buffer input_buffer;
 //必须是2的倍数并且大于2页，不然cut那里会有bug
 #define TER_OUT_BUF_LEN (CRT_SIZE * 4)
 static char output_buffer[TER_OUT_BUF_LEN];
+static unsigned char output_color[TER_OUT_BUF_LEN];
 static uint16_t ob_wpos = 0;
 
 static const char whitespace = ' ';
@@ -70,7 +71,8 @@ static void viewport_update() {
   viewport_clear();
   uint16_t write_idx = 0;
   for (uint16_t it = viewport; it < end; it++, write_idx++) {
-    cga_write(write_idx, bg, fg, output_buffer + it, 1);
+    cga_write(write_idx, output_color[it] << 4, output_color[it],
+              output_buffer + it, 1);
   }
   viewport_update_cursor();
 }
@@ -87,6 +89,7 @@ void terminal_init() {
 static void ob_cut() {
   memcpy(output_buffer, output_buffer + TER_OUT_BUF_LEN / 2,
          TER_OUT_BUF_LEN / 2);
+  memcpy(output_color, output_color + TER_OUT_BUF_LEN / 2, TER_OUT_BUF_LEN / 2);
   viewport = 0;
   ob_wpos = TER_OUT_BUF_LEN / 2;
 }
@@ -95,8 +98,9 @@ void terminal_putchar(char c) {
   uint32_t write_pos = ob_wpos;
   if (c == '\n') {
     //写进buffer
-    for (uint32_t i = 0; i < CRT_COLS - write_pos % CRT_COLS; i++) {
-      output_buffer[ob_wpos++] = whitespace;
+    for (uint32_t i = 0; i < CRT_COLS - write_pos % CRT_COLS; i++, ob_wpos++) {
+      output_buffer[ob_wpos] = whitespace;
+      output_color[ob_wpos] = bg << 4 | fg;
     }
     //如果缓冲区满了，就切一半
     if (ob_wpos == TER_OUT_BUF_LEN) {
@@ -114,7 +118,9 @@ void terminal_putchar(char c) {
     }
   } else {
     //写进buffer
-    output_buffer[ob_wpos++] = c;
+    output_buffer[ob_wpos] = c;
+    output_color[ob_wpos] = bg << 4 | fg;
+    ob_wpos++;
     //如果缓冲区满了，就切一半
     if (ob_wpos == TER_OUT_BUF_LEN) {
       ob_cut();
@@ -194,7 +200,7 @@ void terminal_viewport_down() {
   if (written < CRT_SIZE) {
     return;
   }
-  int new_vp = viewport + CRT_COLS;
+  uint32_t new_vp = viewport + CRT_COLS;
   if (new_vp > written)
     return;
   viewport = new_vp;
