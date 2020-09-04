@@ -1,3 +1,4 @@
+#include "../test/kmem_page.h"
 #include "../test/ring_buffer.h"
 #include <cga.h>
 #include <debug.h>
@@ -12,7 +13,6 @@
 #include <string.h>
 #include <tty.h>
 #include <x86.h>
-#include "../test/kmem_page.h"
 
 void kentry(void) {
   /*
