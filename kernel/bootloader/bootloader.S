@@ -88,9 +88,9 @@ protcseg:
     movl $start, %esp
     call bootmain
 
-    # If bootmain returns (it shouldn't), fuck it.
-    cli
+    # If bootmain returns (it shouldn't), spin
 spin:
+    cli
     hlt
     jmp spin
 

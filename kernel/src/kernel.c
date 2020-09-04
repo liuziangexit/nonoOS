@@ -54,6 +54,7 @@ void kentry(void) {
   printf("\n\n");
   printf("nonoOS:$ ");
   //
-  while (1)
+  while (1) {
     hlt();
+  }
 }
