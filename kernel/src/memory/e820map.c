@@ -11,12 +11,13 @@ void print_e820() {
   printf("e820map:\n");
   printf("****************\n");
   int i;
-  uint32_t total = 0, aval = 0;
+  int64_t total = 0, aval = 0;
   for (i = 0; i < e820map->count; i++) {
     uint64_t begin = e820map->ard[i].addr,
              end = e820map->ard[i].addr + e820map->ard[i].size;
-    printf("[0x%08x, 0x%08x), size = 0x%08x, type = ", (uint32_t)begin,
-           (uint32_t)end, (uint32_t)e820map->ard[i].size);
+    printf("[0x%09llx, 0x%09llx), size = 0x%09llx(%llMB), type = ",
+           (int64_t)begin, (int64_t)end, (int64_t)e820map->ard[i].size,
+           (int64_t)(e820map->ard[i].size / 1024 / 1024));
     bool is_available = E820_ADDR_AVAILABLE(e820map->ard[i].type);
     if (is_available) {
       terminal_fgcolor(CGA_COLOR_LIGHT_GREEN);
@@ -29,7 +30,7 @@ void print_e820() {
     terminal_default_color();
   }
   printf("****************\n");
-  printf("total: %dMB, available: %dMB\n", total / 1024 / 1024,
+  printf("total: %llMB, available: %llMB\n", total / 1024 / 1024,
          aval / 1024 / 1024);
 }
 
