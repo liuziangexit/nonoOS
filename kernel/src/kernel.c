@@ -12,6 +12,7 @@
 #include <string.h>
 #include <tty.h>
 #include <x86.h>
+#include "../test/kmem_page.h"
 
 void kentry(void) {
   /*
@@ -41,6 +42,7 @@ void kentry(void) {
   printf("Welcome...\n");
   printf("\n\n");
   ring_buffer_test();
+  kmem_page_test();
   printf("\n\n");
   print_kernel_size();
   printf("\n");
