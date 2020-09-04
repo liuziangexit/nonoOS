@@ -13,17 +13,17 @@ INCLUDE=-Iinclude -I../libno/include -I../driver/include
 KERNEL_OBJS=\
 src/entry.o\
 src/kernel.o\
-src/gdt.o\
-src/kernel_pgd.o\
+src/memory/gdt.o\
+src/memory/kernel_pgd.o\
 src/panic.o\
 src/tty.o\
-src/interrupt_handler.o\
-src/idtvector.o\
-src/interrupt_entry.o\
-src/reg_info.o\
-src/e820map.o\
+src/interrupt/interrupt_handler.o\
+src/interrupt/idtvector.o\
+src/interrupt/interrupt_entry.o\
+src/debug/reg_info.o\
+src/memory/e820map.o\
 src/ctl_char_handler.o\
-src/kernel_size.o
+src/debug/kernel_size.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
@@ -47,9 +47,9 @@ kernel: $(KERNEL_OBJS) crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o
 crt/crtbegin.o crt/crtend.o:
 	CPFROM=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$CPFROM" $@
 
-src/idtvector.o:
-	../tools/idtgen src/idtvector.S
-	$(CC) -c src/idtvector.S -o $@ $(CFLAGS) $(INCLUDE)
+src/interrupt/idtvector.o:
+	../tools/idtgen src/interrupt/idtvector.S
+	$(CC) -c src/interrupt/idtvector.S -o $@ $(CFLAGS) $(INCLUDE)
 
 src/interrupt_handler.o: src/interrupt_handler.c
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) -Wno-address-of-packed-member $(INCLUDE)

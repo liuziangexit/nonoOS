@@ -1,6 +1,6 @@
+实现malloc
 实现task（进程/线程）
 实现按时间片的简单调度算法
-实现malloc
 实现swap
 实现同步原语
 GUI
