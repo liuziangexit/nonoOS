@@ -5,7 +5,9 @@
 // 页目和页表必须对齐到页边界
 // PTE_PS in a page directory entry enables 4Mbyte pages.
 
-// FIXME 现在暂时去掉ring限制，ring3就能访问全部页面
+// FIXME 现在为了测试方便暂时去掉ring限制，ring3就能访问全部页面。实现用户task后移除这个
+// TODO 这里是kernel的页目录，要把0 - KERNEL_SIZE映射到3G - 3G+KERNEL_SIZE，
+// 然后把KERNEL_SIZE - MEM_LIM映射到0 - (MEM_LIM-KERNEL_SIZE)
 
 _Alignas(PGSIZE) int32_t kernel_page_directory[NPDENTRIES] = {
     // Map Virtual's [0, 4MB) to Physical's [0, 4MB)
