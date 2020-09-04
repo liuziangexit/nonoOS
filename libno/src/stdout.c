@@ -64,9 +64,22 @@ int printf(const char *restrict format, ...) {
       }
       print(str, len);
       written += len;
+    } else if (strlen(format) > 2 && *(format) == 'l' && *(format + 1) == 'l') {
+      format += 2;
+      int64_t v = va_arg(parameters, int64_t);
+      if (!maxrem) {
+        // TODO: Set errno to EOVERFLOW.
+        return -1;
+      }
+      static char sv[30];
+      if (ltoa(v, sv, 30, 10))
+        return -1; // itoa failed
+      size_t len = strlen(sv);
+      print(sv, len);
+      written += len;
     } else if (*format == 'd') {
       format++;
-      int32_t v = va_arg(parameters, int);
+      int32_t v = va_arg(parameters, int32_t);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
         return -1;
@@ -84,14 +97,41 @@ int printf(const char *restrict format, ...) {
       uint32_t digit_cnt = *format - '0';
       format++;
       format++; // skip x
-      // 16进制是无符号的，所以应该用uint32t，不然可能溢出
-      uint32_t v = va_arg(parameters, int);
+      int32_t v = va_arg(parameters, int32_t);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
         return -1;
       }
       static char sv[11];
       if (itoa(v, sv, 11, 16))
+        return -1; // itoa failed
+      size_t len = strlen(sv);
+      if (len < digit_cnt) {
+        int ph_add = digit_cnt - len;
+        if (len + ph_add <= sizeof(sv) - 1) {
+          memmove(sv + ph_add, sv, len);
+          memset(sv, placeholder, ph_add);
+          len += ph_add;
+          sv[len] = 0;
+        }
+      }
+      print(sv, len);
+      written += len;
+    } else if (strlen(format) > 5 && isdigit(*format) &&
+               isdigit(*(format + 1)) && *(format + 2) == 'l' &&
+               *(format + 3) == 'l' && *(format + 4) == 'x') {
+      char placeholder = *format;
+      format++;
+      uint64_t digit_cnt = *format - '0';
+      format++;
+      format += 3; // skip llx
+      int64_t v = va_arg(parameters, int64_t);
+      if (!maxrem) {
+        // TODO: Set errno to EOVERFLOW.
+        return -1;
+      }
+      static char sv[24];
+      if (ltoa(v, sv, 24, 16))
         return -1; // itoa failed
       size_t len = strlen(sv);
       if (len < digit_cnt) {
