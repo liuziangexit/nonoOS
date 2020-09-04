@@ -7,14 +7,13 @@ OBJCOPY=$(CCPREFIX)objcopy
 
 CFLAGS=-O0 -g -Wall -Wextra -ffreestanding -nostdinc
 CVERSION=-std=gnu11
-LIBS=-nostdlib -L../libno -lno
 INCLUDE=-Iinclude -I../libno/include -I../driver/include
 
 KERNEL_OBJS=\
 src/entry.o\
 src/kernel.o\
 src/memory/gdt.o\
-src/memory/kernel_pgd.o\
+src/memory/kernel_pd.o\
 src/panic.o\
 src/tty.o\
 src/interrupt/interrupt_handler.o\
@@ -41,7 +40,7 @@ bootblock:
 kernel: $(KERNEL_OBJS) crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o 
 	$(CC) -T kernel.ld -e 0xC0100000 -o kernel $(CFLAGS) \
 	crt/crti.o crt/crtbegin.o \
-	$(KERNEL_OBJS) -nostdlib -L../libno -lno -L../driver -ldriver \
+	$(KERNEL_OBJS) -nostdlib -L../libno -lno -L../driver -ldriver -static-libgcc -lgcc \
 	crt/crtend.o crt/crtn.o
 
 crt/crtbegin.o crt/crtend.o:

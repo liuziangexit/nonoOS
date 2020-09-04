@@ -6,7 +6,6 @@ LD=$(CCPREFIX)LD
 
 CFLAGS=-O0 -g -Wall -Wextra -ffreestanding
 CVERSION=-std=gnu11
-LIBS=-nostdlib -lgcc #-L../libno -lno
 INCLUDE=-Iinclude -I../kernel/include -I../libno/include
 
 OBJS=\
