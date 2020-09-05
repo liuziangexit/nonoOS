@@ -1,4 +1,8 @@
-实现malloc
+ok-用大页实现整个4G空间的映射
+-用820初始化buddy
+-实现buddy
+-实现slab
+实现kmalloc
 实现task（进程/线程）
 实现按时间片的简单调度算法
 实现swap
