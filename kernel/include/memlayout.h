@@ -52,6 +52,9 @@ extern struct e820map_t *e820map;
 
 void print_e820();
 
+void pd_map_ps(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
+               uint32_t flags);
+
 #endif
 
 #endif
