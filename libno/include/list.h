@@ -80,17 +80,6 @@ static __always_inline void list_del(list_entry_t *listelm) {
 }
 
 /* *
- * list_del_init - deletes entry from list and reinitialize it.
- * @listelm:    the element to delete from the list.
- *
- * Note: list_empty() on @listelm returns true after this.
- * */
-static __always_inline void list_del_init(list_entry_t *listelm) {
-  list_del(listelm);
-  list_init(listelm);
-}
-
-/* *
  * list_empty - tests whether a list is empty
  * @list:       the list to test.
  * */
