@@ -7,6 +7,7 @@
 #include <interrupt.h>
 #include <kbd.h>
 #include <memlayout.h>
+#include <memory_manager.h>
 #include <mmu.h>
 #include <picirq.h>
 #include <stdio.h>
@@ -32,8 +33,9 @@ void kentry(void) {
   pic_init();
   idt_init();
   kbd_init();
-  sti();
   terminal_init();
+  kmem_init();
+  sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
@@ -42,7 +44,7 @@ void kentry(void) {
   printf("Welcome...\n");
   printf("\n\n");
   ring_buffer_test();
-  kmem_page_test();
+  // kmem_page_test();
   printf("\n\n");
   print_kernel_size();
   printf("\n");

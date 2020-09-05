@@ -238,4 +238,8 @@ struct gatedesc {
 
 #endif
 
+#define _4K (4096)
+#define _4M (_4K * 1024)
+#define _4G (_4M * 1024)
+
 #endif

@@ -22,7 +22,8 @@ src/interrupt/interrupt_entry.o\
 src/debug/reg_info.o\
 src/memory/e820map.o\
 src/ctl_char_handler.o\
-src/debug/kernel_size.o
+src/debug/kernel_size.o\
+src/memory/memory_manager.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

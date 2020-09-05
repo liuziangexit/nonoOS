@@ -11,7 +11,7 @@
 // TODO 这里是kernel的页目录，要把0 - KERNEL_SIZE映射到3G - 3G+KERNEL_SIZE，
 // 然后把KERNEL_SIZE - MEM_LIM映射到0 - (MEM_LIM-KERNEL_SIZE)
 
-_Alignas(PGSIZE) uint32_t kernel_page_directory[1024] = {
+_Alignas(4096) uint32_t kernel_page_directory[1024] = {
     // Map Virtual's [0, 4MB) to Physical's [0, 4MB)
     [0] = 0x0 | PTE_P | PTE_W | PTE_PS | PTE_U,
 
@@ -27,15 +27,13 @@ _Alignas(PGSIZE) uint32_t kernel_page_directory[1024] = {
     //
 };
 
-#define _4K (4096)
-#define _4M (_4K * 1024)
-
 // map大页
 void pd_map_ps(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
                uint32_t flags) {
   assert(((uintptr_t)pd) % 4096 == 0);
   assert(physical % _4M == 0 && linear % _4M == 0);
-  assert(linear / _4M + pgcnt < 1024);
+  assert(linear / _4M + pgcnt <= 1024);
+  assert(physical / _4M + pgcnt <= 1024);
   assert(flags >> 12 == 0);
   assert((flags & PTE_PS) == PTE_PS);
 
