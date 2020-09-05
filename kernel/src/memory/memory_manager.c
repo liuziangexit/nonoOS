@@ -1,5 +1,6 @@
 #include <compiler_helper.h>
 #include <defs.h>
+#include <list.h>
 #include <memlayout.h>
 #include <memory_manager.h>
 #include <mmu.h>
@@ -28,9 +29,18 @@ void kmem_init() {
   lcr3(V2P((uintptr_t)kernel_page_directory));
 }
 
-void kmem_page_init(struct e820map_t *memlayout) {
-  UNUSED(memlayout);
-}
+struct Page {
+  struct list_entry li;
+  uint32_t pg_cnt;
+#ifndef NDEBUG
+  uint32_t exp;
+#endif
+};
+
+// 2^0到2^30
+struct Page *zone[31];
+
+void kmem_page_init(struct e820map_t *memlayout) { UNUSED(memlayout); }
 void *kmem_page_alloc(size_t cnt);
 void kmem_page_free(void *, size_t cnt);
 void kmem_page_dump();
