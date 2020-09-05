@@ -27,8 +27,6 @@ _Alignas(PGSIZE) uint32_t kernel_page_directory[1024] = {
     //
 };
 
-_Alignas(PGSIZE) uint32_t kernel_page_directory_test[1024];
-
 #define _4K (4096)
 #define _4M (_4K * 1024)
 
