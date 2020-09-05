@@ -35,6 +35,7 @@ void kentry(void) {
   kbd_init();
   terminal_init();
   kmem_init();
+  kmem_page_init(e820map);
   sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
