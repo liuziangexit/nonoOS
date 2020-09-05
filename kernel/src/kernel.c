@@ -35,6 +35,27 @@ void kentry(void) {
   sti();
   terminal_init();
 
+  extern uint32_t kernel_page_directory_test[];
+  memset(kernel_page_directory_test, 0, 4096);
+  pd_map_ps(kernel_page_directory_test, 0, 0, 1,
+            PTE_P | PTE_W | PTE_PS | PTE_U);
+  pd_map_ps(kernel_page_directory_test, KERNEL_VIRTUAL_BASE, 0, 2,
+            PTE_P | PTE_W | PTE_PS | PTE_U);
+  pd_map_ps(kernel_page_directory_test, KERNEL_VIRTUAL_BASE + KERNEL_STACK,
+            KERNEL_STACK, 1, PTE_P | PTE_W | PTE_PS | PTE_U);
+
+  extern uint32_t kernel_page_directory[];
+
+  for (int i = 0; i < 1024; i++) {
+    uint32_t fuck = ~(uint32_t)(PTE_A | PTE_D);
+    uint32_t ll = kernel_page_directory[i] | ~(uint32_t)(PTE_A | PTE_D);
+    if ((kernel_page_directory[i] & ~(uint32_t)(PTE_A | PTE_D)) !=
+        kernel_page_directory_test[i]) {
+      panic("nonono");
+    }
+  }
+  printf("gogogo\n");
+
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
   putchar(1);
