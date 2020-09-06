@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <compiler_helper.h>
 #include <defs.h>
 #include <list.h>
@@ -47,6 +48,7 @@ static inline bool is_pow2(uint32_t x) { return !(x & (x - 1)); }
 // https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 // 实际上可以用bsrq这样的机器指令来实现更快的版本，但是算了
 static uint32_t next_pow2(uint32_t x) {
+  assert(x > 0);
   if (is_pow2(x))
     return x;
   //下面这段代码啥意思呢，我们都知道2的幂的二进制表示是一个1后面跟着许多0的，
@@ -62,7 +64,10 @@ static uint32_t next_pow2(uint32_t x) {
 }
 
 //最小的有效输入是2
-static inline uint32_t prev_pow2(uint32_t x) { return next_pow2(x) / 2; }
+static inline uint32_t prev_pow2(uint32_t x) {
+  assert(x > 2);
+  return next_pow2(x) / 2;
+}
 
 void kmem_page_init(struct e820map_t *memlayout) {
   //for()
