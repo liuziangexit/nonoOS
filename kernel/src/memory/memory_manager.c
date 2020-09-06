@@ -95,9 +95,8 @@ static inline uint32_t prev_pow2(uint32_t x) {
 
 void kmem_page_init(struct e820map_t *memlayout) {
 #ifndef NDEBUG
-  for (uint32_t i = 0; i < sizeof(zone) / sizeof(struct zone); i++) {
+  for (uint32_t i = 0; i < sizeof(zone) / sizeof(struct zone); i++)
     zone[i].exp = i;
-  }
 #endif
 
   for (int i = 0; i < memlayout->count; i++) {
@@ -193,7 +192,7 @@ static void *split(uint32_t exp) {
 
   if (zone[exp].pages != 0) {
     //本层有，返回本层的
-    if (list_empty(zone[exp].pages)) {
+    if (list_empty((list_entry_t *)zone[exp].pages)) {
       //如果本层里只有最后一个了
       struct page *rv = zone[exp].pages;
       zone[exp].pages = 0;
@@ -201,8 +200,9 @@ static void *split(uint32_t exp) {
     } else {
       //如果本层里还有许多个
       struct page *rv = zone[exp].pages;
-      struct page *future_head = list_next(zone[exp].pages);
-      list_del(zone[exp].pages);
+      struct page *future_head =
+          (struct page *)list_next((list_entry_t *)zone[exp].pages);
+      list_del((list_entry_t *)zone[exp].pages);
       zone[exp].pages = future_head;
       return rv;
     }
@@ -237,6 +237,7 @@ static void combine(uint32_t exp, void *single) {
   // 看看能不能找到partner
   if (exp < sizeof(zone) / sizeof(struct zone) - 1 && zone[exp].pages != 0) {
     list_entry_t *p = (list_entry_t *)zone[exp].pages;
+    bool end = false;
     do {
       int found; // 0=不是，1=single是前面的，2=single是后面的
       if ((uintptr_t)single + pow2(exp) * 4096 == (uintptr_t)p) {
@@ -264,53 +265,54 @@ static void combine(uint32_t exp, void *single) {
         }
         return;
       }
-      p = list_next(p);
-    } while (p->next != (list_entry_t *)zone[exp].pages);
+      end = p->next == (list_entry_t *)zone[exp].pages;
+      if (!end)
+        p = list_next(p);
+    } while (!end);
   }
   //没找到，把single放进链表
-  list_init(psingle);
+  list_init((list_entry_t *)psingle);
   if (zone[exp].pages == 0) {
     zone[exp].pages = psingle;
   } else {
-    list_add((list_entry_t *)zone[exp].pages, psingle);
+    list_add((list_entry_t *)zone[exp].pages, (list_entry_t *)psingle);
   }
 }
 
 void *kmem_page_alloc(size_t cnt) {
   cnt = next_pow2(cnt);
-  const uint32_t exp = naive_log2(cnt);
-  assert(exp <= 30);
-  if (!zone[exp].pages) {
-    //从更大的zone分下来
-    abort();
-  }
-  //如果这个zone里正好有，就直接从这个zone里分配
-  if (list_empty(zone[exp].pages)) {
-    //如果这个zone里只有最后一个了
-    struct page *rv = zone[exp].pages;
-    zone[exp].pages = 0;
-    return rv;
-  } else {
-    //如果这个zone里还有许多个
-    struct page *rv = zone[exp].pages;
-    struct page *future_head = list_next(zone[exp].pages);
-    list_del(zone[exp].pages);
-    zone[exp].pages = future_head;
-    return rv;
-  }
+  return split(naive_log2(cnt));
 }
 
 void kmem_page_free(void *p, size_t cnt) {
   cnt = next_pow2(cnt);
-  const uint32_t exp = naive_log2(cnt);
-  assert(exp <= 30);
-  struct page *pp = (struct page *)p;
-  list_init(pp);
-  if (zone[exp].pages == 0) {
-    zone[exp].pages = pp;
-    return;
-    //不需要向上组装
-  } else {
-  }
+  combine(naive_log2(cnt), p);
 }
-void kmem_page_dump() {}
+
+static uint32_t list_size(list_entry_t *head) {
+  if (head == 0)
+    return 0;
+  uint32_t i = 0;
+  bool end = false;
+  do {
+    i++;
+    end = head->next == head;
+    if (!end)
+      head = list_next(head);
+  } while (!end);
+  return i;
+}
+
+void kmem_page_dump() {
+  printf("kmem_page_dump\n");
+  printf("****************\n");
+  for (uint32_t i = 0; i < sizeof(zone) / sizeof(struct zone); i++) {
+    printf("exponent:%02x count:%02x", (int32_t)i,
+           (int32_t)list_size((list_entry_t *)zone[i].pages));
+#ifndef NDEBUG
+    printf(" debug_cnt:%02x", (int32_t)zone[i].cnt);
+#endif
+    printf("\n");
+  }
+  printf("****************\n");
+}
