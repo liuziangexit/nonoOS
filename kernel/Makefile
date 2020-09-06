@@ -12,18 +12,19 @@ INCLUDE=-Iinclude -I../libno/include -I../driver/include
 KERNEL_OBJS=\
 src/entry.o\
 src/kernel.o\
+src/panic.o\
+src/ctl_char_handler.o\
+src/tty.o\
 src/memory/gdt.o\
 src/memory/kernel_pd.o\
-src/panic.o\
-src/tty.o\
+src/memory/e820map.o\
+src/memory/memory_manager.o\
 src/interrupt/interrupt_handler.o\
 src/interrupt/idtvector.o\
 src/interrupt/interrupt_entry.o\
 src/debug/reg_info.o\
-src/memory/e820map.o\
-src/ctl_char_handler.o\
 src/debug/kernel_size.o\
-src/memory/memory_manager.o
+src/debug/print_e820.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

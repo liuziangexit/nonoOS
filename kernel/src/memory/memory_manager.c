@@ -4,6 +4,7 @@
 #include <memlayout.h>
 #include <memory_manager.h>
 #include <mmu.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -38,9 +39,34 @@ struct Page {
 };
 
 // 2^0到2^30
-struct Page *zone[31];
+static struct Page *zone[31];
 
-void kmem_page_init(struct e820map_t *memlayout) { UNUSED(memlayout); }
+static inline bool is_pow2(uint32_t x) { return !(x & (x - 1)); }
+
+//找到第一个大于等于x的2的幂
+// https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
+// 实际上可以用bsrq这样的机器指令来实现更快的版本，但是算了
+static uint32_t next_pow2(uint32_t x) {
+  if (is_pow2(x))
+    return x;
+  //下面这段代码啥意思呢，我们都知道2的幂的二进制表示是一个1后面跟着许多0的，
+  //所以第一个大于x的2的幂应该是x的最高位左边那一位是1的一个数(比如1010的就是10000)
+  //这一段代码做的是把x的位全部变成1，然后+1自然就是结果了
+  //比如1010，首先把它变成1111，然后加1不就是10000了吗
+  x |= x >> 1;
+  x |= x >> 2;
+  x |= x >> 4;
+  x |= x >> 8;
+  x |= x >> 16;
+  return x + 1;
+}
+
+//最小的有效输入是2
+static inline uint32_t prev_pow2(uint32_t x) { return next_pow2(x) / 2; }
+
+void kmem_page_init(struct e820map_t *memlayout) {
+  //for()
+}
 void *kmem_page_alloc(size_t cnt);
 void kmem_page_free(void *, size_t cnt);
 void kmem_page_dump();
