@@ -2,6 +2,7 @@
 #define __LIBNO_LIST_H__
 
 #include <defs.h>
+#include <stdio.h>
 
 /* *
  * Simple doubly linked list implementation.

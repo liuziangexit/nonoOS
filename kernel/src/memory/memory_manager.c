@@ -109,6 +109,32 @@ void kmem_page_init(struct e820map_t *memlayout) {
 #endif
       continue;
     }
+
+    // 4k对齐
+    char *addr = ROUNDUP((char *)(uintptr_t)memlayout->ard[i].addr, 4096);
+    uint32_t round_diff = (uintptr_t)addr - (uintptr_t)memlayout->ard[i].addr;
+    int32_t page_count =
+        (int32_t)((memlayout->ard[i].size - round_diff) / 4096);
+    //如果addr小于1MB，就让他等于1MB
+    //他不体面，你就得帮他体面
+    if ((uintptr_t)addr < 0x100000) {
+      if ((int32_t)addr + page_count * 4096 > 0x100000) {
+        page_count -= ((0x100000 - (uintptr_t)addr) / 4096);
+        addr = (char *)0x100000;
+#ifndef NDEBUG
+        printf("kmem_page_init: address at e820[%d] is starting at 1MB now\n",
+               i);
+#endif
+      } else {
+#ifndef NDEBUG
+        printf("kmem_page_init: address at e820[%d] is too low, "
+               "ignore\n",
+               i);
+#endif
+        continue;
+      }
+    }
+
     //小于1页的内存
     if (memlayout->ard[i].size < 4096) {
 #ifndef NDEBUG
@@ -126,8 +152,6 @@ void kmem_page_init(struct e820map_t *memlayout) {
       continue;
     }
 
-    char *addr = (char *)(uintptr_t)memlayout->ard[i].addr;
-    int32_t page_count = (int32_t)(memlayout->ard[i].size / 4096);
 #ifndef NDEBUG
     printf(
         "kmem_page_init: address at e820[%d] (%d pages) are been split into ",
@@ -161,6 +185,8 @@ void kmem_page_init(struct e820map_t *memlayout) {
 
       struct page *pg = (struct page *)addr;
       list_init((list_entry_t *)pg);
+      assert(((list_entry_t *)pg)->prev == (list_entry_t *)pg);
+      assert(((list_entry_t *)pg)->next == (list_entry_t *)pg);
       const uint32_t log2_c = naive_log2(c);
       if (!(zone[log2_c].pages)) {
         zone[log2_c].pages = pg;
@@ -297,8 +323,11 @@ static uint32_t list_size(list_entry_t *head) {
   do {
     i++;
     end = head->next == head;
-    if (!end)
+    if (!end) {
       head = list_next(head);
+      if (head == 0)
+        abort();
+    }
   } while (!end);
   return i;
 }
@@ -307,7 +336,8 @@ void kmem_page_dump() {
   printf("kmem_page_dump\n");
   printf("****************\n");
   for (uint32_t i = 0; i < sizeof(zone) / sizeof(struct zone); i++) {
-    printf("exponent:%02x count:%02x", (int32_t)i,
+    printf("exponent:%02x pages:0x%08llx count:%02x", (int32_t)i,
+           (int64_t)(uintptr_t)zone[i].pages,
            (int32_t)list_size((list_entry_t *)zone[i].pages));
 #ifndef NDEBUG
     printf(" debug_cnt:%02x", (int32_t)zone[i].cnt);
