@@ -31,22 +31,36 @@ void kmem_init() {
   lcr3(V2P((uintptr_t)kernel_page_directory));
 }
 
-struct Page {
+struct page {
   struct list_entry li;
-  uint32_t pg_cnt;
+};
+
+struct zone {
+  struct page *pages;
+  uint32_t cnt;
 #ifndef NDEBUG
   uint32_t exp;
 #endif
 };
 
 // 2^0到2^30
-static struct Page *zone[31];
+//这里必须是static，因为下面的代码假定这些内存已经被memset为0了
+static struct zone zone[31];
 
 static inline bool is_pow2(uint32_t x) { return !(x & (x - 1)); }
 
+//输入2的n次幂，返回n
+//如果输入不是2的幂次，行为未定义
+static uint32_t naive_log2(uint32_t x) {
+  assert(is_pow2(x));
+  uint32_t idx;
+  asm("bsrl %1, %0" : "=r"(idx) : "r"(x));
+  return idx;
+}
+
 //找到第一个大于等于x的2的幂
+//如果x已经是2的幂，返回x
 // https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-// 实际上可以用bsrq这样的机器指令来实现更快的版本，但是算了
 static uint32_t next_pow2(uint32_t x) {
   assert(x > 0);
   if (is_pow2(x))
@@ -64,14 +78,108 @@ static uint32_t next_pow2(uint32_t x) {
 }
 
 //最小的有效输入是2
+//如果x已经是2的幂，返回x
 static inline uint32_t prev_pow2(uint32_t x) {
-  assert(x > 2);
+  assert(x >= 2);
+  if (is_pow2(x))
+    return x;
   return next_pow2(x) / 2;
 }
 
 void kmem_page_init(struct e820map_t *memlayout) {
-  //for()
+#ifndef NDEBUG
+  for (uint32_t i = 0; i < sizeof(zone) / sizeof(struct zone); i++) {
+    zone[i].exp = i;
+  }
+#endif
+
+  for (int i = 0; i < memlayout->count; i++) {
+    //为硬件保留的内存
+    if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {
+#ifndef NDEBUG
+      printf("kmem_page_init: address at e820[%d] is reserved, "
+             "ignore\n",
+             i);
+#endif
+      continue;
+    }
+    //小于1页的内存
+    if (memlayout->ard[i].size < 4096) {
+#ifndef NDEBUG
+      printf("kmem_page_init: address at e820[%d] is smaller than a page, "
+             "ignore\n",
+             i);
+#endif
+      continue;
+    }
+    //高于4G的内存，只可远观不可亵玩焉
+    if (memlayout->ard[i].addr > 0xfffffffe) {
+#ifndef NDEBUG
+      printf("kmem_page_init: address at e820[%d] too high, ignore\n", i);
+#endif
+      continue;
+    }
+
+    char *addr = (char *)(uintptr_t)memlayout->ard[i].addr;
+    int32_t page_count = (int32_t)(memlayout->ard[i].size / 4096);
+#ifndef NDEBUG
+    printf(
+        "kmem_page_init: address at e820[%d] (%d pages) are been split into ",
+        i, page_count);
+#endif
+    while (page_count > 0) {
+      assert((uint32_t)addr % 4096 == 0);
+      int32_t c;
+      if (page_count == 1) {
+        c = 1;
+      } else {
+        c = prev_pow2(page_count);
+      }
+
+      //对于addr+c*4096越过4G界的处理
+      if (0xfffffffe - c * 4096 < (uint32_t)addr) {
+        c = (0xfffffffe - (uint32_t)addr) / 4096;
+        if (c == 0) {
+#ifndef NDEBUG
+          printf(
+              "kmem_page_init: address %08llx at e820[%d] too high, ignore\n",
+              (int64_t)(uintptr_t)addr, i);
+#endif
+          break;
+        }
+      }
+
+#ifndef NDEBUG
+      printf("%d ", c);
+#endif
+
+      struct page *pg = (struct page *)addr;
+      list_init((list_entry_t *)pg);
+      const uint32_t log2_c = naive_log2(c);
+      if (!(zone[log2_c].pages)) {
+        zone[log2_c].pages = pg;
+      } else {
+        list_add((list_entry_t *)(zone[log2_c].pages), (list_entry_t *)pg);
+      }
+      zone[log2_c].cnt++;
+      page_count -= c;
+      addr += (4096 * c);
+      assert(((uint32_t)(zone[log2_c].pages) + zone[log2_c].cnt) <= 0xfffffffe);
+    }
+#ifndef NDEBUG
+    printf("\n");
+#endif
+  }
+#ifndef NDEBUG
+  printf("kmem_page_init: OK\n");
+#endif
 }
-void *kmem_page_alloc(size_t cnt);
-void kmem_page_free(void *, size_t cnt);
-void kmem_page_dump();
+void *kmem_page_alloc(size_t cnt) {
+  UNUSED(cnt);
+  return 0;
+}
+void kmem_page_free(void *p, size_t cnt) {
+  UNUSED(p);
+  UNUSED(cnt);
+}
+void kmem_page_dump() {}

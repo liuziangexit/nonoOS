@@ -34,8 +34,11 @@ void kentry(void) {
   idt_init();
   kbd_init();
   terminal_init();
+  print_e820();
+  printf("\n");
   kmem_init();
   kmem_page_init(e820map);
+  printf("\n");
   sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
@@ -49,7 +52,6 @@ void kentry(void) {
   printf("\n\n");
   print_kernel_size();
   printf("\n");
-  print_e820();
   printf("\n\n");
   print_cur_status();
   asm("int %0" ::"i"(T_SWITCH_USER));
