@@ -64,7 +64,8 @@ int printf(const char *restrict format, ...) {
       }
       print(str, len);
       written += len;
-    } else if (strlen(format) > 2 && *(format) == 'l' && *(format + 1) == 'l') {
+    } else if (strlen(format) >= 2 && *(format) == 'l' &&
+               *(format + 1) == 'l') {
       format += 2;
       int64_t v = va_arg(parameters, int64_t);
       if (!maxrem) {
@@ -90,7 +91,7 @@ int printf(const char *restrict format, ...) {
       size_t len = strlen(sv);
       print(sv, len);
       written += len;
-    } else if (strlen(format) > 3 && isdigit(*format) &&
+    } else if (strlen(format) >= 3 && isdigit(*format) &&
                isdigit(*(format + 1)) && *(format + 2) == 'x') {
       char placeholder = *format;
       format++;
@@ -117,7 +118,7 @@ int printf(const char *restrict format, ...) {
       }
       print(sv, len);
       written += len;
-    } else if (strlen(format) > 5 && isdigit(*format) &&
+    } else if (strlen(format) >= 5 && isdigit(*format) &&
                isdigit(*(format + 1)) && *(format + 2) == 'l' &&
                *(format + 3) == 'l' && *(format + 4) == 'x') {
       char placeholder = *format;
