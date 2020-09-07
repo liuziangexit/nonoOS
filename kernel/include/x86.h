@@ -55,10 +55,30 @@ static __always_inline void lcr3(uintptr_t cr3) {
   asm volatile("mov %0, %%cr3" ::"r"(cr3) : "memory");
 }
 
-static __always_inline uintptr_t rcr3(void) {
-  uintptr_t cr3;
-  asm volatile("mov %%cr3, %0" : "=r"(cr3)::"memory");
-  return cr3;
+static __always_inline uintptr_t rcr3() {
+  uintptr_t val;
+  asm volatile("mov %%cr3, %0" : "=r"(val)::"memory");
+  return val;
+}
+
+static __always_inline void lcr4(uintptr_t cr4) {
+  asm volatile("mov %0, %%cr4" ::"r"(cr4) : "memory");
+}
+
+static __always_inline uintptr_t rcr4() {
+  uintptr_t val;
+  asm volatile("mov %%cr4, %0" : "=r"(val)::"memory");
+  return val;
+}
+
+static __always_inline void lcr0(uintptr_t cr0) {
+  asm volatile("mov %0, %%cr0" ::"r"(cr0) : "memory");
+}
+
+static __always_inline uintptr_t rcr0(void) {
+  uintptr_t val;
+  asm volatile("mov %%cr0, %0" : "=r"(val)::"memory");
+  return val;
 }
 
 #endif /* !__LIBS_X86_H__ */

@@ -16,29 +16,13 @@
 //#define NDEBUG 1
 
 void kmem_init() {
+  //开启分页
+  /*
   extern uint32_t kernel_page_directory[];
-  //如果直接修改正在使用的页目录，会翻车
-  //所以lcr3一个一模一样的页目录副本，这样我们才能开始修改真正的页目录
-  _Alignas(4096) uint32_t temp_pd[1024];
-  memcpy(temp_pd, kernel_page_directory, 4096);
-  union {
-    struct CR3 cr3;
-    uintptr_t val;
-  } cr3;
-  cr3.val = 0;
-  set_cr3(&(cr3.cr3), V2P((uintptr_t)temp_pd), false, false);
-  lcr3(cr3.val);
-  //好吧，现在开始修改真的页目录(kernel_page_directory)
-  //虚拟地址0到4M -> 物理地址0到4M（为了CGA这样的外设地址）
-  pd_map_ps(kernel_page_directory, 0, 0, 1, PTE_P | PTE_W | PTE_PS);
-  //虚拟地址4M到3G -> 物理地址1G+4M到4G
-  pd_map_ps(kernel_page_directory, _4M, 1024 * 1024 * 1024 + _4M, 768 - 1,
-            PTE_P | PTE_W | PTE_PS);
-  //虚拟地址3G到4G -> 物理地址0到1G
-  pd_map_ps(kernel_page_directory, KERNEL_VIRTUAL_BASE, 0, 256,
-            PTE_P | PTE_W | PTE_PS);
-  //重新加载真的页目录(kernel_page_directory)
-  lcr3(V2P((uintptr_t)kernel_page_directory));
+  lcr4(rcr4() | CR4_PSE);
+  pd_map_ps(kernel_page_directory, 0, 0, 1024, PTE_P | PTE_W | PTE_PS);
+  lcr3((uintptr_t)kernel_page_directory);
+  lcr0(rcr0() | CR0_PG | CR0_WP);*/
 }
 
 struct page {

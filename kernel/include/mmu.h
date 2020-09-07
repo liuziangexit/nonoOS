@@ -2,7 +2,6 @@
 // x86 memory management unit (MMU).
 #ifndef __KERNEL_MMU_H__
 #define __KERNEL_MMU_H__
-#include <assert.h>
 
 // Eflags register
 #define FL_CF 0x00000001        // Carry Flag
@@ -71,6 +70,7 @@
 #define NSEGS 6
 
 #ifndef __ASSEMBLER__
+#include <assert.h>
 #include <defs.h>
 // Segment Descriptor
 struct segdesc {

@@ -1,4 +1,5 @@
-ok-用大页实现整个4G空间的映射
+-实现内存布局：前1mb按原样映射，kernel部分映射到3GB，kernel之后的freepages映射到1mb
+-实现一个上面说的逻辑的V2P和P2V
 -用820初始化buddy
 -实现buddy
 -实现slab
