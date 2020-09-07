@@ -33,7 +33,13 @@ void pd_map_ps(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
   assert((flags & PTE_PS) == PTE_PS);
 
   uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
+  union {
+    struct PDE4M pde;
+    uint32_t val;
+  } pde;
   for (uint32_t i = 0; i < pgcnt; i++) {
-    *(entry + i) = (physical + i * _4M) | flags;
+    pde.val = 0;
+    set_pde4m(&pde.pde, (physical + i * _4M), flags);
+    *(entry + i) = pde.val;
   }
 }
