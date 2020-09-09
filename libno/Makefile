@@ -6,7 +6,6 @@ LD=$(CCPREFIX)LD
 
 CFLAGS=-O0 -g -Wall -Wextra -ffreestanding
 CVERSION=-std=gnu11
-LIBS=-nostdlib -lgcc
 INCLUDE=-Iinclude -I../kernel/include -I../driver/include
 
 OBJS=\

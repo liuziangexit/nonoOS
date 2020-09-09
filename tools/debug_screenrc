@@ -1,8 +1,11 @@
 split
 focus bottom
 
+setenv CPU 1
+setenv MEM 256
+
 screen -t QEMU 0 qemu-system-i386 -d int -no-reboot -no-shutdown -serial mon:stdio -drive file=../fs.img,index=1,media=disk,format=raw -drive file=../nonoOS.img,index=0,media=disk,format=raw -smp $CPU -m $MEM -gdb tcp::1234 -S
 
 focus top
 
-screen -t GDB 1 gdb ../kernel/kernel -q -x gdbinit
+screen -t GDB 1 gdb -q -x gdbinit

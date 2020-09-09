@@ -1,3 +1,4 @@
+#include "../test/kmem_page.h"
 #include "../test/ring_buffer.h"
 #include <cga.h>
 #include <debug.h>
@@ -6,6 +7,7 @@
 #include <interrupt.h>
 #include <kbd.h>
 #include <memlayout.h>
+#include <memory_manager.h>
 #include <mmu.h>
 #include <picirq.h>
 #include <stdio.h>
@@ -31,8 +33,14 @@ void kentry(void) {
   pic_init();
   idt_init();
   kbd_init();
-  sti();
   terminal_init();
+  print_e820();
+  printf("\n");
+  kmem_init();
+  kmem_page_init(e820map);
+  printf("\n");
+  kmem_page_dump();
+  sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
@@ -41,19 +49,16 @@ void kentry(void) {
   printf("Welcome...\n");
   printf("\n\n");
   ring_buffer_test();
+  // kmem_page_test();
   printf("\n\n");
   print_kernel_size();
   printf("\n");
-  print_e820();
   printf("\n\n");
   print_cur_status();
-  asm("int %0" ::"i"(T_SWITCH_USER));
-  printf("\n\n");
-  print_cur_status();
-  asm("int %0" ::"i"(T_SWITCH_KERNEL));
   printf("\n\n");
   printf("nonoOS:$ ");
   //
-  while (1)
+  while (1) {
     hlt();
+  }
 }

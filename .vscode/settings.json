@@ -43,6 +43,8 @@
         "unordered_map": "c",
         "vector": "c",
         "tuple": "c",
-        "chrono": "cpp"
+        "chrono": "cpp",
+        "memory_manager.h": "c",
+        "list.h": "c"
     }
 }

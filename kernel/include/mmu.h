@@ -70,6 +70,7 @@
 #define NSEGS 6
 
 #ifndef __ASSEMBLER__
+#include <assert.h>
 #include <defs.h>
 // Segment Descriptor
 struct segdesc {
@@ -145,10 +146,14 @@ struct segdesc {
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE - 1))
 
 // Page table/directory entry flags.
-#define PTE_P 0x001  // Present
-#define PTE_W 0x002  // Writeable
-#define PTE_U 0x004  // User
-#define PTE_PS 0x080 // Page Size
+#define PTE_P 0x001   // Present
+#define PTE_W 0x002   // Writeable
+#define PTE_U 0x004   // User
+#define PTE_PWT 0x008 // Write-Through
+#define PTE_PCD 0x010 // Cache-Disable
+#define PTE_A 0x020   // Accessed
+#define PTE_D 0x040   // Dirty
+#define PTE_PS 0x080  // Page Size
 
 // Address in page table or page directory entry
 #define PTE_ADDR(pte) ((uint32_t)(pte) & ~0xFFF)
@@ -232,6 +237,44 @@ struct gatedesc {
     (gate).off_31_16 = (uint32_t)(off) >> 16;                                  \
   }
 
+struct CR3 {
+  uint32_t ignored_1 : 3;
+  uint32_t pwt : 1;
+  uint32_t pcd : 1;
+  uint32_t ignored_2 : 7;
+  uint32_t pd_addr : 20;
+};
+
+static inline void set_cr3(struct CR3 *c, uintptr_t pd_addr, bool pwt,
+                           bool pcd) {
+  assert(pd_addr % 4096 == 0);
+  c->pd_addr = ((uint32_t)(pd_addr)) >> 12;
+  c->pwt = pwt;
+  c->pcd = pcd;
+}
+
+struct PDE4M {
+  uint32_t flags : 12;
+  uint32_t PAT : 1;
+  uint32_t unknown : 4;
+  uint32_t _0 : 5;
+  uint32_t page_frame : 10;
+};
+
+static inline void set_pde4m(struct PDE4M *c, uintptr_t page_frame,
+                             uint32_t flags) {
+  assert(page_frame % 4096 == 0);
+  c->flags = flags;
+  c->page_frame = page_frame >> 22;
+  c->PAT = 0;
+  c->unknown = 0;
+  c->_0 = 0;
+}
+
 #endif
+
+#define _4K (4096)
+#define _4M (_4K * 1024)
+#define _4G (_4M * 1024)
 
 #endif

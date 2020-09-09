@@ -7,23 +7,24 @@ OBJCOPY=$(CCPREFIX)objcopy
 
 CFLAGS=-O0 -g -Wall -Wextra -ffreestanding -nostdinc
 CVERSION=-std=gnu11
-LIBS=-nostdlib -L../libno -lno
 INCLUDE=-Iinclude -I../libno/include -I../driver/include
 
 KERNEL_OBJS=\
 src/entry.o\
 src/kernel.o\
-src/memory/gdt.o\
-src/memory/kernel_pgd.o\
 src/panic.o\
+src/ctl_char_handler.o\
 src/tty.o\
+src/memory/gdt.o\
+src/memory/kernel_pd.o\
+src/memory/e820map.o\
+src/memory/memory_manager.o\
 src/interrupt/interrupt_handler.o\
 src/interrupt/idtvector.o\
 src/interrupt/interrupt_entry.o\
 src/debug/reg_info.o\
-src/memory/e820map.o\
-src/ctl_char_handler.o\
-src/debug/kernel_size.o
+src/debug/kernel_size.o\
+src/debug/print_e820.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
@@ -41,7 +42,7 @@ bootblock:
 kernel: $(KERNEL_OBJS) crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o 
 	$(CC) -T kernel.ld -e 0xC0100000 -o kernel $(CFLAGS) \
 	crt/crti.o crt/crtbegin.o \
-	$(KERNEL_OBJS) -nostdlib -L../libno -lno -L../driver -ldriver \
+	$(KERNEL_OBJS) -nostdlib -L../libno -lno -L../driver -ldriver -static-libgcc -lgcc \
 	crt/crtend.o crt/crtn.o
 
 crt/crtbegin.o crt/crtend.o:

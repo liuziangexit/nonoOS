@@ -1,6 +1,9 @@
 #include <memlayout.h>
 #include <mmu.h>
 
+#不知道为什么，在gdb里面b entry打不上断点。
+#所以如果要调试这里的话，看一下bootloader.c里面载入entry的地址是什么，
+#然后直接在那个地址上断点然后layout asm就好了，反正这个代码本来也就是汇编
 .align 4
 .text
 entry:
