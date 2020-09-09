@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <tty.h>
 #include <x86.h>
 
 // TODO 加锁
@@ -38,9 +39,16 @@ void kmem_init() {
   // 4M内核栈
   pd_map_ps(kernel_page_directory, KERNEL_VIRTUAL_BASE + KERNEL_STACK,
             KERNEL_STACK, 1, PTE_P | PTE_W | PTE_PS);
+  // 2G free space，这个物理上是在kernel image和kernel
+  // stack之后，直到物理内存结束的这块区域，
+  // 把它map到虚拟内存12MB的位置
+  pd_map_ps(kernel_page_directory, KERNEL_FREESPACE, KERNEL_FREESPACE, 512,
+            PTE_P | PTE_W | PTE_PS);
 
   //重新加载真的页目录(kernel_page_directory)
-  lcr3(V2P((uintptr_t)kernel_page_directory));
+  cr3.val = 0;
+  set_cr3(&(cr3.cr3), V2P((uintptr_t)kernel_page_directory), false, false);
+  lcr3(cr3.val);
 }
 
 struct page {
@@ -102,18 +110,33 @@ static inline uint32_t prev_pow2(uint32_t x) {
 }
 
 void kmem_page_init(struct e820map_t *memlayout) {
-#ifndef NDEBUG
-  for (uint32_t i = 0; i < sizeof(zone) / sizeof(struct zone); i++)
-    zone[i].exp = i;
-#endif
-
   for (int i = 0; i < memlayout->count; i++) {
-    //为硬件保留的内存
+    // BIOS保留的内存
     if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {
 #ifndef NDEBUG
       printf("kmem_page_init: address at e820[%d] is reserved, "
              "ignore\n",
              i);
+#endif
+      continue;
+    }
+    //小于1页的内存
+    if (memlayout->ard[i].size < 4096) {
+#ifndef NDEBUG
+      terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
+      printf("kmem_page_init: address at e820[%d] is smaller than a page, "
+             "ignore\n",
+             i);
+      terminal_default_color();
+#endif
+      continue;
+    }
+    //高于4G的内存，只可远观不可亵玩焉
+    if (memlayout->ard[i].addr > 0xfffffffe) {
+#ifndef NDEBUG
+      terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
+      printf("kmem_page_init: address at e820[%d] too high, ignore\n", i);
+      terminal_default_color();
 #endif
       continue;
     }
@@ -123,41 +146,28 @@ void kmem_page_init(struct e820map_t *memlayout) {
     uint32_t round_diff = (uintptr_t)addr - (uintptr_t)memlayout->ard[i].addr;
     int32_t page_count =
         (int32_t)((memlayout->ard[i].size - round_diff) / 4096);
-    //如果addr小于1MB，就让他等于1MB
-    //他不体面，你就得帮他体面
-    if ((uintptr_t)addr < 0x100000) {
-      if ((int32_t)addr + page_count * 4096 > 0x100000) {
-        page_count -= ((0x100000 - (uintptr_t)addr) / 4096);
-        addr = (char *)0x100000;
+    //如果addr小于FREESPACE（其实就是物理地址12MB起的部分），就让他等于12MB
+    if ((uintptr_t)addr < KERNEL_FREESPACE) {
+      if ((int32_t)addr + page_count * 4096 > KERNEL_FREESPACE) {
+        page_count -= ((KERNEL_FREESPACE - (uintptr_t)addr) / 4096);
+        addr = (char *)KERNEL_FREESPACE;
 #ifndef NDEBUG
-        printf("kmem_page_init: address at e820[%d] is starting at 1MB now\n",
+        terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
+        printf("kmem_page_init: address at e820[%d] is starting at "
+               "FREESPACE(12MB) now\n",
                i);
+        terminal_default_color();
 #endif
       } else {
 #ifndef NDEBUG
+        terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
         printf("kmem_page_init: address at e820[%d] is too low, "
                "ignore\n",
                i);
+        terminal_default_color();
 #endif
         continue;
       }
-    }
-
-    //小于1页的内存
-    if (memlayout->ard[i].size < 4096) {
-#ifndef NDEBUG
-      printf("kmem_page_init: address at e820[%d] is smaller than a page, "
-             "ignore\n",
-             i);
-#endif
-      continue;
-    }
-    //高于4G的内存，只可远观不可亵玩焉
-    if (memlayout->ard[i].addr > 0xfffffffe) {
-#ifndef NDEBUG
-      printf("kmem_page_init: address at e820[%d] too high, ignore\n", i);
-#endif
-      continue;
     }
 
 #ifndef NDEBUG
@@ -174,27 +184,26 @@ void kmem_page_init(struct e820map_t *memlayout) {
         c = prev_pow2(page_count);
       }
 
-      //对于addr+c*4096越过4G界的处理
-      if (0xfffffffe - c * 4096 < (uint32_t)addr) {
-        c = (0xfffffffe - (uint32_t)addr) / 4096;
-        if (c == 0) {
+      //对于addr+c*4096越过2G+12M界的处理
+      if ((uint32_t)addr >= 0x80C00000) {
 #ifndef NDEBUG
-          printf(
-              "kmem_page_init: address %08llx at e820[%d] too high, ignore\n",
-              (int64_t)(uintptr_t)addr, i);
+        terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
+        printf("kmem_page_init: some part of address %08llx at e820[%d] are "
+               "too high, ignore\n",
+               (int64_t)(uintptr_t)addr, i);
+        terminal_default_color();
 #endif
-          break;
-        }
+        break;
       }
 
 #ifndef NDEBUG
       printf("%d ", c);
+      volatile int *test = (volatile int *)addr;
+      *test = 9710;
+      assert(*test == 9710);
 #endif
-
       struct page *pg = (struct page *)addr;
       list_init((list_entry_t *)pg);
-      assert(((list_entry_t *)pg)->prev == (list_entry_t *)pg);
-      assert(((list_entry_t *)pg)->next == (list_entry_t *)pg);
       const uint32_t log2_c = naive_log2(c);
       if (!(zone[log2_c].pages)) {
         zone[log2_c].pages = pg;
@@ -207,7 +216,8 @@ void kmem_page_init(struct e820map_t *memlayout) {
       page_count -= c;
       addr += (4096 * c);
 #ifndef NDEBUG
-      assert(((uint32_t)(zone[log2_c].pages) + zone[log2_c].cnt) <= 0xfffffffe);
+      assert(((uint64_t)(uintptr_t)(zone[log2_c].pages) +
+              (uint64_t)pow2(log2_c) * zone[log2_c].cnt * 4096) < 0x80C00000);
 #endif
     }
 #ifndef NDEBUG
@@ -215,7 +225,9 @@ void kmem_page_init(struct e820map_t *memlayout) {
 #endif
   }
 #ifndef NDEBUG
+  terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("kmem_page_init: OK\n");
+  terminal_default_color();
 #endif
 }
 

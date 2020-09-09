@@ -1,7 +1,6 @@
--实现内存布局：前1mb按原样映射，kernel部分映射到3GB，kernel之后的freepages映射到1mb
--实现一个上面说的逻辑的V2P和P2V
--用820初始化buddy
--实现buddy
+OK-用820初始化buddy
+OK-实现buddy
+-人肉测试buddy
 -实现slab
 实现kmalloc
 实现task（进程/线程）
