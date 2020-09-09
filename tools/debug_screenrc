@@ -8,4 +8,4 @@ screen -t QEMU 0 qemu-system-i386 -d int -no-reboot -no-shutdown -serial mon:std
 
 focus top
 
-screen -t GDB 1 gdb ../kernel/kernel -q -x gdbinit
+screen -t GDB 1 gdb -q -x gdbinit
