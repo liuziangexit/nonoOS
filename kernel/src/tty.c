@@ -20,7 +20,7 @@ struct ring_buffer input_buffer;
 //输出缓冲区
 //储存最近4页的输出内容，用来实现滚屏
 //必须是2的倍数并且大于2页，不然cut那里会有bug
-#define TER_OUT_BUF_LEN (CRT_SIZE * 4)
+#define TER_OUT_BUF_LEN (CRT_SIZE * 8)
 static char output_buffer[TER_OUT_BUF_LEN];
 static unsigned char output_color[TER_OUT_BUF_LEN];
 static uint16_t ob_wpos = 0;
