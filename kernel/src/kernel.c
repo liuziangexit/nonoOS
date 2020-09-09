@@ -39,7 +39,6 @@ void kentry(void) {
   kmem_init();
   kmem_page_init(e820map);
   printf("\n");
-  kmem_page_dump();
   sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
@@ -49,7 +48,7 @@ void kentry(void) {
   printf("Welcome...\n");
   printf("\n\n");
   ring_buffer_test();
-  // kmem_page_test();
+  kmem_page_test();
   printf("\n\n");
   print_kernel_size();
   printf("\n");

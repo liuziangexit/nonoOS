@@ -12,6 +12,8 @@ void kmem_init();
 void kmem_page_init(struct e820map_t *memlayout);
 void *kmem_page_alloc(size_t cnt);
 void kmem_page_free(void *, size_t cnt);
-void kmem_page_dump();
+void kmem_page_dump(void *dst, uint32_t dst_len);
+bool kmem_page_compare_dump(void *a, void *b);
+void kmem_page_print_dump(void *dmp);
 
 #endif

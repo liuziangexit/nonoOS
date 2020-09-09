@@ -67,6 +67,79 @@ struct zone {
 //这里必须是static，因为下面的代码假定这些内存已经被memset为0了
 static struct zone zone[31];
 
+static void add_page(struct zone *z, struct page *p) {
+  list_init((struct list_entry *)p);
+  if (z->pages) {
+#ifndef NDEBUG
+    // dbg模式下看看有没有重复的
+    struct page *it = z->pages;
+    do {
+      if (it == p)
+        abort();
+      it = (struct page *)((struct list_entry *)it)->next;
+    } while (z->pages != it);
+#endif
+    list_add((struct list_entry *)z->pages, (struct list_entry *)p);
+  } else {
+    z->pages = p;
+  }
+#ifndef NDEBUG
+  z->cnt++;
+#endif
+}
+
+static void del_page(struct zone *z, struct page *p) {
+  if (z->pages) {
+#ifndef NDEBUG
+    // dbg模式下看看是不是真的在里面
+    bool found = false;
+    struct page *it = z->pages;
+    do {
+      if (it == p) {
+        found = true;
+        break;
+      }
+      it = (struct page *)((struct list_entry *)it)->next;
+    } while (z->pages != it);
+    assert(found);
+#endif
+    if (list_empty((struct list_entry *)z->pages)) {
+      assert(z->pages == p);
+      z->pages = 0;
+    } else {
+      if (z->pages == p) {
+        struct page *next = (struct page *)list_next((struct list_entry *)p);
+        list_del((struct list_entry *)p);
+        z->pages = next;
+      } else {
+        list_del((struct list_entry *)p);
+      }
+    }
+  } else {
+    abort();
+  }
+#ifndef NDEBUG
+  z->cnt--;
+#endif
+}
+
+static uint32_t list_size(list_entry_t *head) {
+  if (head == 0)
+    return 0;
+  uint32_t i = 0;
+  bool end = false;
+  do {
+    i++;
+    end = head->next == head;
+    if (!end) {
+      head = list_next(head);
+      if (head == 0)
+        abort();
+    }
+  } while (!end);
+  return i;
+}
+
 static inline bool is_pow2(uint32_t x) { return !(x & (x - 1)); }
 
 //输入2的n次幂，返回n
@@ -236,23 +309,15 @@ void kmem_page_init(struct e820map_t *memlayout) {
 //如果zone[exp]没有，则去上层要
 static void *split(uint32_t exp) {
   assert(exp < sizeof(zone) / sizeof(struct zone));
+#ifndef NDEBUG
+  assert(list_size((list_entry_t *)zone[exp].pages) == zone[exp].cnt);
+#endif
 
-  if (zone[exp].pages != 0) {
+  if (zone[exp].pages) {
     //本层有，返回本层的
-    if (list_empty((list_entry_t *)zone[exp].pages)) {
-      //如果本层里只有最后一个了
-      struct page *rv = zone[exp].pages;
-      zone[exp].pages = 0;
-      return rv;
-    } else {
-      //如果本层里还有许多个
-      struct page *rv = zone[exp].pages;
-      struct page *future_head =
-          (struct page *)list_next((list_entry_t *)zone[exp].pages);
-      list_del((list_entry_t *)zone[exp].pages);
-      zone[exp].pages = future_head;
-      return rv;
-    }
+    struct page *rv = zone[exp].pages;
+    del_page(&zone[exp], zone[exp].pages);
+    return rv;
   } else {
     //本层没有
     if (exp == sizeof(zone) / sizeof(struct zone) - 1) {
@@ -266,9 +331,7 @@ static void *split(uint32_t exp) {
       //把拿到的内存切两半
       void *b = a + pow2(exp) * 4096;
       //一半存本层里
-      assert(zone[exp].pages != 0);
-      list_init((list_entry_t *)a);
-      zone[exp].pages = (struct page *)a;
+      add_page(&zone[exp], a);
       //一半return掉
       return b;
     }
@@ -279,6 +342,10 @@ static void *split(uint32_t exp) {
 //如果single没有在zone[exp]里找到partner，那就把single丢在zone[exp]里
 static void combine(uint32_t exp, void *single) {
   assert(exp < sizeof(zone) / sizeof(struct zone));
+#ifndef NDEBUG
+  assert(list_size((list_entry_t *)zone[exp].pages) == zone[exp].cnt);
+#endif
+
   struct page *psingle = (struct page *)single;
   // partner可能是single+2^exp或single-2^exp
   // 看看能不能找到partner
@@ -297,11 +364,7 @@ static void combine(uint32_t exp, void *single) {
       if (found != 0) {
         //找到了partner
         //首先把p移出链表
-        if (list_empty((list_entry_t *)zone[exp].pages)) {
-          zone[exp].pages = 0;
-        } else {
-          list_del(p);
-        }
+        del_page(&zone[exp], (struct page *)p);
         //然后向上合并
         if (found == 1) {
           // single在前面
@@ -318,12 +381,7 @@ static void combine(uint32_t exp, void *single) {
     } while (!end);
   }
   //没找到，把single放进链表
-  list_init((list_entry_t *)psingle);
-  if (zone[exp].pages == 0) {
-    zone[exp].pages = psingle;
-  } else {
-    list_add((list_entry_t *)zone[exp].pages, (list_entry_t *)psingle);
-  }
+  add_page(&zone[exp], psingle);
 }
 
 void *kmem_page_alloc(size_t cnt) {
@@ -336,34 +394,96 @@ void kmem_page_free(void *p, size_t cnt) {
   combine(naive_log2(cnt), p);
 }
 
-static uint32_t list_size(list_entry_t *head) {
-  if (head == 0)
-    return 0;
-  uint32_t i = 0;
-  bool end = false;
-  do {
-    i++;
-    end = head->next == head;
-    if (!end) {
-      head = list_next(head);
-      if (head == 0)
-        abort();
-    }
-  } while (!end);
-  return i;
+static bool write_dump(uint32_t *write_pos, void *dst, uint32_t dst_len,
+                       uint32_t data) {
+  if (*write_pos + sizeof(data) >= dst_len) {
+    return false;
+  }
+  *(uint32_t *)(dst + *write_pos) = data;
+  *write_pos += sizeof(data);
+  return true;
 }
 
-void kmem_page_dump() {
+static uint32_t pick_biggest(uint32_t *base, uint32_t *arr, uint32_t cnt) {
+  uint32_t pick = 0;
+  for (uint32_t i = 0; i < cnt; i++) {
+    if (arr[cnt] > *base && arr[cnt] > pick)
+      pick = arr[cnt];
+  }
+  *base = pick;
+  return pick;
+}
+
+//成功的话require是0，如果失败是因为dst太小的缘故
+/*
+4:len
+
+zone:
+4:zone.cnt
+n*4:zone.pages
+*/
+void kmem_page_dump(void *dst, uint32_t dst_len) {
+#ifndef NDEBUG
+  uint32_t used = 0;
+  assert(write_dump(&used, dst, dst_len, sizeof(zone) / sizeof(struct zone)));
+  for (uint32_t i = 0; i < sizeof(zone) / sizeof(struct zone); i++) {
+    assert(write_dump(&used, dst, dst_len, zone[i].cnt));
+    if (zone[i].cnt) {
+      uint32_t biggest = 0;
+      for (uint32_t j = 0; j < zone[i].cnt; j++) {
+        assert(write_dump(
+            &used, dst, dst_len, //
+            pick_biggest(&biggest, (uint32_t *)zone[i].pages, zone[i].cnt)));
+      }
+    }
+  }
+#else
+  abort();
+  __builtin_unreachable();
+#endif
+}
+
+bool kmem_page_compare_dump(void *a, void *b) {
+#ifndef NDEBUG
+  uint32_t *aa = (uint32_t *)a, *bb = (uint32_t *)b;
+  if (*aa != *bb)
+    return false;
+  const uint32_t cnt = *aa;
+  for (uint32_t i = 0; i < cnt; i++) {
+    if (*++aa != *++bb)
+      return false;
+    const uint32_t zone_cnt = *aa;
+    for (uint32_t j = 0; j < zone_cnt; j++) {
+      if (*++aa != *++bb)
+        return false;
+    }
+  }
+  return true;
+#else
+  abort();
+  __builtin_unreachable();
+#endif
+}
+
+void kmem_page_print_dump(void *dmp) {
+#ifndef NDEBUG
   printf("kmem_page_dump\n");
   printf("****************\n");
-  for (uint32_t i = 0; i < sizeof(zone) / sizeof(struct zone); i++) {
-    printf("exponent:%02x pages:0x%08llx count:%02x", (int32_t)i,
-           (int64_t)(uintptr_t)zone[i].pages,
-           (int32_t)list_size((list_entry_t *)zone[i].pages));
-#ifndef NDEBUG
-    printf(" debug_cnt:%02x", (int32_t)zone[i].cnt);
-#endif
-    printf("\n");
+  uint32_t *dmmp = (uint32_t *)dmp;
+  const uint32_t cnt = *dmmp;
+  for (uint32_t i = 0; i < cnt; i++) {
+    const uint32_t cunt = *++dmmp; //  :)
+    terminal_fgcolor(CGA_COLOR_BLUE);
+    printf("exponent:%d count:%d\n", (int32_t)i, (int32_t)cunt);
+    for (uint32_t kk = 0; kk < cunt; kk++) {
+      terminal_fgcolor(CGA_COLOR_LIGHT_CYAN);
+      printf("0x%08llx\n", (int64_t)(uintptr_t) * ++dmmp);
+    }
+    terminal_default_color();
   }
   printf("****************\n");
+#else
+  abort();
+  __builtin_unreachable();
+#endif
 }
