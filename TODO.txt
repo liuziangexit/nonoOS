@@ -2,7 +2,7 @@ OK-用820初始化buddy
 OK-实现buddy
 OK-人肉测试buddy（我甚至写了自动化测试用例！）
 -实现slab
-实现kmalloc
+实现malloc
 实现task（进程/线程）
 实现按时间片的简单调度算法
 实现页面swap
