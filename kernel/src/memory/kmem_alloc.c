@@ -3,7 +3,7 @@
 #include <memory_manager.h>
 
 struct slab {
-  list_entry_t list;
+  list_entry_t li;
   void *s_mem;
   uint32_t inuse;
   uint32_t free;
@@ -27,7 +27,18 @@ static bool cache_add_slabs(struct cache *c, size_t cnt) {
     return false;
   }
 
-  for (size_t __i = 0; __i < cnt; __i++) {
+  for (size_t __i = 0; __i < slab_pgcnt; __i++) {
+    struct slab *s = (struct slab *)(mem + 4096 * __i);
+    list_init(&s->li);
+    s->inuse = 0;
+    s->s_mem = (mem + 4096 * __i) + sizeof(struct slab);
+    s->free = 0;
+
+    //设置单向链表
+    for (size_t __j = 0; __j < c->num; __j++) {
+      *(uint32_t *)(s->s_mem + __j * c->objsize) = __j + 1;
+    }
+    list_add(&c->slabs_free, &s->li);
   };
   return true;
 }
