@@ -1,3 +1,4 @@
+#include "../test/bare_hashmap.h"
 #include "../test/kmem_page.h"
 #include "../test/ring_buffer.h"
 #include <cga.h>
@@ -49,6 +50,7 @@ void kentry(void) {
   printf("\n\n");
   ring_buffer_test();
   kmem_page_test();
+  bare_hashmap_test();
   printf("\n\n");
   print_kernel_size();
   printf("\n");
