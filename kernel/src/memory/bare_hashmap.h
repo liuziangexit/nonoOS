@@ -28,5 +28,6 @@ uint32_t bare_put(void *page, uint32_t pgcnt, uint32_t key, uint32_t value,
                   void **npage, uint32_t *npgcnt);
 uint32_t bare_get(void *page, uint32_t pgcnt, uint32_t key);
 uint32_t bare_del(void *page, uint32_t pgcnt, uint32_t key);
+void bare_clear(void *page, uint32_t pgcnt);
 
 #endif

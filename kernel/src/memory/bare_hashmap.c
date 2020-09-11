@@ -5,10 +5,7 @@
 #include <stdbool.h>
 #include <string.h>
 
-void bare_init(void *page, uint32_t pgcnt) {
-  assert((uintptr_t)page % 4096 == 0);
-  memset(page, 0, pgcnt * 4096);
-}
+void bare_init(void *page, uint32_t pgcnt) { bare_clear(page, pgcnt); }
 
 static uint32_t __bare_hash(uint32_t pgcnt, uint32_t key) {
   return key % (pgcnt * 512);
@@ -44,8 +41,8 @@ uint32_t bare_put(void *page, uint32_t pgcnt, uint32_t key, uint32_t value,
   assert(value != 0);
   const uint32_t h = __bare_hash(pgcnt, key);
   uint32_t idx = h;
-  while (*(uint32_t *)(page + idx * 8) != 0 &&
-         *(uint32_t *)(page + idx * 8) != key) {
+  while (*(uint32_t *)(page + idx * 8) != key &&
+         *(uint32_t *)(page + idx * 8 + 4) != 0) {
     idx = __bare_hash(pgcnt, (idx + 1));
     //绕了一圈了都没找到空位，说明要grow
     if (idx == h) {
@@ -105,15 +102,22 @@ static void __bare_grow(void *opage, uint32_t opgcnt, void *npage,
   assert((uintptr_t)npage % 4096 == 0);
   assert(npgcnt > opgcnt);
 
+  bare_init(npage, npgcnt);
+
   // remapping
-  for (uint32_t i = 0; i < opgcnt * 1024; i++) {
+  for (uint32_t i = 0; i < opgcnt * 512; i++) {
     uint32_t *key = (uint32_t *)(opage + i * 8);
     uint32_t *val = (uint32_t *)(opage + i * 8 + 4);
-    if (val != 0) {
+    if (*val != 0) {
       void *check_pg;
       uint32_t check_pgcnt;
       bare_put(npage, npgcnt, *key, *val, &check_pg, &check_pgcnt);
       assert(check_pg == npage && check_pgcnt == npgcnt);
     }
   }
+}
+
+void bare_clear(void *page, uint32_t pgcnt) {
+  assert((uintptr_t)page % 4096 == 0);
+  memset(page, 0, pgcnt * 4096);
 }
