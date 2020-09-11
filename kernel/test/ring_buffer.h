@@ -61,7 +61,9 @@ void ring_buffer_test() {
   ring_buffer_copyout(&buffer, 0, 4, tmp);
   assert(!memcmp("1212", tmp, 4));
 
-  terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
+  terminal_color(CGA_COLOR_GREEN, CGA_COLOR_GREEN);
+  printf(" ");
+  terminal_default_color();
   printf("ring_buffer_test passed!!!\n");
   terminal_default_color();
 }

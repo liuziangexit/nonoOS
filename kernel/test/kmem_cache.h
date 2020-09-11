@@ -8,8 +8,17 @@
 #undef NDEBUG
 #endif
 
-void kmem_page_test() {
-  printf("running kmem_page_test\n");
+// FIXME 现在还没有正式的全面测试，应该给cache写一个类似于page那样的测试
+
+void kmem_cache_test() {
+  printf("running kmem_cache_test\n");
+
+  void *mem = kmem_cache_alloc(9710);
+  assert(mem);
+  void *mem2 = kmem_cache_alloc(9888);
+  assert(mem2);
+  kmem_cache_free(mem2);
+  kmem_cache_free(mem);
 
   unsigned char dmp1[256], dmp2[256];
   kmem_page_dump(dmp1, 256);
@@ -48,7 +57,7 @@ void kmem_page_test() {
   terminal_color(CGA_COLOR_GREEN, CGA_COLOR_GREEN);
   printf(" ");
   terminal_default_color();
-  printf("kmem_page_test passed!!!\n");
+  printf("kmem_cache_test passed!!!\n");
   terminal_default_color();
 }
 

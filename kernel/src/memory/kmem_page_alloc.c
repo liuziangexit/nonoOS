@@ -1,3 +1,4 @@
+#include "pow2_util.h"
 #include <assert.h>
 #include <compiler_helper.h>
 #include <defs.h>
@@ -15,41 +16,6 @@
 // TODO 加锁
 
 //#define NDEBUG 1
-
-void kmem_init() {
-  extern uint32_t kernel_page_directory[];
-  //如果直接修改正在使用的页目录，会翻车
-  //所以lcr3一个一模一样的页目录副本，这样我们才能开始修改真正的页目录
-  _Alignas(4096) uint32_t temp_pd[1024];
-  memcpy(temp_pd, kernel_page_directory, 4096);
-  union {
-    struct CR3 cr3;
-    uintptr_t val;
-  } cr3;
-  cr3.val = 0;
-  set_cr3(&(cr3.cr3), V2P((uintptr_t)temp_pd), false, false);
-  lcr3(cr3.val);
-  //好吧，现在开始修改真的页目录(kernel_page_directory)
-  memset(kernel_page_directory, 0, 4096);
-  //虚拟地址0到4M -> 物理地址0到4M（为了CGA这样的外设地址）
-  pd_map_ps(kernel_page_directory, 0, 0, 1, PTE_P | PTE_W | PTE_PS);
-  // 8M内核映像
-  pd_map_ps(kernel_page_directory, KERNEL_VIRTUAL_BASE, 0, 2,
-            PTE_P | PTE_W | PTE_PS);
-  // 4M内核栈
-  pd_map_ps(kernel_page_directory, KERNEL_VIRTUAL_BASE + KERNEL_STACK,
-            KERNEL_STACK, 1, PTE_P | PTE_W | PTE_PS);
-  // 2G free space，这个物理上是在kernel image和kernel
-  // stack之后，直到物理内存结束的这块区域，
-  // 把它map到虚拟内存12MB的位置
-  pd_map_ps(kernel_page_directory, KERNEL_FREESPACE, KERNEL_FREESPACE, 512,
-            PTE_P | PTE_W | PTE_PS);
-
-  //重新加载真的页目录(kernel_page_directory)
-  cr3.val = 0;
-  set_cr3(&(cr3.cr3), V2P((uintptr_t)kernel_page_directory), false, false);
-  lcr3(cr3.val);
-}
 
 struct page {
   struct list_entry li;
@@ -138,48 +104,6 @@ static uint32_t list_size(list_entry_t *head) {
     }
   } while (!end);
   return i;
-}
-
-static inline bool is_pow2(uint32_t x) { return !(x & (x - 1)); }
-
-//输入2的n次幂，返回n
-//如果输入不是2的幂次，行为未定义
-static uint32_t naive_log2(uint32_t x) {
-  assert(is_pow2(x));
-  uint32_t idx;
-  asm("bsrl %1, %0" : "=r"(idx) : "r"(x));
-  return idx;
-}
-
-//返回2^exp
-static uint32_t pow2(uint32_t exp) { return 1 << exp; }
-
-//找到第一个大于等于x的2的幂
-//如果x已经是2的幂，返回x
-// https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
-static uint32_t next_pow2(uint32_t x) {
-  assert(x > 0);
-  if (is_pow2(x))
-    return x;
-  //下面这段代码啥意思呢，我们都知道2的幂的二进制表示是一个1后面跟着许多0的，
-  //所以第一个大于x的2的幂应该是x的最高位左边那一位是1的一个数(比如1010的就是10000)
-  //这一段代码做的是把x的位全部变成1，然后+1自然就是结果了
-  //比如1010，首先把它变成1111，然后加1不就是10000了吗
-  x |= x >> 1;
-  x |= x >> 2;
-  x |= x >> 4;
-  x |= x >> 8;
-  x |= x >> 16;
-  return x + 1;
-}
-
-//最小的有效输入是2
-//如果x已经是2的幂，返回x
-static inline uint32_t prev_pow2(uint32_t x) {
-  assert(x >= 2);
-  if (is_pow2(x))
-    return x;
-  return next_pow2(x) / 2;
 }
 
 void kmem_page_init(struct e820map_t *memlayout) {
