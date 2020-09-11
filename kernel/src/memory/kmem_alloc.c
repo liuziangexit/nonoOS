@@ -4,8 +4,11 @@
 #include <list.h>
 #include <memory_manager.h>
 #include <stdbool.h>
+
 // FIXME
 // 没有对齐到对象长度，比如说，1024的对象要对齐到1024边界。现在还没有这么做，这会导致速度变慢
+// FIXME 现在还没有正式的全面测试，应该给cache写一个类似于page那样的测试
+
 struct cache;
 
 struct slab {
