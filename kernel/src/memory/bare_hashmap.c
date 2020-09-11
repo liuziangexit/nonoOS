@@ -23,7 +23,7 @@ static bool __bare_find(void *page, uint32_t pgcnt, uint32_t key,
   assert((uintptr_t)page % 4096 == 0);
   const uint32_t h = __bare_hash(pgcnt, key);
   uint32_t idx = h;
-  while (*(uint32_t *)((page + idx * 8)) != key) {
+  while (*(uint32_t *)(page + idx * 8) != key) {
     idx = __bare_hash(pgcnt, (idx + 1));
     //绕了一圈了都没找到空位，说明确实没有
     if (idx == h) {
@@ -44,8 +44,8 @@ uint32_t bare_put(void *page, uint32_t pgcnt, uint32_t key, uint32_t value,
   assert(value != 0);
   const uint32_t h = __bare_hash(pgcnt, key);
   uint32_t idx = h;
-  while (*(uint32_t *)((page + idx * 8)) != 0 &&
-         *(uint32_t *)((page + idx * 8)) != key) {
+  while (*(uint32_t *)(page + idx * 8) != 0 &&
+         *(uint32_t *)(page + idx * 8) != key) {
     idx = __bare_hash(pgcnt, (idx + 1));
     //绕了一圈了都没找到空位，说明要grow
     if (idx == h) {
@@ -69,10 +69,10 @@ uint32_t bare_put(void *page, uint32_t pgcnt, uint32_t key, uint32_t value,
   }
   //找到了位置，开始put啰
   uint32_t prev = 0;
-  if (*(uint32_t *)((page + idx * 8)) == key)
-    prev = *((uint32_t *)(page + idx * 8) + 1);
+  if (*(uint32_t *)(page + idx * 8) == key)
+    prev = *(uint32_t *)(page + idx * 8 + 4);
   *(uint32_t *)(page + idx * 8) = key;
-  *((uint32_t *)(page + idx * 8) + 1) = value;
+  *(uint32_t *)(page + idx * 8 + 4) = value;
 
   *npage = page;
   *npgcnt = pgcnt;
@@ -85,7 +85,7 @@ uint32_t bare_get(void *page, uint32_t pgcnt, uint32_t key) {
   uint32_t idx;
   if (!__bare_find(page, pgcnt, key, &idx))
     return 0;
-  return *(uint32_t *)((page + idx * 8) + 1);
+  return *(uint32_t *)(page + idx * 8 + 4);
 }
 
 uint32_t bare_del(void *page, uint32_t pgcnt, uint32_t key) {
@@ -93,9 +93,9 @@ uint32_t bare_del(void *page, uint32_t pgcnt, uint32_t key) {
   uint32_t idx;
   if (!__bare_find(page, pgcnt, key, &idx))
     return 0;
-  uint32_t prev = *(uint32_t *)((page + idx * 8) + 1);
-  *(uint32_t *)((page + idx * 8)) = 0;
-  *(uint32_t *)((page + idx * 8) + 1) = 0;
+  uint32_t prev = *(uint32_t *)(page + idx * 8 + 4);
+  *(uint32_t *)(page + idx * 8) = 0;
+  *(uint32_t *)(page + idx * 8 + 4) = 0;
   return prev;
 }
 
