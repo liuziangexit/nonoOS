@@ -4,7 +4,8 @@
 #include <list.h>
 #include <memory_manager.h>
 #include <stdbool.h>
-
+// FIXME
+// 没有对齐到对象长度，比如说，1024的对象要对齐到1024边界。现在还没有这么做，这会导致速度变慢
 struct cache;
 
 struct slab {
@@ -40,19 +41,20 @@ static inline size_t cal_slab_size(size_t objsize, size_t num) {
 
 static bool cache_add_slabs(struct cache *c, size_t slab_cnt) {
   const size_t slab_size = cal_slab_size(c->objsize, c->num);
-  const size_t slab_pgcnt = ROUNDUP(slab_size, 4096) / 4096 * slab_cnt;
+  const size_t slab_pgcnt = ROUNDUP(slab_size, 4096) * slab_cnt / 4096;
   const void *mem = kmem_page_alloc(slab_pgcnt);
   if (!mem) {
     return false;
   }
   list_entry_t *share_li = 0;
 
-  for (size_t __i = 0; __i < slab_pgcnt; __i++) {
-    struct slab *s = (struct slab *)(mem + slab_size * __i);
+  for (size_t __i = 0; __i < slab_cnt; __i++) {
+    struct slab *s = (struct slab *)(mem + ROUNDUP(slab_size, 4096) * __i);
     list_init(&s->li);
     s->inuse = 0;
-    s->s_mem = (void *)(mem + slab_size * __i) + sizeof(struct slab);
-    s->free = 0;
+    s->s_mem =
+        (void *)(mem + ROUNDUP(slab_size, 4096) * __i) + sizeof(struct slab);
+    s->free = (uintptr_t)s->s_mem;
     s->cache = c;
     s->share_cnt = slab_cnt;
     s->is_pghead = __i == 0;
@@ -72,8 +74,9 @@ static bool cache_add_slabs(struct cache *c, size_t slab_cnt) {
         *(uintptr_t *)(p) = 0;
       }
     }
+
     list_add(&c->slabs_free, &s->li);
-  };
+  }
   return true;
 }
 
@@ -138,9 +141,9 @@ void kmem_cache_init() {
   bare_init(hashmap, hashmap_pgcnt);
 }
 
-static list_entry_t *find_free_slab(list_entry_t *li) {
-  list_entry_t *it = li;
-  do {
+static list_entry_t *find_free_slab(list_entry_t *head) {
+  list_entry_t *it = list_next(head);
+  while (it != head) {
     struct slab *s = (struct slab *)it;
 
     if (s->cache->num > s->inuse) {
@@ -148,7 +151,7 @@ static list_entry_t *find_free_slab(list_entry_t *li) {
     }
 
     it = list_next(it);
-  } while (it != li);
+  }
   return 0;
 }
 
@@ -170,6 +173,9 @@ static void *slab_alloc(struct slab *s) {
 
 void *kmem_cache_alloc(size_t c) {
   c = next_pow2(c);
+  c = naive_log2(c);
+  if (c < 5)
+    c = 5;
   if (c > 5 + sizeof(cache_cache) / sizeof(struct cache))
     abort();
   struct cache *cache = (cache_cache + (c - 5));
@@ -183,6 +189,8 @@ void *kmem_cache_alloc(size_t c) {
       free_slab = find_free_slab(&cache->slabs_free);
       assert(free_slab);
     }
+    list_del(free_slab);
+    list_add(&cache->slabs_partial, free_slab);
   }
   return slab_alloc((struct slab *)free_slab);
 }
@@ -195,10 +203,15 @@ static void slab_free(struct slab *s, void *p) {
   s->inuse--;
   *(uintptr_t *)p = s->free;
   s->free = (uintptr_t)p;
+
+  if (s->inuse == 0) {
+    list_del(&s->li);
+    list_add(&s->cache->slabs_free, &s->li);
+  }
 }
 
 void kmem_cache_free(void *p) {
-  uint32_t s = bare_get(hashmap, hashmap_pgcnt, (uint32_t)p);
+  uint32_t s = bare_del(hashmap, hashmap_pgcnt, (uint32_t)p);
   if (!s) {
     abort(); //进程都给你扬啰
   }

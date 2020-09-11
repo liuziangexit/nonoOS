@@ -1,4 +1,5 @@
 #include "../test/bare_hashmap.h"
+#include "../test/kmem_cache.h"
 #include "../test/kmem_page.h"
 #include "../test/ring_buffer.h"
 #include <cga.h>
@@ -39,6 +40,7 @@ void kentry(void) {
   printf("\n");
   kmem_init();
   kmem_page_init(e820map);
+  kmem_cache_init();
   printf("\n");
   sti();
 
@@ -48,9 +50,13 @@ void kentry(void) {
   putchar(1);
   printf("Welcome...\n");
   printf("\n\n");
+
+  //跑测试
   ring_buffer_test();
   kmem_page_test();
   bare_hashmap_test();
+  kmem_cache_test();
+
   printf("\n\n");
   print_kernel_size();
   printf("\n");
