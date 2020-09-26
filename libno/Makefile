@@ -16,7 +16,8 @@ src/ring_buffer.o\
 src/abort_exit.o\
 src/itoa.o\
 src/ctype.o\
-src/round.o
+src/round.o\
+src/malloc.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
