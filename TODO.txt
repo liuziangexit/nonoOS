@@ -3,11 +3,11 @@ OK-实现buddy
 OK-人肉测试buddy（我甚至写了自动化测试用例！）
 OK-实现slab
 -给slab写一个buddy那样的测试用例
--实现malloc
+OK-实现malloc
 -高于物理内存的部分不做虚拟地址映射，这样有非法访问的时候可以直接page fault
 -所有abort能改成panic就改panic，带有出错原因
-实现task（进程/线程）
-实现按时间片的简单调度算法
+WORKING-实现task（进程/线程）
+-实现按时间片的简单调度算法
 实现页面swap
 实现stdarg（1.看下gcc默认是什么参数传递规范，然后用汇编啥的去实现）
 实现同步原语

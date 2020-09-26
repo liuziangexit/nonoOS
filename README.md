@@ -11,9 +11,9 @@
 |中断处理(Interrupt)|OK|interrupt|
 |显卡和键盘驱动|OK|drivers|
 |页式内存分配|OK|memory|
-|malloc|WORKING|memory|
-|task(进程/线程)|PENDING|-|
-|上下文切换|PENDING|-|
+|malloc|OK|memory|
+|task(进程/线程)|WORKING|-|
+|上下文切换|WORKING|-|
 |task调度|PENDING|-|
 |硬盘接口|PENDING|-|
 |换页|PENDING|-|
