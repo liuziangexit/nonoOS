@@ -27,7 +27,8 @@ src/interrupt/idtvector.o\
 src/interrupt/interrupt_entry.o\
 src/debug/reg_info.o\
 src/debug/kernel_size.o\
-src/debug/print_e820.o
+src/debug/print_e820.o\
+src/process/proc.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
