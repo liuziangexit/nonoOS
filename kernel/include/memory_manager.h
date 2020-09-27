@@ -3,7 +3,7 @@
 #include <defs.h>
 #include <memlayout.h>
 
-void kmem_init();
+void kmem_init(struct e820map_t *memlayout);
 
 /*
 按页分配内存的接口

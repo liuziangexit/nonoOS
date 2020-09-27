@@ -106,8 +106,12 @@ static uint32_t list_size(list_entry_t *head) {
   return i;
 }
 
+//FIXME 好了，现在这个地方应该重构一下，由于对齐之类的脏活在kmem_init，也就是搞页目录的时候已经做过了
+//所以这里的逻辑就变得很简单：搞个滑动窗口扫描页目录，对于每一个最大的连续内存，来按buddy的方式拆掉
+//TODO kmem_init要像这里一样打印一些信息出来
 void kmem_page_init(struct e820map_t *memlayout) {
-  for (int i = 0; i < memlayout->count; i++) {
+  //如果要改这里，看看要不要把kmem_init.c里面相似的部分一块改了
+  for (uint32_t i = 0; i < memlayout->count; i++) {
     // BIOS保留的内存
     if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {
 #ifndef NDEBUG
@@ -117,11 +121,11 @@ void kmem_page_init(struct e820map_t *memlayout) {
 #endif
       continue;
     }
-    //小于1页的内存
-    if (memlayout->ard[i].size < 4096) {
+    //小于1个大页的内存
+    if (memlayout->ard[i].size < _4M) {
 #ifndef NDEBUG
       terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-      printf("kmem_page_init: address at e820[%d] is smaller than a page, "
+      printf("kmem_page_init: address at e820[%d] is smaller than 4M, "
              "ignore\n",
              i);
       terminal_default_color();
@@ -139,15 +143,14 @@ void kmem_page_init(struct e820map_t *memlayout) {
     }
 
     // 4k对齐
-    char *addr = ROUNDUP((char *)(uintptr_t)memlayout->ard[i].addr, 4096);
+    char *addr = ROUNDUP((char *)(uintptr_t)memlayout->ard[i].addr, _4K);
     uint32_t round_diff = (uintptr_t)addr - (uintptr_t)memlayout->ard[i].addr;
-    int32_t page_count =
-        (int32_t)((memlayout->ard[i].size - round_diff) / 4096);
+    int32_t page_count = (int32_t)((memlayout->ard[i].size - round_diff) / _4K);
     //如果addr小于FREESPACE（其实就是物理地址12MB起的部分），就让他等于12MB
     if ((uintptr_t)addr < KERNEL_FREESPACE) {
-      if ((uint32_t)addr + (uint32_t)(page_count * 4096) >
+      if ((uint32_t)addr + (uint32_t)(page_count * _4K) >
           (uint32_t)KERNEL_FREESPACE) {
-        page_count -= ((KERNEL_FREESPACE - (uintptr_t)addr) / 4096);
+        page_count -= ((KERNEL_FREESPACE - (uintptr_t)addr) / _4K);
         addr = (char *)KERNEL_FREESPACE;
 #ifndef NDEBUG
         terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
@@ -174,7 +177,7 @@ void kmem_page_init(struct e820map_t *memlayout) {
         i, page_count);
 #endif
     while (page_count > 0) {
-      assert((uint32_t)addr % 4096 == 0);
+      assert((uint32_t)addr % _4K == 0);
       int32_t c;
       if (page_count == 1) {
         c = 1;
@@ -183,7 +186,7 @@ void kmem_page_init(struct e820map_t *memlayout) {
       }
 
       //对于addr+c*4096越过2G+12M界的处理
-      if ((uint32_t)addr + (uint32_t)(c * 4096) >= 0x80C00000) {
+      if ((uint32_t)addr + (uint32_t)(c * _4K) >= 0x80C00000) {
 #ifndef NDEBUG
         terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
         printf("\nkmem_page_init: rest part of address %08llx at e820[%d] are "
@@ -196,6 +199,12 @@ void kmem_page_init(struct e820map_t *memlayout) {
 
 #ifndef NDEBUG
       printf("%d ", c);
+      extern uint32_t kernel_page_directory[];
+      if (!pd_ismapped(kernel_page_directory, (uintptr_t)addr)) {
+        terminal_fgcolor(CGA_COLOR_RED);
+        printf("\n\nbad addr 0x%08llx!\n\n", (int64_t)(uintptr_t)addr);
+        terminal_default_color();
+      }
       volatile int *test = (volatile int *)addr;
       *test = 9710;
       assert(*test == 9710);
@@ -212,9 +221,9 @@ void kmem_page_init(struct e820map_t *memlayout) {
       zone[log2_c].cnt++;
 #endif
       page_count -= c;
-      addr += (4096 * c);
+      addr += (_4K * c);
 #ifndef NDEBUG
-      assert(((uint64_t)(uintptr_t)(pg) + (uint64_t)pow2(log2_c) * 4096) <
+      assert(((uint64_t)(uintptr_t)(pg) + (uint64_t)pow2(log2_c) * _4K) <
              0x80C00000);
 #endif
     }
@@ -253,7 +262,7 @@ static void *split(uint32_t exp) {
       if (a == 0)
         return 0;
       //把拿到的内存切两半
-      void *b = a + pow2(exp) * 4096;
+      void *b = a + pow2(exp) * _4K;
       //一半存本层里
       add_page(&zone[exp], a);
       //一半return掉
@@ -278,9 +287,9 @@ static void combine(uint32_t exp, void *single) {
     bool end = false;
     do {
       int found; // 0=不是，1=single是前面的，2=single是后面的
-      if ((uintptr_t)single + pow2(exp) * 4096 == (uintptr_t)p) {
+      if ((uintptr_t)single + pow2(exp) * _4K == (uintptr_t)p) {
         found = 1;
-      } else if ((uintptr_t)single - pow2(exp) * 4096 == (uintptr_t)p) {
+      } else if ((uintptr_t)single - pow2(exp) * _4K == (uintptr_t)p) {
         found = 2;
       } else {
         found = 0;

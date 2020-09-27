@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <cga.h>
 #include <defs.h>
 #include <interrupt.h>
 #include <kbd.h>
@@ -7,6 +8,7 @@
 #include <panic.h>
 #include <stdio.h>
 #include <string.h>
+#include <tty.h>
 #include <x86.h>
 
 /* *
@@ -84,9 +86,11 @@ static inline void print_pgfault(struct trapframe *tf) {
    * bit 1 == 0 means read, 1 means write
    * bit 2 == 0 means kernel, 1 means user
    * */
+  terminal_fgcolor(CGA_COLOR_RED);
   printf("page fault at 0x%08x: %c/%c [%s].\n", rcr2(),
          (tf->tf_err & 4) ? 'U' : 'K', (tf->tf_err & 2) ? 'W' : 'R',
          (tf->tf_err & 1) ? "protection fault" : "no page found");
+  terminal_default_color();
 }
 
 static struct trapframe switchk2u, *switchu2k;

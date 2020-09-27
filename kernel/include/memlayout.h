@@ -31,6 +31,7 @@ Physical Address                         |        Virtual Address        |
 #define KERNEL_FREESPACE (KERNEL_STACK + KERNEL_STACK_SIZE)
 
 #ifndef __ASSEMBLER__
+#include <stdbool.h>
 #include <stdint.h>
 
 // some constants for bios interrupt 15h AX = 0xE820
@@ -38,7 +39,7 @@ Physical Address                         |        Virtual Address        |
 #define E820_ADDR_AVAILABLE(type) ((type == 1) ? 1 : 0)
 
 struct e820map_t {
-  int count;
+  uint32_t count;
 
   // Address Range Descriptor
   struct {
@@ -54,6 +55,8 @@ void print_e820();
 
 void pd_map_ps(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
                uint32_t flags);
+
+bool pd_ismapped(void *pd, uintptr_t linear);
 
 #endif
 

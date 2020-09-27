@@ -38,7 +38,7 @@ void kentry(void) {
   terminal_init();
   print_e820();
   printf("\n");
-  kmem_init();
+  kmem_init(e820map);
   kmem_page_init(e820map);
   kmem_cache_init();
   printf("\n");

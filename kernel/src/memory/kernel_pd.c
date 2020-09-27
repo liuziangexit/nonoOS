@@ -2,6 +2,8 @@
 #include <defs.h>
 #include <memlayout.h>
 #include <mmu.h>
+#include <stdbool.h>
+#include <string.h>
 // entry.S中使用的页目
 // 页目和页表必须对齐到页边界
 // PTE_PS in a page directory entry enables 4Mbyte pages.
@@ -42,4 +44,17 @@ void pd_map_ps(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
     set_pde4m(&pde.pde, (physical + i * _4M), flags);
     *(entry + i) = pde.val;
   }
+}
+
+//检查一个内存位置有没有被map
+bool pd_ismapped(void *pd, uintptr_t linear) {
+  assert(((uintptr_t)pd) % 4096 == 0);
+  linear = ROUNDDOWN(linear, _4M);
+  uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
+  union {
+    struct PDE4M pde;
+    uint32_t val;
+  } pde;
+  memcpy(&pde, entry, sizeof(uint32_t));
+  return pde.pde.flags & PTE_PS;
 }

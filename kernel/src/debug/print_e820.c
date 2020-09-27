@@ -7,7 +7,7 @@
 void print_e820() {
   printf("e820map:\n");
   printf("****************\n");
-  int i;
+  uint32_t i;
   int64_t total = 0, aval = 0;
   for (i = 0; i < e820map->count; i++) {
     uint64_t begin = e820map->ard[i].addr,
