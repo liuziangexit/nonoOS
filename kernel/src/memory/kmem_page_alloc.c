@@ -6,6 +6,7 @@
 #include <memlayout.h>
 #include <memory_manager.h>
 #include <mmu.h>
+#include <panic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
