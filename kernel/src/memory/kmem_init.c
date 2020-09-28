@@ -140,6 +140,8 @@ void kmem_init(struct e820map_t *memlayout) {
   set_cr3(&(cr3.cr3), V2P((uintptr_t)kernel_page_directory), false, false);
   lcr3(cr3.val);
 #ifndef NDEBUG
-  printf("\n");
+  terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
+  printf("kmem_init: OK\n");
+  terminal_default_color();
 #endif
 }
