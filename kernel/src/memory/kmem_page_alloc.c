@@ -41,7 +41,7 @@ static void add_page(struct zone *z, struct page *p) {
     struct page *it = z->pages;
     do {
       if (it == p)
-        abort();
+        panic("add_page check failed 1");
       it = (struct page *)((struct list_entry *)it)->next;
     } while (z->pages != it);
 #endif
@@ -67,7 +67,9 @@ static void del_page(struct zone *z, struct page *p) {
       }
       it = (struct page *)((struct list_entry *)it)->next;
     } while (z->pages != it);
-    assert(found);
+    if (!found) {
+      panic("add_page check failed 2");
+    }
 #endif
     if (list_empty((struct list_entry *)z->pages)) {
       assert(z->pages == p);
@@ -106,78 +108,63 @@ static uint32_t list_size(list_entry_t *head) {
   return i;
 }
 
-//FIXME 好了，现在这个地方应该重构一下，由于对齐之类的脏活在kmem_init，也就是搞页目录的时候已经做过了
-//所以这里的逻辑就变得很简单：搞个滑动窗口扫描页目录，对于每一个最大的连续内存，来按buddy的方式拆掉
-//TODO kmem_init要像这里一样打印一些信息出来
-void kmem_page_init(struct e820map_t *memlayout) {
-  //如果要改这里，看看要不要把kmem_init.c里面相似的部分一块改了
-  for (uint32_t i = 0; i < memlayout->count; i++) {
-    // BIOS保留的内存
-    if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {
+#define FREE_SPACE_END 768
+void kmem_page_init() {
+  extern uint32_t kernel_page_directory[1024];
+  //现在是否在一个窗口里面
+  bool window = false;
+  //滑动窗口起始
+  uint32_t begin = 0;
+  for (uint32_t i = 1; i < FREE_SPACE_END; i++) {
+    const uint32_t *page = (uint32_t *)kernel_page_directory + i;
+    if (!window) {
+      //如果现在没有滑动窗口
+      if (*page & PTE_PS) {
+        //如果当前页存在，开始一个滑动窗口
+        begin = i;
+        window = true;
 #ifndef NDEBUG
-      printf("kmem_page_init: address at e820[%d] is reserved, "
-             "ignore\n",
-             i);
+        printf("kmem_page_init: window begin at page %d(0x%08llx)\n", i,
+               (int64_t)((int64_t)begin * _4M));
 #endif
-      continue;
-    }
-    //小于1个大页的内存
-    if (memlayout->ard[i].size < _4M) {
-#ifndef NDEBUG
-      terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-      printf("kmem_page_init: address at e820[%d] is smaller than 4M, "
-             "ignore\n",
-             i);
-      terminal_default_color();
-#endif
-      continue;
-    }
-    //高于4G的内存，只可远观不可亵玩焉
-    if (memlayout->ard[i].addr > 0xfffffffe) {
-#ifndef NDEBUG
-      terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-      printf("kmem_page_init: address at e820[%d] too high, ignore\n", i);
-      terminal_default_color();
-#endif
+      }
       continue;
     }
 
-    // 4k对齐
-    char *addr = ROUNDUP((char *)(uintptr_t)memlayout->ard[i].addr, _4K);
-    uint32_t round_diff = (uintptr_t)addr - (uintptr_t)memlayout->ard[i].addr;
-    int32_t page_count = (int32_t)((memlayout->ard[i].size - round_diff) / _4K);
-    //如果addr小于FREESPACE（其实就是物理地址12MB起的部分），就让他等于12MB
-    if ((uintptr_t)addr < KERNEL_FREESPACE) {
-      if ((uint32_t)addr + (uint32_t)(page_count * _4K) >
-          (uint32_t)KERNEL_FREESPACE) {
-        page_count -= ((KERNEL_FREESPACE - (uintptr_t)addr) / _4K);
-        addr = (char *)KERNEL_FREESPACE;
-#ifndef NDEBUG
-        terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-        printf("kmem_page_init: address at e820[%d] is starting at "
-               "FREESPACE(12MB) now\n",
-               i);
-        terminal_default_color();
-#endif
+    //滑动窗口结束
+    uint32_t end;
+
+    if (i != FREE_SPACE_END - 1 && *page & PTE_PS) {
+      //如果现在不是最后一页并且这页存在，继续扩大窗口
+      continue;
+    } else {
+      //如果现在是最后一页或者本页不存在，结束滑动窗口
+      if (i == FREE_SPACE_END - 1 && *page & PTE_PS) {
+        //如果是最后一页并且该页存在，那么滑动窗口end应该是1024
+        end = FREE_SPACE_END;
       } else {
-#ifndef NDEBUG
-        terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-        printf("kmem_page_init: address at e820[%d] is too low, "
-               "ignore\n",
-               i);
-        terminal_default_color();
-#endif
-        continue;
+        //如果本页不存在，滑动窗口end就是本页
+        end = i;
       }
     }
 
 #ifndef NDEBUG
-    printf(
-        "kmem_page_init: address at e820[%d] (%d pages) are been split into ",
-        i, page_count);
+    printf("kmem_page_init: window end at page %d(0x%08llx)\n", end,
+           (int64_t)((int64_t)end * _4M));
 #endif
+
+    //滑动窗口好了，现在开始处理
+    uintptr_t addr = (uintptr_t)(begin * _4M);
+    //注意，这个指的是4k小页
+    uint32_t page_count = (end - begin) * 1024;
+
+#ifndef NDEBUG
+    printf("kmem_page_init: memory starts at 0x%08llx (total %d 4k pages) are "
+           "been split into ",
+           (int64_t)((int64_t)begin * _4M), page_count);
+#endif
+
     while (page_count > 0) {
-      assert((uint32_t)addr % _4K == 0);
       int32_t c;
       if (page_count == 1) {
         c = 1;
@@ -185,30 +172,13 @@ void kmem_page_init(struct e820map_t *memlayout) {
         c = prev_pow2(page_count);
       }
 
-      //对于addr+c*4096越过2G+12M界的处理
-      if ((uint32_t)addr + (uint32_t)(c * _4K) >= 0x80C00000) {
-#ifndef NDEBUG
-        terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-        printf("\nkmem_page_init: rest part of address %08llx at e820[%d] are "
-               "too high, ignore",
-               (int64_t)(uintptr_t)addr, i);
-        terminal_default_color();
-#endif
-        break;
-      }
-
 #ifndef NDEBUG
       printf("%d ", c);
-      extern uint32_t kernel_page_directory[];
-      if (!pd_ismapped(kernel_page_directory, (uintptr_t)addr)) {
-        terminal_fgcolor(CGA_COLOR_RED);
-        printf("\n\nbad addr 0x%08llx!\n\n", (int64_t)(uintptr_t)addr);
-        terminal_default_color();
-      }
       volatile int *test = (volatile int *)addr;
       *test = 9710;
       assert(*test == 9710);
 #endif
+
       struct page *pg = (struct page *)addr;
       list_init((list_entry_t *)pg);
       const uint32_t log2_c = naive_log2(c);
@@ -227,8 +197,10 @@ void kmem_page_init(struct e820map_t *memlayout) {
              0x80C00000);
 #endif
     }
+    //处理完窗口之后，把状态设置为false
+    window = false;
 #ifndef NDEBUG
-    printf("\n");
+    printf("\n\n");
 #endif
   }
 #ifndef NDEBUG

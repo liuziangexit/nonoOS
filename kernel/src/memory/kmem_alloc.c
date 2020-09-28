@@ -3,6 +3,7 @@
 #include <compiler_helper.h>
 #include <list.h>
 #include <memory_manager.h>
+#include <panic.h>
 #include <stdbool.h>
 
 // FIXME
@@ -139,7 +140,7 @@ void kmem_cache_init() {
   }
   hashmap = kmem_page_alloc(2);
   if (!hashmap)
-    abort();
+    panic("kmem_cache_init allocate space for hashmap failed");
   hashmap_pgcnt = 2;
   bare_init(hashmap, hashmap_pgcnt);
 }
@@ -180,7 +181,7 @@ void *kmem_cache_alloc(size_t c) {
   if (c < 5)
     c = 5;
   if (c > 5 + sizeof(cache_cache) / sizeof(struct cache))
-    abort();
+    panic("kmem_cache_alloc failed");
   struct cache *cache = (cache_cache + (c - 5));
   list_entry_t *free_slab = find_free_slab(&cache->slabs_partial);
   if (!free_slab) {
