@@ -137,11 +137,11 @@ void interrupt_handler(struct trapframe *tf) {
       /*
       最后一个问题，硬件进来（int）的时候push trapframe没有push
       ss和esp，那为什么返回（iret）的时候硬件自动就知道要多pop ss和esp了呢？
-      原理是硬件检查了特权级是否发生了变化，如果有变化，就去多pop那两个东西出来。
-      硬件怎么看特权级是否有变化呢？看cs寄存器里的某些bit就知道了
+      原理是硬件检查了特权级是否有提升，如果有，就去多pop那两个东西出来
 
       所以这实际上也解释了为啥switchk2u是一个tf对象，而switchu2k只是一个tf指针，
-      因为switchu2k的时候要转换特权级，所以硬件就在
+      当u2k的时候，要提权，所以栈上本来就有那ss和esp，因此我们直接改栈就好了。
+      当k2u的时候，不需要提权，所以栈上没有ss和esp，那我们又需要这两个东西，所以只好拷贝一下了。
       */
     }
     break;
