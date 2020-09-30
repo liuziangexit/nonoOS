@@ -35,8 +35,7 @@ struct task {
   enum task_state state;
   pid_t id;
   struct task *parent; //父进程
-  uintptr_t ustack;    //用户栈
-  uintptr_t kstack;    //内核栈(系统调用时)
+  uintptr_t kstack;    //内核栈
   uintptr_t pgd;       //页目录地址
   struct context ctx;  //上下文
 };

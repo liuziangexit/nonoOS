@@ -28,7 +28,8 @@ src/interrupt/interrupt_entry.o\
 src/debug/reg_info.o\
 src/debug/kernel_size.o\
 src/debug/print_e820.o\
-src/task/task.o
+src/task/task.o\
+src/task/switch_to.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
@@ -58,6 +59,9 @@ src/interrupt/idtvector.o:
 
 src/interrupt_handler.o: src/interrupt_handler.c
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) -Wno-address-of-packed-member $(INCLUDE)
+
+src/task/switch_to.o: src/task/switch_to.S
+	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE)
 
 %.o: %.c
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
