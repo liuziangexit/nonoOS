@@ -14,6 +14,7 @@
 #include <picirq.h>
 #include <stdio.h>
 #include <string.h>
+#include <task.h>
 #include <tty.h>
 #include <x86.h>
 
@@ -42,6 +43,7 @@ void kentry(void) {
   kmem_page_init();
   kmem_cache_init();
   printf("\n");
+  task_init();
   sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
