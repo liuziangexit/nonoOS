@@ -15,6 +15,7 @@
 #include <x86.h>
 
 // TODO 加锁
+//FIXME list entry用法不对
 
 //#define NDEBUG 1
 
@@ -96,10 +97,11 @@ static uint32_t list_size(list_entry_t *head) {
   if (head == 0)
     return 0;
   uint32_t i = 0;
+  const list_entry_t *cp = head;
   bool end = false;
   do {
     i++;
-    end = head->next == head;
+    end = head->next == cp;
     if (!end) {
       head = list_next(head);
       if (head == 0)
