@@ -16,6 +16,7 @@ kernel: tools driver libno
 
 libno:
 	cd libno/kernel_build;	make
+	cd libno/user_build;	make
 
 driver:
 	cd driver;	make
@@ -29,4 +30,5 @@ clean:
 	cd kernel;	make clean
 	cd tools;	make clean
 	cd libno/kernel_build;	make clean
+	cd libno/user_build;	make clean
 	cd driver;  make clean
