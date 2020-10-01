@@ -25,6 +25,7 @@ struct registers {
 
 typedef uint32_t pid_t;
 
+//内核线程
 struct kernel_task {
   list_entry_t list_head;
   bool kernel; //是否内核权限
