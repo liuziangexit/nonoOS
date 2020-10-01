@@ -215,6 +215,9 @@ static void slab_free(struct slab *s, void *p) {
 }
 
 void kmem_cache_free(void *p) {
+  if (!p) {
+    return;
+  }
   uint32_t s = bare_del(hashmap, hashmap_pgcnt, (uint32_t)p);
   if (!s) {
     abort(); //进程都给你扬啰
