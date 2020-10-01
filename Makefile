@@ -15,7 +15,7 @@ kernel: tools driver libno
 	cd kernel;	make
 
 libno:
-	cd libno;	make
+	cd libno/kernel_build;	make
 
 driver:
 	cd driver;	make
@@ -28,5 +28,5 @@ clean:
 	rm -f fs.img
 	cd kernel;	make clean
 	cd tools;	make clean
-	cd libno;	make clean
+	cd libno/kernel_build;	make clean
 	cd driver;  make clean

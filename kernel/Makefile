@@ -49,7 +49,7 @@ bootblock:
 kernel: $(KERNEL_OBJS) crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o 
 	$(CC) -T kernel.ld -o kernel $(CFLAGS) \
 	crt/crti.o crt/crtbegin.o \
-	$(KERNEL_OBJS) -nostdlib -L../libno -lno -L../driver -ldriver -static-libgcc -lgcc \
+	$(KERNEL_OBJS) -nostdlib -L../libno/kernel_build -lno -L../driver -ldriver -static-libgcc -lgcc \
 	crt/crtend.o crt/crtn.o
 
 crt/crtbegin.o crt/crtend.o:
