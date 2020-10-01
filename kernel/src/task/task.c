@@ -12,8 +12,6 @@ static struct task *current;
 // FIXME atomic
 static pid_t id_seq;
 
-static void switch_to(task_t *t);
-
 static task_t *task_create_impl(bool supervisor) {
   if (current != 0) {
     if (supervisor && !current->supervisor)
@@ -89,7 +87,7 @@ pid_t task_create(void (*func)(void *), void *arg, bool supervisor) {
   new_task->ctx.regs.ebp = new_task->kstack + KSTACK_SIZE;
   new_task->ctx.regs.esp = new_task->kstack + KSTACK_SIZE - 2 * sizeof(void *);
   *(void **)(new_task->ctx.regs.esp + 4) = arg;
-  *(void **)(new_task->ctx.regs.esp) = (void*)func;
+  *(void **)(new_task->ctx.regs.esp) = (void *)func;
 
   list_add(&tasks, &new_task->list_head);
   return new_task->id;
@@ -113,7 +111,10 @@ void task_sleep(uint64_t millisecond) { UNUSED(millisecond); }
 
 //退出当前进程
 // aka exit
-void task_exit() {}
+void task_exit() {
+  printf("current task %d exit!\n", current->id);
+  panic("task exit!");
+}
 
 void switch_to_impl(void *, void *);
 
