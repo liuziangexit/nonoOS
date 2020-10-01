@@ -1,4 +1,4 @@
-.PHONY: all clean kernel libno tools driver
+.PHONY: all clean kernel libno tools driver prog
 .SUFFIXES: .o .c
 
 all: nonoOS.img
@@ -11,7 +11,7 @@ nonoOS.img: kernel
 	dd if=kernel/bootblock of=nonoOS.img conv=notrunc
 	dd if=kernel/kernel of=nonoOS.img seek=1 conv=notrunc
 
-kernel: tools driver libno
+kernel: tools driver libno prog
 	cd kernel;	make
 
 libno:
@@ -24,6 +24,9 @@ driver:
 tools:
 	cd tools;	make
 
+prog:
+	cd program;	make
+
 clean:
 	rm -f nonoOS.img
 	rm -f fs.img
@@ -32,3 +35,4 @@ clean:
 	cd libno/kernel_build;	make clean
 	cd libno/user_build;	make clean
 	cd driver;  make clean
+	cd program;  make clean
