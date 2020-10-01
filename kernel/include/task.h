@@ -23,24 +23,19 @@ struct registers {
   uint32_t ebp;
 };
 
-struct context {
-  struct registers regs; //寄存器
-};
-
 typedef uint32_t pid_t;
 
-struct task {
+struct kernel_task {
   list_entry_t list_head;
-  bool supervisor; //内核权限
+  bool kernel; //是否内核权限
   enum task_state state;
   pid_t id;
-  struct task *parent; //父进程
-  uintptr_t kstack;    //内核栈
-  uintptr_t pgd;       //页目录地址
-  struct context ctx;  //上下文
   const char *name;
+  struct kernel_task *parent; //父进程
+  uintptr_t kstack;           //内核栈
+  struct registers regs;      //寄存器
 };
-typedef struct task task_t;
+typedef struct kernel_task kernel_task_t;
 
 void task_display();
 
@@ -52,7 +47,7 @@ pid_t task_current();
 
 //创建进程
 pid_t task_create(void (*func)(void *), void *arg, const char *name,
-                  bool supervisor);
+                  bool kernel);
 
 //等待进程结束
 void task_join(pid_t pid);

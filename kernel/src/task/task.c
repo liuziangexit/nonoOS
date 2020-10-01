@@ -8,23 +8,23 @@
 #include <task.h>
 
 static list_entry_t tasks;
-static struct task *current;
+static kernel_task_t *current;
 // FIXME atomic
 static pid_t id_seq;
 
-static task_t *task_create_impl(const char *name, bool supervisor) {
+static kernel_task_t *task_create_impl(const char *name, bool kernel) {
   if (current != 0) {
-    if (supervisor && !current->supervisor)
+    if (kernel && !current->kernel)
       return 0; //只有supervisor才能创造一个supervisor
   }
 
-  task_t *new_task = malloc(sizeof(task_t));
+  kernel_task_t *new_task = malloc(sizeof(kernel_task_t));
   if (!new_task) {
     return 0;
   }
 
   list_init(&new_task->list_head);
-  new_task->supervisor = supervisor;
+  new_task->kernel = kernel;
   new_task->state = CREATED;
 
   do {
@@ -32,15 +32,6 @@ static task_t *task_create_impl(const char *name, bool supervisor) {
   } while (new_task->id == 0);
 
   new_task->parent = current;
-
-  if (supervisor) {
-    extern uint32_t kernel_page_directory[];
-    new_task->pgd = (uintptr_t)(uint32_t *)kernel_page_directory;
-  } else {
-    //用户任务需要新建一个页表
-    panic("ahaaa");
-  }
-
   new_task->name = name;
 
   return new_task;
@@ -50,7 +41,7 @@ static task_t *task_create_impl(const char *name, bool supervisor) {
 
 void kernel_task_entry();
 
-static void task_destory(task_t *t) {
+static void task_destory(kernel_task_t *t) {
   assert(t);
   free((void *)t->kstack);
   list_del(&t->list_head);
@@ -63,10 +54,10 @@ void switch_to(void *from, void *to);
 void switch_to2(void *to);
 
 // FIXME 不应该线性搜索
-static task_t *task_find(pid_t pid) {
+static kernel_task_t *task_find(pid_t pid) {
   for (list_entry_t *p = list_next(&tasks); p != &tasks; p = list_next(p)) {
-    if (((task_t *)p)->id == pid) {
-      return (task_t *)p;
+    if (((kernel_task_t *)p)->id == pid) {
+      return (kernel_task_t *)p;
     }
   }
   return 0;
@@ -76,9 +67,9 @@ void task_display() {
   printf("\n\nTask Display   Current: %s", current->name);
   printf("\n****************************\n");
   for (list_entry_t *p = list_next(&tasks); p != &tasks; p = list_next(p)) {
-    task_t *t = (task_t *)p;
+    kernel_task_t *t = (kernel_task_t *)p;
     printf("State:%s  ID:%d  Supervisor:%s  Name:%s\n",
-           task_state_str(t->state), (int)t->id, t->supervisor ? "T" : "F",
+           task_state_str(t->state), (int)t->id, t->kernel ? "T" : "F",
            t->name);
   }
   printf("****************************\n\n");
@@ -100,7 +91,7 @@ const char *task_state_str(enum task_state s) {
 
 void task_init() {
   //将当前的上下文设置为第一个任务
-  task_t *init = task_create_impl("scheduler", true);
+  kernel_task_t *init = task_create_impl("scheduler", true);
   if (!init) {
     panic("creating task init failed");
   }
@@ -122,8 +113,8 @@ pid_t task_current() {
 
 //创建进程
 pid_t task_create(void (*func)(void *), void *arg, const char *name,
-                  bool supervisor) {
-  task_t *new_task = task_create_impl(name, supervisor);
+                  bool kernel) {
+  kernel_task_t *new_task = task_create_impl(name, kernel);
   if (!new_task)
     return 0;
 
@@ -133,12 +124,12 @@ pid_t task_create(void (*func)(void *), void *arg, const char *name,
   }
 
   //设置上下文
-  memset(&new_task->ctx, 0, sizeof(struct context));
-  new_task->ctx.regs.eip = (uint32_t)(uintptr_t)kernel_task_entry;
-  new_task->ctx.regs.ebp = new_task->kstack + KSTACK_SIZE;
-  new_task->ctx.regs.esp = new_task->kstack + KSTACK_SIZE - 2 * sizeof(void *);
-  *(void **)(new_task->ctx.regs.esp + 4) = arg;
-  *(void **)(new_task->ctx.regs.esp) = (void *)func;
+  memset(&new_task->regs, 0, sizeof(struct registers));
+  new_task->regs.eip = (uint32_t)(uintptr_t)kernel_task_entry;
+  new_task->regs.ebp = new_task->kstack + KSTACK_SIZE;
+  new_task->regs.esp = new_task->kstack + KSTACK_SIZE - 2 * sizeof(void *);
+  *(void **)(new_task->regs.esp + 4) = arg;
+  *(void **)(new_task->regs.esp) = (void *)func;
 
   list_add(&tasks, &new_task->list_head);
   return new_task->id;
@@ -162,10 +153,10 @@ void task_sleep(uint64_t millisecond) { UNUSED(millisecond); }
 void task_exit() {
   task_destory(current);
   //找到task schd
-  task_t *schd = task_find(1);
+  kernel_task_t *schd = task_find(1);
   assert(schd);
   schd->state = RUNNING;
-  switch_to2(&schd->ctx);
+  switch_to2(&schd->regs);
 }
 
 //切换到另一个task
@@ -176,14 +167,14 @@ void task_switch(pid_t pid) {
     panic("task_switch: switch to self is prohibited");
   }
 
-  task_t *t = task_find(pid);
+  kernel_task_t *t = task_find(pid);
   if (t == 0) {
     // FIXME 不应该panic
     panic("task_switch: pid not found");
   }
   current->state = YIELDED;
   t->state = RUNNING;
-  task_t *prev = current;
+  kernel_task_t *prev = current;
   current = t;
-  switch_to(&prev->ctx.regs, &t->ctx.regs);
+  switch_to(&prev->regs, &t->regs);
 }
