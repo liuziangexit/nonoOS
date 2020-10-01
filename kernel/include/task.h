@@ -1,5 +1,6 @@
 #ifndef __KERNEL_TASK_H__
 #define __KERNEL_TASK_H__
+#include <interrupt.h>
 #include <list.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -37,6 +38,22 @@ struct kernel_task {
   struct registers regs;      //寄存器
 };
 typedef struct kernel_task kernel_task_t;
+
+/*
+用户线程的地址空间：
+[0x100000, 0x100000+程序大小): 代码和数据（text, rodata, data, bss）
+[0xFFFFFFFF-栈大小, 0xFFFFFFFF): 用户栈
+用户栈和代码之间的空间是heap，用来malloc或者mmap
+*/
+
+//用户线程
+struct user_task {
+  kernel_task_t base;
+  uintptr_t pgd; //页目录
+  struct trapframe tf;
+  uintptr_t ustack; //用户栈
+};
+typedef struct user_task user_task_t;
 
 void task_display();
 
