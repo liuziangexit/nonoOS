@@ -48,7 +48,7 @@ void task_init();
 pid_t task_current();
 
 //创建进程
-pid_t task_create(bool supervisor, size_t stack_size);
+pid_t task_create(void (*func)(void *), void *arg, bool supervisor);
 
 //等待进程结束
 void task_join(pid_t pid);
@@ -62,5 +62,8 @@ void task_sleep(uint64_t millisecond);
 //退出当前进程
 // aka exit
 void task_exit();
+
+//切换到另一个task
+void task_switch(pid_t);
 
 #endif

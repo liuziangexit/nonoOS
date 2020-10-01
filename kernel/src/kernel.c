@@ -2,6 +2,7 @@
 #include "../test/kmem_cache.h"
 #include "../test/kmem_page.h"
 #include "../test/ring_buffer.h"
+#include "../test/task.h"
 #include <cga.h>
 #include <debug.h>
 #include <defs.h>
@@ -44,6 +45,8 @@ void kentry(void) {
   kmem_cache_init();
   printf("\n");
   task_init();
+  task_test();
+  //考虑一下嵌套中断
   sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
