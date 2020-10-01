@@ -44,6 +44,32 @@ static task_t *task_create_impl(bool supervisor) {
   return new_task;
 }
 
+#define KSTACK_SIZE (4096)
+
+void kernel_task_entry();
+
+static void task_destory(task_t *t) {
+  assert(t);
+  free((void *)t->kstack);
+  list_del(&t->list_head);
+  free(t);
+}
+
+//保存上下文再切换
+void switch_to(void *from, void *to);
+//直接切换，不保存上下文（exit时用）
+void switch_to2(void *to);
+
+// FIXME 不应该线性搜索
+static task_t *task_find(pid_t pid) {
+  for (list_entry_t *p = list_next(&tasks); p != &tasks; p = list_next(p)) {
+    if (((task_t *)p)->id == pid) {
+      return (task_t *)p;
+    }
+  }
+  return 0;
+}
+
 void task_init() {
   //将当前的上下文设置为第一个任务init
   task_t *init = task_create_impl(true);
@@ -65,10 +91,6 @@ pid_t task_current() {
     return current->id;
   }
 }
-
-#define KSTACK_SIZE (4096)
-
-void kernel_task_entry();
 
 //创建进程
 pid_t task_create(void (*func)(void *), void *arg, bool supervisor) {
@@ -93,10 +115,7 @@ pid_t task_create(void (*func)(void *), void *arg, bool supervisor) {
   return new_task->id;
 
 fail:
-  if (new_task->kstack) {
-    free((void *)new_task->kstack);
-  }
-  free(new_task);
+  task_destory(new_task);
   return 0;
 }
 
@@ -110,13 +129,14 @@ void task_yield() {}
 void task_sleep(uint64_t millisecond) { UNUSED(millisecond); }
 
 //退出当前进程
-// aka exit
+// aka exit()
 void task_exit() {
-  printf("current task %d exit!\n", current->id);
-  panic("task exit!");
+  task_destory(current);
+  //找到task schd
+  task_t *schd = task_find(1);
+  assert(schd);
+  switch_to2(&schd->ctx);
 }
-
-void switch_to_impl(void *, void *);
 
 //切换到另一个task
 void task_switch(pid_t pid) {
@@ -125,19 +145,13 @@ void task_switch(pid_t pid) {
     // FIXME 不应该panic
     panic("task_switch: switch to self is prohibited");
   }
-  // FIXME 不应该线性搜索
-  task_t *t = 0;
-  for (list_entry_t *p = list_next(&tasks); p != &tasks; p = list_next(p)) {
-    if (((task_t *)p)->id == pid) {
-      t = (task_t *)p;
-      break;
-    }
-  }
+
+  task_t *t = task_find(pid);
   if (t == 0) {
-    // FIXME 好像不应该panic
+    // FIXME 不应该panic
     panic("task_switch: pid not found");
   }
   task_t *prev = current;
   current = t;
-  switch_to_impl(&prev->ctx.regs, &t->ctx.regs);
+  switch_to(&prev->ctx.regs, &t->ctx.regs);
 }

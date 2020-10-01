@@ -1,9 +1,9 @@
 .text
-.globl switch_to_impl
-switch_to_impl:                      # switch_to(from, to)
+.globl switch_to
+switch_to:                      # switch_to(from, to)
     # save from's registers
     movl 4(%esp), %eax          # eax points to from
-    popl 0(%eax)                # save eip !popl
+    popl 0(%eax)                # save eip
     movl %esp, 4(%eax)
     movl %ebx, 8(%eax)
     movl %ecx, 12(%eax)
