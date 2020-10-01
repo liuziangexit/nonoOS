@@ -12,7 +12,7 @@ static struct task *current;
 // FIXME atomic
 static pid_t id_seq;
 
-static task_t *task_create_impl(bool supervisor) {
+static task_t *task_create_impl(const char *name, bool supervisor) {
   if (current != 0) {
     if (supervisor && !current->supervisor)
       return 0; //只有supervisor才能创造一个supervisor
@@ -40,6 +40,8 @@ static task_t *task_create_impl(bool supervisor) {
     //用户任务需要新建一个页表
     panic("ahaaa");
   }
+
+  new_task->name = name;
 
   return new_task;
 }
@@ -70,9 +72,35 @@ static task_t *task_find(pid_t pid) {
   return 0;
 }
 
+void task_display() {
+  printf("\n\nTask Display   Current: %s", current->name);
+  printf("\n****************************\n");
+  for (list_entry_t *p = list_next(&tasks); p != &tasks; p = list_next(p)) {
+    task_t *t = (task_t *)p;
+    printf("State:%s  ID:%d  Supervisor:%s  Name:%s\n",
+           task_state_str(t->state), (int)t->id, t->supervisor ? "T" : "F",
+           t->name);
+  }
+  printf("****************************\n\n");
+}
+
+const char *task_state_str(enum task_state s) {
+  switch (s) {
+  case CREATED:
+    return "CREATED";
+  case YIELDED:
+    return "YIELDED";
+  case RUNNING:
+    return "RUNNING";
+  default:
+    panic("zhu ni zhong qiu jie kuai le!");
+  }
+  __builtin_unreachable();
+}
+
 void task_init() {
-  //将当前的上下文设置为第一个任务init
-  task_t *init = task_create_impl(true);
+  //将当前的上下文设置为第一个任务
+  task_t *init = task_create_impl("scheduler", true);
   if (!init) {
     panic("creating task init failed");
   }
@@ -93,8 +121,9 @@ pid_t task_current() {
 }
 
 //创建进程
-pid_t task_create(void (*func)(void *), void *arg, bool supervisor) {
-  task_t *new_task = task_create_impl(supervisor);
+pid_t task_create(void (*func)(void *), void *arg, const char *name,
+                  bool supervisor) {
+  task_t *new_task = task_create_impl(name, supervisor);
   if (!new_task)
     return 0;
 
@@ -135,6 +164,7 @@ void task_exit() {
   //找到task schd
   task_t *schd = task_find(1);
   assert(schd);
+  schd->state = RUNNING;
   switch_to2(&schd->ctx);
 }
 
@@ -151,6 +181,8 @@ void task_switch(pid_t pid) {
     // FIXME 不应该panic
     panic("task_switch: pid not found");
   }
+  current->state = YIELDED;
+  t->state = RUNNING;
   task_t *prev = current;
   current = t;
   switch_to(&prev->ctx.regs, &t->ctx.regs);

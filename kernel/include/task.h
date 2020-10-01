@@ -5,12 +5,12 @@
 #include <stdint.h>
 
 enum task_state {
-  CREATED,    //
-  YIELDED,    //
-  WAITING_IO, //
-  RUNNING,    //
-  STOPPED
+  CREATED, //
+  YIELDED, //
+  RUNNING
 };
+
+const char *task_state_str(enum task_state);
 
 struct registers {
   uint32_t eip;
@@ -38,8 +38,11 @@ struct task {
   uintptr_t kstack;    //内核栈
   uintptr_t pgd;       //页目录地址
   struct context ctx;  //上下文
+  const char *name;
 };
 typedef struct task task_t;
+
+void task_display();
 
 //初始化进程系统
 void task_init();
@@ -48,7 +51,8 @@ void task_init();
 pid_t task_current();
 
 //创建进程
-pid_t task_create(void (*func)(void *), void *arg, bool supervisor);
+pid_t task_create(void (*func)(void *), void *arg, const char *name,
+                  bool supervisor);
 
 //等待进程结束
 void task_join(pid_t pid);
