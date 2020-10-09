@@ -13,6 +13,7 @@
 #include <memory_manager.h>
 #include <mmu.h>
 #include <picirq.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <task.h>
@@ -68,7 +69,15 @@ void kentry(void) {
   printf("\n\n");
   print_cur_status();
   printf("\n\n");
+
+  extern char _binary____program_hello_world_hello_exe_start[],
+      _binary____program_hello_world_hello_exe_size[];
+  printf("program_hello_start: 0x%08x, size: %d\n\n",
+         (uintptr_t)_binary____program_hello_world_hello_exe_start,
+         (uint32_t)_binary____program_hello_world_hello_exe_size);
+
   printf("nonoOS:$ ");
+
   //
   while (1) {
     hlt();

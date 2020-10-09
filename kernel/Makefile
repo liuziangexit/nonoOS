@@ -33,7 +33,7 @@ src/task/switch_to.o\
 src/task/switch_to2.o\
 src/task/entry.o
 
-.PHONY: all clean
+.PHONY: all clean crt
 .SUFFIXES: .o .c .S
 
 all: bootblock kernel
@@ -46,11 +46,16 @@ bootblock:
 	../tools/sign bootblock bootblock
 	cp bootloader/bootblock.o unsigned_bootblock
 
-kernel: $(KERNEL_OBJS) crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o 
+kernel: $(KERNEL_OBJS) crt
 	$(CC) -T kernel.ld -o kernel $(CFLAGS) \
 	crt/crti.o crt/crtbegin.o \
-	$(KERNEL_OBJS) -nostdlib -L../libno/kernel_build -lno -L../driver -ldriver -static-libgcc -lgcc \
-	crt/crtend.o crt/crtn.o
+	$(KERNEL_OBJS) \
+	-nostdlib -L../libno/kernel_build -lno -L../driver -ldriver -static-libgcc -lgcc \
+	crt/crtend.o crt/crtn.o \
+	-Wl,-b -Wl,binary -Wl,../program/hello_world/hello.exe
+	
+
+crt: crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o
 
 crt/crtbegin.o crt/crtend.o:
 	CPFROM=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$CPFROM" $@

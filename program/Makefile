@@ -13,15 +13,18 @@ LDFLAGS=-O0 -L../libno/user_build -lno
 PROG_OBJS=\
 hello_world/hello.exe
 
-.PHONY: all clean
+.PHONY: all clean crt
 .SUFFIXES: .o .c .S
 
-all: $(PROG_OBJS)
+all: crt $(PROG_OBJS)
+
+crt:
+	cd ../kernel; make crt
 
 %.exe: %.o
 	$(CC) -T user.ld -o $@ $(CFLAGS) \
 	../kernel/crt/crti.o ../kernel/crt/crtbegin.o \
-	$(KERNEL_OBJS) -nostdlib -L../libno/user_build -lno -static-libgcc -lgcc \
+	-nostdlib -L../libno/user_build -lno -static-libgcc -lgcc \
 	../kernel/crt/crtend.o ../kernel/crt/crtn.o
 
 %.o: %.c
@@ -30,3 +33,4 @@ all: $(PROG_OBJS)
 clean:
 	find . -name "*.o"  | xargs rm -f
 	find . -name "*.a"  | xargs rm -f
+	find . -name "*.exe"  | xargs rm -f
