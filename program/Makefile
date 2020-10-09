@@ -8,17 +8,24 @@ OBJCOPY=$(CCPREFIX)objcopy
 CFLAGS=-O0 -g -Wall -Wextra -ffreestanding -nostdinc
 CVERSION=-std=gnu11
 INCLUDE=-I../libno/include
+LDFLAGS=-O0 -L../libno/user_build -lno
 
 PROG_OBJS=\
-hello_world/main.o
+hello_world/hello.exe
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
 
 all: $(PROG_OBJS)
 
+%.exe: %.o
+	$(CC) -T user.ld -o $@ $(CFLAGS) \
+	../kernel/crt/crti.o ../kernel/crt/crtbegin.o \
+	$(KERNEL_OBJS) -nostdlib -L../libno/user_build -lno -static-libgcc -lgcc \
+	../kernel/crt/crtend.o ../kernel/crt/crtn.o
+
 %.o: %.c
-	$(CC) -T user.ld -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
+	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
 
 clean:
 	find . -name "*.o"  | xargs rm -f

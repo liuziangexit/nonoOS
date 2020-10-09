@@ -6,12 +6,12 @@ all: nonoOS.img
 fs.img: tools
 	tools/mkfs fs.img
 
-nonoOS.img: kernel
+nonoOS.img: kernel prog
 	dd if=/dev/zero of=nonoOS.img count=10000
 	dd if=kernel/bootblock of=nonoOS.img conv=notrunc
 	dd if=kernel/kernel of=nonoOS.img seek=1 conv=notrunc
 
-kernel: tools driver libno prog
+kernel: tools driver libno
 	cd kernel;	make
 
 libno:
@@ -24,7 +24,7 @@ driver:
 tools:
 	cd tools;	make
 
-prog:
+prog: kernel libno
 	cd program;	make
 
 clean:
