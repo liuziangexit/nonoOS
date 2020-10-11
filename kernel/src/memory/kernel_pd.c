@@ -2,6 +2,7 @@
 #include <defs.h>
 #include <memlayout.h>
 #include <mmu.h>
+#include <panic.h>
 #include <stdbool.h>
 #include <string.h>
 // entry.S中使用的页目
@@ -56,5 +57,11 @@ bool pd_ismapped(void *pd, uintptr_t linear) {
     uint32_t val;
   } pde;
   memcpy(&pde, entry, sizeof(uint32_t));
-  return pde.pde.flags & PTE_PS;
+  if (pde.pde.flags & PTE_PS) {
+    return pde.pde.flags & PTE_P;
+  } else {
+    //检查Page Table里面有没有map这个位置
+    panic("wwww");
+    __builtin_unreachable();
+  }
 }
