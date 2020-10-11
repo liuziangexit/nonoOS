@@ -40,6 +40,8 @@ void task_test() {
   terminal_default_color();
   printf("tasktest passed!!!\n");
   terminal_default_color();
+
+  destroy_exited();
 }
 
 #ifdef __NDEBUG_BEEN_FUCKED

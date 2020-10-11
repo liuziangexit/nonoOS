@@ -70,6 +70,8 @@ ktask_t *task_find(pid_t pid);
 
 void task_display();
 
+void destroy_exited();
+
 //初始化task系统
 void task_init();
 

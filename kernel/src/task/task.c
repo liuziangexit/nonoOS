@@ -13,6 +13,7 @@ TODO
 首先需要实现一个std::vector一样的可变长数组，然后实现二分法的操作（直接实现c标准库里的），就可以了。
 */
 static list_entry_t tasks;
+static list_entry_t tasks_exited;
 static ktask_t *current;
 // FIXME atomic
 static pid_t id_seq;
@@ -44,8 +45,6 @@ static void task_group_remove(task_group_t *g, ktask_t *t) {
     g->task_cnt--;
     list_del(&t->group_head);
   }
-  list_init(&t->group_head);
-  t->group = 0;
 }
 
 //因为ktask里面那个group
@@ -83,9 +82,8 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   new_task->state = CREATED;
 
   //生成pid
-  do {
-    new_task->id = id_seq++;
-  } while (new_task->id == 0);
+  // FIXME 这里需要确保没有和现有pid重复
+  new_task->id = ++id_seq;
 
   new_task->parent = current;
   new_task->name = name;
@@ -102,9 +100,11 @@ void kernel_task_entry();
 
 static void task_destory(ktask_t *t) {
   assert(t);
-  list_del(&t->global_head);
   free((void *)t->kstack);
   task_group_remove(t->group, t);
+#ifndef NDEBUG
+  printf("task_destory: destroying task %s\n", t->name);
+#endif
   free(t);
 }
 
@@ -151,6 +151,19 @@ const char *task_state_str(enum task_state s) {
   __builtin_unreachable();
 }
 
+//这个由idle线程执行，每次idle被调度的时候，都要执行这个函数
+//要限制这个的执行权限
+void destroy_exited() {
+  if (!list_empty(&tasks_exited)) {
+    for (list_entry_t *p = list_next(&tasks_exited); p != &tasks_exited;) {
+      list_entry_t *next = list_next(p);
+      task_destory((ktask_t *)p);
+      p = next;
+    }
+    list_init(&tasks_exited);
+  }
+}
+
 void task_init() {
   //将当前的上下文设置为第一个任务
   ktask_t *init = task_create_impl("scheduler", true, 0);
@@ -160,6 +173,7 @@ void task_init() {
   init->state = RUNNING;
   init->kstack = 0;
   list_init(&tasks);
+  list_init(&tasks_exited);
   list_add(&tasks, &init->global_head);
   current = init;
 }
@@ -222,6 +236,9 @@ void task_exit() {
   assert(schd);
   schd->state = RUNNING;
   current->state = EXITED;
+  list_del(&current->global_head);
+  list_init(&current->global_head);
+  list_add(&tasks_exited, &current->global_head);
   current = schd;
   switch_to2(&schd->regs);
 }
