@@ -22,7 +22,8 @@ void task_test() {
   printf("running task_test\n");
 
   printf("task1: creating task2\n");
-  pid_t t2 = task_create(task2, (void *)task_current(), "test",true);
+  pid_t t2 = task_create(task2, (void *)task_current(), "test", true,
+                         task_find(task_current())->group);
   assert(t2);
   pid_t t1 = task_current();
   assert(t1);
