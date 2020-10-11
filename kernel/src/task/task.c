@@ -231,14 +231,16 @@ void task_sleep(uint64_t millisecond) {
 //退出当前进程
 // aka exit()
 void task_exit() {
-  //找到schd task，它的pid是1
-  ktask_t *schd = task_find(1);
-  assert(schd);
-  schd->state = RUNNING;
+  //把current设置为EXITED并且加入到tasks_exited链表中，之后schd线程会对它调用destory的
   current->state = EXITED;
   list_del(&current->global_head);
   list_init(&current->global_head);
   list_add(&tasks_exited, &current->global_head);
+  //找到schd task，它的pid是1
+  ktask_t *schd = task_find(1);
+  assert(schd);
+  //切换到schd
+  schd->state = RUNNING;
   current = schd;
   switch_to2(&schd->regs);
 }
