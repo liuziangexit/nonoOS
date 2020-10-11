@@ -53,15 +53,27 @@ inline static ktask_t *task_group_list_retrieve(list_entry_t *head) {
   return (ktask_t *)(head - 1);
 }
 
-//不设置
 static ktask_t *task_create_impl(const char *name, bool kernel,
                                  task_group_t *group) {
-  //检查kernel参数是否合法
+  //检查参数是否合法
   if (current && kernel && !current->group->is_kernel) {
     return 0; //只有supervisor才能创造一个supervisor
   }
   if (group && (kernel != group->is_kernel)) {
     return 0;
+  }
+  if (kernel) {
+    //如果是内核级
+    if (group) {
+      //如果指定了线程组，那么必须是idle所在的那个组
+      if (task_find(1)->group != group) {
+        return 0;
+      }
+    } else {
+      //如果没有指定线程组（意思是要创建一个），那么确保这是首个内核线程（idle）
+      if (task_find(1))
+        return 0;
+    }
   }
 
   if (!group) {
@@ -165,15 +177,15 @@ void destroy_exited() {
 }
 
 void task_init() {
+  list_init(&tasks);
+  list_init(&tasks_exited);
   //将当前的上下文设置为第一个任务
   ktask_t *init = task_create_impl("scheduler", true, 0);
   if (!init) {
     panic("creating task init failed");
   }
   init->state = RUNNING;
-  init->kstack = 0;
-  list_init(&tasks);
-  list_init(&tasks_exited);
+  init->kstack = 0;  
   list_add(&tasks, &init->global_head);
   current = init;
 }
