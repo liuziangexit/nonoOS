@@ -8,7 +8,8 @@
 enum task_state {
   CREATED, //
   YIELDED, //
-  RUNNING
+  RUNNING, //
+  EXITED
 };
 
 const char *task_state_str(enum task_state);

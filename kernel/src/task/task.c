@@ -143,6 +143,8 @@ const char *task_state_str(enum task_state s) {
     return "YIELDED";
   case RUNNING:
     return "RUNNING";
+  case EXITED:
+    return "EXITED";
   default:
     panic("zhu ni zhong qiu jie kuai le!");
   }
@@ -151,7 +153,7 @@ const char *task_state_str(enum task_state s) {
 
 void task_init() {
   //将当前的上下文设置为第一个任务
-  ktask_t *init = task_create_impl("idle", true, 0);
+  ktask_t *init = task_create_impl("scheduler", true, 0);
   if (!init) {
     panic("creating task init failed");
   }
@@ -214,22 +216,13 @@ void task_sleep(uint64_t millisecond) {
 
 //退出当前进程
 // aka exit()
-/*
-FIXME
-这里现在还有问题，当前线程的栈已经被回收了，但是代码却还在使用它
-解决这个问题的方法是，增加一个“已退出”的状态，在这个地方把当前线程
-设置为已退出，然后直接切到别的线程，由别的线程来destory当前线程的资源（主要是栈）
-
-至于这个“别的线程”是不是idle，再讨论
-
-由于现在还没有抢占，所以这个问题不会被暴露出来
-*/
 void task_exit() {
-  task_destory(current);
-  //找到idle task，它的pid是1
+  //找到schd task，它的pid是1
   ktask_t *schd = task_find(1);
   assert(schd);
   schd->state = RUNNING;
+  current->state = EXITED;
+  current = schd;
   switch_to2(&schd->regs);
 }
 
