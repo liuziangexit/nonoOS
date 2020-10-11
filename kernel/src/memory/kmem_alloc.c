@@ -203,6 +203,12 @@ static void slab_free(struct slab *s, void *p) {
   // debug检查越界
   assert(p < ((void *)s) + cal_slab_size(s->cache->objsize, s->cache->num) &&
          p >= (void *)s + sizeof(struct slab));
+
+  // debug时候把回收的内存清空
+#ifndef NDEBUG
+  memset(p, 0, s->cache->objsize);
+#endif
+
   assert(s->inuse != 0);
   s->inuse--;
   *(uintptr_t *)p = s->free;
