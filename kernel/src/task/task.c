@@ -94,8 +94,22 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   new_task->state = CREATED;
 
   //生成pid
-  // FIXME 这里需要确保没有和现有pid重复
-  new_task->id = ++id_seq;
+  /* FIXME
+   1.当系统中存在的进程数量达到2^32-1时（正在创建第2^32个进程时），这会无限循环
+   2.当以特别快的速度创建和销毁进程时，比如说线程1在此处创建了任务1，但是还未将任务1
+  加入进程列表时，另一个线程快速地用光了所有剩下的id，以至于id_seq从1重新开始，
+  这个时候就是一个racing了
+
+  对于第一个问题，下面已经作出了处理，但是可以看出还不够充分，需要对下面的代码加锁才是真正正确的
+  对于第二个问题，加一个锁就可以解决
+
+  所以这个地方目前只需要加锁就完事了，等锁做好了记得来改
+  */
+  const pid_t begins = id_seq;
+  while (new_task->id = ++id_seq && task_find(new_task->id)) {
+    if (new_task->id == begins)
+      return 0; // running out of pid
+  }
 
   new_task->parent = current;
   new_task->name = name;
@@ -185,7 +199,7 @@ void task_init() {
     panic("creating task init failed");
   }
   init->state = RUNNING;
-  init->kstack = 0;  
+  init->kstack = 0;
   list_add(&tasks, &init->global_head);
   current = init;
 }
