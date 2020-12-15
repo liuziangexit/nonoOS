@@ -106,10 +106,11 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   所以这个地方目前只需要加锁就完事了，等锁做好了记得来改
   */
   const pid_t begins = id_seq;
-  while ((new_task->id = ++id_seq) && task_find(new_task->id)) {
+  do {
+    new_task->id = ++id_seq;
     if (new_task->id == begins)
       return 0; // running out of pid
-  }
+  } while (task_find(new_task->id));
 
   new_task->parent = current;
   new_task->name = name;
