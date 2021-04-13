@@ -47,7 +47,7 @@ void kentry(void) {
   printf("\n");
   task_init();
   task_test();
-  //考虑一下嵌套中断
+  //TODO 考虑一下嵌套中断
   sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
