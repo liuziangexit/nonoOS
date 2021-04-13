@@ -27,7 +27,7 @@ static inline void lgdt(struct pseudodesc *pd) {
   asm volatile("movw %%ax, %%ds" ::"a"(KERNEL_DS));
   asm volatile("movw %%ax, %%ss" ::"a"(KERNEL_DS));
   // reload cs
-  asm volatile("ljmp %0, $1f\n 1:\n" ::"i"(KERNEL_CS));
+  asm volatile("ljmp %0, $1f\n 1:" ::"i"(KERNEL_CS));
 }
 
 unsigned char stack0[1024];

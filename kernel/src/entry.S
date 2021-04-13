@@ -21,6 +21,7 @@ entry:
 
   # Set up the stack pointer.
   movl $(P2V(KERNEL_STACK + KERNEL_STACK_SIZE - 1)), %esp
+  movl $0, %ebp
   
   # Jump to kentry(), and switch to executing at
   # high addresses. The indirect call is needed because
