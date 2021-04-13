@@ -16,7 +16,7 @@ TODO
 首先需要实现一个std::vector一样的可变长数组，然后实现二分法的操作（直接实现c标准库里的），就可以了。
 */
 static list_entry_t tasks;
-static list_entry_t tasks_exited;
+static list_entry_t dead_tasks;
 static ktask_t *current;
 // FIXME atomic
 static pid_t id_seq;
@@ -56,6 +56,10 @@ inline static ktask_t *task_group_list_retrieve(list_entry_t *head) {
   return (ktask_t *)(head - 1);
 }
 
+//设置用户空间虚拟内存
+static void setup_user_space_vm(const char *elf_begin, const char *elf_end,
+                                uintptr_t stack, uint32_t stack_size) {}
+
 static ktask_t *task_create_impl(const char *name, bool kernel,
                                  task_group_t *group) {
   if (current && kernel && !current->group->is_kernel) {
@@ -83,6 +87,9 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     group = task_group_create_impl(kernel);
     if (!group) {
       return 0;
+    }
+    //如果是用户级，就需要设置这个新group的虚拟内存
+    if (!kernel) {
     }
   }
 
@@ -180,20 +187,20 @@ const char *task_state_str(enum task_state s) {
 
 //这个由idle线程执行，每次idle被调度的时候，都要执行这个函数
 //要限制这个的执行权限
-void destroy_exited() {
-  if (!list_empty(&tasks_exited)) {
-    for (list_entry_t *p = list_next(&tasks_exited); p != &tasks_exited;) {
+void task_clean() {
+  if (!list_empty(&dead_tasks)) {
+    for (list_entry_t *p = list_next(&dead_tasks); p != &dead_tasks;) {
       list_entry_t *next = list_next(p);
       task_destory((ktask_t *)p);
       p = next;
     }
-    list_init(&tasks_exited);
+    list_init(&dead_tasks);
   }
 }
 
 void task_init() {
   list_init(&tasks);
-  list_init(&tasks_exited);
+  list_init(&dead_tasks);
   //将当前的上下文设置为第一个任务
   ktask_t *init = task_create_impl("scheduler", true, 0);
   if (!init) {
@@ -258,11 +265,11 @@ void task_sleep(uint64_t millisecond) {
 //退出当前进程
 // aka exit()
 void task_exit() {
-  //把current设置为EXITED并且加入到tasks_exited链表中，之后schd线程会对它调用destory的
+  //把current设置为EXITED并且加入到dead_tasks链表中，之后schd线程会对它调用destory的
   current->state = EXITED;
   list_del(&current->global_head);
   list_init(&current->global_head);
-  list_add(&tasks_exited, &current->global_head);
+  list_add(&dead_tasks, &current->global_head);
   //找到schd task，它的pid是1
   ktask_t *schd = task_find(1);
   assert(schd);
