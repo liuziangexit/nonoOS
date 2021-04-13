@@ -7,6 +7,9 @@
 #include <string.h>
 #include <task.h>
 
+#define KSTACK_SIZE (4096)
+#define USTACK_SIZE (4096)
+
 /*
 TODO
 这个地方想做一个有序数组，然后查找的方式是二分法，这样我们就可以有logn的查找速度
@@ -55,7 +58,6 @@ inline static ktask_t *task_group_list_retrieve(list_entry_t *head) {
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
                                  task_group_t *group) {
-  //检查参数是否合法
   if (current && kernel && !current->group->is_kernel) {
     return 0; //只有supervisor才能创造一个supervisor
   }
@@ -120,8 +122,6 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
 
   return new_task;
 }
-
-#define KSTACK_SIZE (4096)
 
 void kernel_task_entry();
 
