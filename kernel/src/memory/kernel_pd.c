@@ -55,18 +55,18 @@ void pd_map_4K(void *pt, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
   assert(((uintptr_t)pt) % 4096 == 0);
   assert(physical % _4K == 0 && linear % _4K == 0);
   assert(pt_idx + pgcnt < 1024);
-  assert(physical / _4M + pgcnt < 1024);
+  assert(physical / _4K + pgcnt < 1024 * 1024);
   assert(flags >> 12 == 0);
 
-  uint32_t *entry = (uint32_t *)(pt + linear / _4M * 4);
+  uint32_t *entry = (uint32_t *)(pt + pt_idx * 4);
   union {
-    struct PDE4M pde;
+    struct PTE4K pte;
     uint32_t val;
-  } pde;
+  } pte;
   for (uint32_t i = 0; i < pgcnt; i++) {
-    pde.val = 0;
-    set_pde4m(&pde.pde, (physical + i * _4M), flags);
-    *(entry + i) = pde.val;
+    pte.val = 0;
+    set_pte4k(&pte.pte, (physical + i * _4K), flags);
+    *(entry + i) = pte.val;
   }
 }
 

@@ -261,14 +261,31 @@ struct PDE4M {
   uint32_t page_frame : 10;
 };
 
+struct PDE {
+  uint32_t flags : 12;
+  uint32_t page_table : 20;
+};
+
 static inline void set_pde4m(struct PDE4M *c, uintptr_t page_frame,
                              uint32_t flags) {
-  assert(page_frame % 4096 == 0);
+  assert(page_frame % (4096 * 1024) == 0);
   c->flags = flags;
   c->page_frame = page_frame >> 22;
   c->PAT = 0;
   c->unknown = 0;
   c->_0 = 0;
+}
+
+struct PTE4K {
+  uint32_t flags : 12;
+  uint32_t page_frame : 20;
+};
+
+static inline void set_pte4k(struct PTE4K *c, uintptr_t page_frame,
+                             uint32_t flags) {
+  assert(page_frame % 4096 == 0);
+  c->flags = flags;
+  c->page_frame = page_frame >> 12;
 }
 
 #endif
