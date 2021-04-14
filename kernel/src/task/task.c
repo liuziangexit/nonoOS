@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <compiler_helper.h>
 #include <list.h>
+#include <mmu.h>
 #include <panic.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -29,7 +30,20 @@ static task_group_t *task_group_create_impl(bool is_kernel) {
   list_init(&group->tasks);
   group->task_cnt = 0;
   group->is_kernel = is_kernel;
-  group->pgd = 0;
+  if (is_kernel) {
+    group->pgd = 0;
+  } else {
+    //如果是用户级，就需要设置这个新group的虚拟内存
+    void *pd = aligned_alloc(_4K, _4K);
+    if (!pd) {
+      free(group);
+      return 0;
+    }
+    extern uint32_t kernel_page_directory[];
+    memcpy(pd, kernel_page_directory, _4K);
+    //清空12MB开始到2GB+12MB之间的映射
+    memset((void *)(uintptr_t)(((char *)pd) + (12 / 4 * 4)), 0, 512 * 4);
+  }
   return group;
 }
 
@@ -43,6 +57,9 @@ static void task_group_add(task_group_t *g, ktask_t *t) {
 static void task_group_remove(task_group_t *g, ktask_t *t) {
   assert(g);
   if (g->task_cnt == 1) {
+    if (g->pgd) {
+      free(g->pgd);
+    }
     free(g);
   } else {
     g->task_cnt--;
@@ -55,10 +72,6 @@ static void task_group_remove(task_group_t *g, ktask_t *t) {
 inline static ktask_t *task_group_list_retrieve(list_entry_t *head) {
   return (ktask_t *)(head - 1);
 }
-
-//设置用户空间虚拟内存
-static void setup_user_space_vm(const char *elf_begin, const char *elf_end,
-                                uintptr_t stack, uint32_t stack_size) {}
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
                                  task_group_t *group) {
@@ -87,9 +100,6 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     group = task_group_create_impl(kernel);
     if (!group) {
       return 0;
-    }
-    //如果是用户级，就需要设置这个新group的虚拟内存
-    if (!kernel) {
     }
   }
 

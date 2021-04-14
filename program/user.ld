@@ -5,8 +5,11 @@ OUTPUT_FORMAT("elf32-i386", "elf32-i386", "elf32-i386")
 OUTPUT_ARCH(i386)
 
 SECTIONS {
-	/* Load the kernel at this address: "." means the current address */
-	. = 0x100000;
+	/* 
+	Load the kernel at this address: "." means the current address 
+	128MB
+	*/
+	. = 0x8000000;
 
 	.text : {
 		*(.text .stub .text.* .gnu.linkonce.t.*)
