@@ -53,10 +53,10 @@ extern struct e820map_t *e820map;
 
 void print_e820();
 
-void pd_map_ps(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
+void pd_map_4M(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
                uint32_t flags);
 
-bool pd_ismapped(void *pd, uintptr_t linear);
+uint32_t pd_value(void *pd, uintptr_t linear);
 
 #endif
 

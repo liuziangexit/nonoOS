@@ -26,12 +26,12 @@ _Alignas(4096) uint32_t kernel_page_directory[1024] = {
 };
 
 // map大页
-void pd_map_ps(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
+void pd_map_4M(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
                uint32_t flags) {
   assert(((uintptr_t)pd) % 4096 == 0);
   assert(physical % _4M == 0 && linear % _4M == 0);
-  assert(linear / _4M + pgcnt <= 1024);
-  assert(physical / _4M + pgcnt <= 1024);
+  assert(linear / _4M + pgcnt < 1024);
+  assert(physical / _4M + pgcnt < 1024);
   assert(flags >> 12 == 0);
   assert((flags & PTE_PS) == PTE_PS);
 
@@ -47,21 +47,32 @@ void pd_map_ps(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
   }
 }
 
-//检查一个内存位置有没有被map
-bool pd_ismapped(void *pd, uintptr_t linear) {
-  assert(((uintptr_t)pd) % 4096 == 0);
-  linear = ROUNDDOWN(linear, _4M);
-  uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
+// map小页
+void pd_map_4K(void *pt, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
+               uint32_t flags) {
+  const uint32_t pt_idx = (0x3FFFFF & linear) >> 12;
+
+  assert(((uintptr_t)pt) % 4096 == 0);
+  assert(physical % _4K == 0 && linear % _4K == 0);
+  assert(pt_idx + pgcnt < 1024);
+  assert(physical / _4M + pgcnt < 1024);
+  assert(flags >> 12 == 0);
+
+  uint32_t *entry = (uint32_t *)(pt + linear / _4M * 4);
   union {
     struct PDE4M pde;
     uint32_t val;
   } pde;
-  memcpy(&pde, entry, sizeof(uint32_t));
-  if (pde.pde.flags & PTE_PS) {
-    return pde.pde.flags & PTE_P;
-  } else {
-    //检查Page Table里面有没有map这个位置
-    panic("wwww");
-    __builtin_unreachable();
+  for (uint32_t i = 0; i < pgcnt; i++) {
+    pde.val = 0;
+    set_pde4m(&pde.pde, (physical + i * _4M), flags);
+    *(entry + i) = pde.val;
   }
+}
+
+uint32_t pd_value(void *pd, uintptr_t linear) {
+  assert(((uintptr_t)pd) % 4096 == 0);
+  linear = ROUNDDOWN(linear, _4M);
+  uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
+  return *entry;
 }
