@@ -1,3 +1,4 @@
+#include "../../include/syscall.h"
 #include <assert.h>
 #include <cga.h>
 #include <defs.h>
@@ -100,6 +101,9 @@ void interrupt_handler(struct trapframe *tf) {
   switch (tf->tf_trapno) {
   case IRQ_OFFSET + IRQ_KBD:
     kbd_isr();
+    break;
+  case T_SYSCALL:
+    syscall(tf);
     break;
   case T_SWITCH_USER:
     if (tf->tf_cs != USER_CS) {

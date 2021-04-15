@@ -8,7 +8,7 @@ OBJCOPY=$(CCPREFIX)objcopy
 CFLAGS=-O0 -g -Wall -Wextra -ffreestanding -nostdinc
 CVERSION=-std=gnu11
 INCLUDE=-I../libno/include
-LDFLAGS=-O0 -L../libno/user_build -lno
+LDFLAGS=-DLIBNO_USER -O0 -L../libno/user_build -lno
 
 PROG_OBJS=\
 hello_world/hello.exe

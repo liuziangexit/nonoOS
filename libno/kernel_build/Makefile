@@ -17,7 +17,8 @@ OBJS=\
 ../src/itoa.o\
 ../src/ctype.o\
 ../src/round.o\
-../src/malloc.o
+../src/malloc.o\
+../src/syscall.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
