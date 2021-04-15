@@ -19,6 +19,12 @@ void kmem_cache_test() {
   assert(mem2);
   kmem_cache_free(mem2);
   kmem_cache_free(mem);
+  mem = kmem_cache_alloc(4 * 1024 * 1024);
+  assert(mem);
+  mem2 = kmem_cache_alloc(4 * 1024 * 1024);
+  assert(mem2);
+  kmem_cache_free(mem2);
+  kmem_cache_free(mem);
 
   unsigned char dmp1[256], dmp2[256];
   kmem_page_dump(dmp1, 256);
