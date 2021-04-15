@@ -257,8 +257,8 @@ pid_t task_create(void (*func)(void *), void *arg, const char *name,
   //设置上下文和内核栈
   memset(&new_task->regs, 0, sizeof(struct registers));
   new_task->regs.eip = (uint32_t)(uintptr_t)kernel_task_entry;
-  new_task->regs.ebp = new_task->kstack + KSTACK_SIZE;
-  new_task->regs.esp = new_task->kstack + KSTACK_SIZE - 2 * sizeof(void *);
+  new_task->regs.ebp = new_task->kstack + STACK_SIZE;
+  new_task->regs.esp = new_task->kstack + STACK_SIZE - 2 * sizeof(void *);
   *(void **)(new_task->regs.esp + 4) = arg;
   *(void **)(new_task->regs.esp) = (void *)func;
 
