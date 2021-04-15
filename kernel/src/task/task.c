@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <task.h>
+#include <x86.h>
 
 #define KSTACK_SIZE (4096)
 #define USTACK_SIZE (4096)
@@ -220,6 +221,14 @@ void task_init() {
   init->kstack = 0;
   list_add(&tasks, &init->global_head);
   current = init;
+}
+
+void task_schd() {
+  int i = 0;
+  while (true) {
+    hlt();
+  }
+  __builtin_unreachable();
 }
 
 //当前进程

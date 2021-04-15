@@ -66,35 +66,54 @@ struct utask {
 };
 typedef struct utask utask_t;
 
+//内部函数
+
 ktask_t *task_find(pid_t pid);
 
 void task_display();
 
 void task_clean();
 
+//对外接口
+
+//对kernel接口
 //初始化task系统
 void task_init();
 
+//对kernel接口
+//开始调度，此函数不会返回
+void task_schd();
+
+//对kernel接口
+//对task接口
 //当前task
 pid_t task_current();
 
+//对kernel接口
+//对task接口
 //创建task
 pid_t task_create(void (*func)(void *), void *arg, const char *name,
                   bool kernel, task_group_t *group);
 
+//对kernel接口
+//对task接口
 //等待task结束
 void task_join(pid_t pid);
 
+//对task接口
 //放弃当前task时间片
 void task_yield();
 
+//对task接口
 //将当前task挂起一段时间
 void task_sleep(uint64_t millisecond);
 
+//对task接口
 //退出当前task
 // aka exit
 void task_exit();
 
+//对kernel接口
 //切换到另一个task
 void task_switch(pid_t);
 

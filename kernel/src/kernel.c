@@ -70,15 +70,18 @@ void kentry(void) {
   print_cur_status();
   printf("\n\n");
 
-  extern char _binary____program_hello_world_hello_exe_start[],
-      _binary____program_hello_world_hello_exe_size[];
-  printf("program_hello_start: 0x%08x, size: %d\n\n",
-         (uintptr_t)_binary____program_hello_world_hello_exe_start,
-         (uint32_t)_binary____program_hello_world_hello_exe_size);
+  // extern char _binary____program_hello_world_hello_exe_start[],
+  //     _binary____program_hello_world_hello_exe_size[];
+  // printf("program_hello_start: 0x%08x, size: %d\n\n",
+  //        (uintptr_t)_binary____program_hello_world_hello_exe_start,
+  //        (uint32_t)_binary____program_hello_world_hello_exe_size);
 
-  printf("nonoOS:$ ");
+  // printf("nonoOS:$ ");
 
   //
+
+  task_schd();
+
   while (1) {
     hlt();
   }
