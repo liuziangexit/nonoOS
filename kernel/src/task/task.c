@@ -224,7 +224,6 @@ void task_init() {
 }
 
 void task_schd() {
-  int i = 0;
   while (true) {
     hlt();
   }
@@ -240,11 +239,20 @@ pid_t task_current() {
   }
 }
 
-//创建进程
-//如果group为0，说明要为这个新task新建一个group。否则把这个新task加到指定的group里
-pid_t task_create(void (*func)(void *), void *arg, const char *name,
-                  bool kernel, task_group_t *group) {
-  ktask_t *new_task = task_create_impl(name, kernel, group);
+//对kernel接口
+//创建user task
+//调用者负责解析elf
+// entry是开始执行的虚拟地址，arg是指向函数参数的虚拟地址
+//若program为0，则program_size将被忽略。program和group不能同时为非0，这意味着只有创建进程时才能指定program
+pid_t task_create_user(void *program, uint32_t program_size, uintptr_t entry,
+                       uintptr_t arg, const char *name, task_group_t *group) {
+  return 0;
+}
+
+//创建内核线程
+pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name) {
+  ktask_t *schd = task_find(1);
+  ktask_t *new_task = task_create_impl(name, true, schd->group);
   if (!new_task)
     return 0;
 
@@ -313,7 +321,7 @@ void task_switch(pid_t pid) {
     panic("task_switch: pid not found");
   }
   current->state = YIELDED;
-  //load_esp0(t->kstack + STACK_SIZE);
+  // load_esp0(t->kstack + STACK_SIZE);
   t->state = RUNNING;
   ktask_t *prev = current;
   current = t;

@@ -61,8 +61,9 @@ typedef struct ktask ktask_t;
 //用户线程
 struct utask {
   ktask_t base;
-  struct trapframe tf;
   uintptr_t ustack; //用户栈
+  uintptr_t program;
+  uint32_t program_size;
 };
 typedef struct utask utask_t;
 
@@ -90,10 +91,13 @@ void task_schd();
 pid_t task_current();
 
 //对kernel接口
-//对task接口
-//创建task
-pid_t task_create(void (*func)(void *), void *arg, const char *name,
-                  bool kernel, task_group_t *group);
+//创建kernel task
+pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name);
+
+//对kernel接口
+//创建user task
+pid_t task_create_user(void *program, uint32_t program_size, uintptr_t entry,
+                       uintptr_t arg, const char *name, task_group_t *group);
 
 //对kernel接口
 //对task接口
