@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <compiler_helper.h>
+#include <gdt.h>
 #include <list.h>
 #include <mmu.h>
 #include <panic.h>
@@ -9,8 +10,7 @@
 #include <task.h>
 #include <x86.h>
 
-#define KSTACK_SIZE (4096)
-#define USTACK_SIZE (4096)
+#define STACK_SIZE (4096)
 
 /*
 TODO
@@ -248,7 +248,7 @@ pid_t task_create(void (*func)(void *), void *arg, const char *name,
   if (!new_task)
     return 0;
 
-  new_task->kstack = (uintptr_t)malloc(KSTACK_SIZE);
+  new_task->kstack = (uintptr_t)malloc(STACK_SIZE);
   if (!new_task->kstack) {
     task_destory(new_task);
     return 0;
@@ -313,6 +313,7 @@ void task_switch(pid_t pid) {
     panic("task_switch: pid not found");
   }
   current->state = YIELDED;
+  //load_esp0(t->kstack + STACK_SIZE);
   t->state = RUNNING;
   ktask_t *prev = current;
   current = t;

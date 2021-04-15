@@ -34,7 +34,7 @@ unsigned char stack0[1024];
 
 void gdt_init() {
   // TSS目前唯一的用途是实现用户态到内核态的转换
-  ts.esp0 = (uint32_t)stack0 + sizeof(stack0);
+  load_esp0((uint32_t)stack0 + sizeof(stack0));
   ts.ss0 = KERNEL_DS;
 
   // initialize the TSS filed of the gdt
@@ -43,3 +43,5 @@ void gdt_init() {
   lgdt(&gdt_pd);
   ltr(SEG_TSS);
 }
+
+void load_esp0(uintptr_t esp0) { ts.esp0 = esp0; }
