@@ -62,8 +62,7 @@ typedef struct ktask ktask_t;
 struct utask {
   ktask_t base;
   uintptr_t ustack; //用户栈
-  uintptr_t program;
-  uint32_t program_size;
+  void *program;    //程序映像拷贝
 };
 typedef struct utask utask_t;
 
@@ -96,8 +95,10 @@ pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name);
 
 //对kernel接口
 //创建user task
-pid_t task_create_user(void *program, uint32_t program_size, uintptr_t entry,
-                       uintptr_t arg, const char *name, task_group_t *group);
+#define DETECT_ENTRY 0xC0000000
+pid_t task_create_user(void *program, uint32_t program_size, const char *name,
+                       task_group_t *group, uintptr_t entry, int arg_count,
+                       ...);
 
 //对kernel接口
 //对task接口

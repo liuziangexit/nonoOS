@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <elf.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <task.h>
@@ -20,6 +21,19 @@ void task2(void *arg) {
   task_exit();
 }
 
+void utask_test() {
+  printf("\n\n******************\n");
+  printf("user task test begin\n");
+  printf("******************\n\n");
+
+  extern char _binary____program_hello_world_hello_exe_start[],
+      _binary____program_hello_world_hello_exe_size[];
+
+  pid_t upid = task_create_user(_binary____program_hello_world_hello_exe_start,
+                                _binary____program_hello_world_hello_exe_size,
+                                "user", 0, DETECT_ENTRY, 0);
+}
+
 void task_test() {
   printf("running task_test\n");
 
@@ -37,6 +51,8 @@ void task_test() {
   task_switch(t2);
   printf("task1: switched back second time, cool!\n");
   task_display();
+
+  utask_test();
 
   terminal_default_color();
   printf("tasktest passed!!!\n");

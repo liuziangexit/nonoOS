@@ -1,7 +1,9 @@
 #include <assert.h>
 #include <compiler_helper.h>
+#include <elf.h>
 #include <gdt.h>
 #include <list.h>
+#include <memlayout.h>
 #include <mmu.h>
 #include <panic.h>
 #include <stdint.h>
@@ -33,17 +35,6 @@ static task_group_t *task_group_create_impl(bool is_kernel) {
   group->is_kernel = is_kernel;
   if (is_kernel) {
     group->pgd = 0;
-  } else {
-    //如果是用户级，就需要设置这个新group的虚拟内存
-    void *pd = aligned_alloc(_4K, _4K);
-    if (!pd) {
-      free(group);
-      return 0;
-    }
-    extern uint32_t kernel_page_directory[];
-    memcpy(pd, kernel_page_directory, _4K);
-    //清空12MB开始到2GB+12MB之间的映射
-    memset((void *)(uintptr_t)(((char *)pd) + (12 / 4 * 4)), 0, 512 * 4);
   }
   return group;
 }
@@ -104,7 +95,14 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     }
   }
 
-  ktask_t *new_task = malloc(sizeof(ktask_t));
+  ktask_t *new_task;
+  if (kernel) {
+    new_task = malloc(sizeof(ktask_t));
+    memset(new_task, 0, sizeof(ktask_t));
+  } else {
+    new_task = malloc(sizeof(utask_t));
+    memset(new_task, 0, sizeof(utask_t));
+  }
   if (!new_task) {
     return 0;
   }
@@ -143,12 +141,14 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
 
 void kernel_task_entry();
 
+// FIXME 好多东西没free呢
 static void task_destory(ktask_t *t) {
   assert(t);
-  free((void *)t->kstack);
+  if (t->kstack)
+    free((void *)t->kstack);
   task_group_remove(t->group, t);
 #ifndef NDEBUG
-  printf("task_destory: destroying task %s\n", t->name);
+  printf("task_destory: destroy task %s\n", t->name);
 #endif
   free(t);
 }
@@ -241,12 +241,89 @@ pid_t task_current() {
 
 //对kernel接口
 //创建user task
-//调用者负责解析elf
 // entry是开始执行的虚拟地址，arg是指向函数参数的虚拟地址
-//若program为0，则program_size将被忽略。program和group不能同时为非0，这意味着只有创建进程时才能指定program
-pid_t task_create_user(void *program, uint32_t program_size, uintptr_t entry,
-                       uintptr_t arg, const char *name, task_group_t *group) {
-  return 0;
+//若program为0，则program_size将被忽略。program和group之间有且只有一个为非0，这意味着只有创建进程时才能指定program
+pid_t task_create_user(void *program, uint32_t program_size, const char *name,
+                       task_group_t *group, uintptr_t entry, int arg_count,
+                       ...) {
+  if (!(((program != 0) || (group != 0)) && ((program != 0) != (group != 0)))) {
+    return 0;
+  }
+
+  utask_t *new_task = task_create_impl(name, false, group);
+  if (!new_task) {
+    return 0;
+  }
+  //内核栈
+  new_task->base.kstack = (uintptr_t)malloc(STACK_SIZE);
+  if (!new_task->base.kstack) {
+    task_destory(new_task);
+    return 0;
+  }
+  //用户栈
+  new_task->ustack = (uintptr_t)malloc(STACK_SIZE);
+  if (!new_task->ustack) {
+    task_destory(new_task);
+    return 0;
+  }
+  //设置这个新group的虚拟内存
+  void *pd = aligned_alloc(_4K, _4K);
+  if (!pd) {
+    task_destory(new_task);
+    return 0;
+  }
+  //读elf
+  struct elfhdr *header = program;
+  // is this a valid ELF?
+  if (header->e_magic != ELF_MAGIC) {
+    task_destory(new_task);
+    return 0;
+  }
+  //存放程序映像的虚拟内存
+  new_task->program = aligned_alloc(_4M, _4M);
+  if (!new_task->program) {
+    task_destory(new_task);
+    return 0;
+  }
+  struct proghdr *ph, *ph_end;
+  // load each program segment (ignores ph flags)
+  ph = (struct proghdr *)((uintptr_t)header + header->e_phoff);
+  ph_end = ph + header->e_phnum;
+  for (; ph < ph_end; ph++) {
+    // readseg(ph->p_va & 0xFFFFFF, ph->p_memsz, ph->p_offset);
+    assert(ph->p_offset + ph->p_memsz < _4M);
+    memcpy(new_task->program + (ph->p_va - 0x8000000), program + ph->p_offset,
+           ph->p_memsz);
+  }
+
+  extern uint32_t kernel_page_directory[];
+  //以内核页表为蓝本
+  memcpy(pd, kernel_page_directory, _4K);
+  //清空12MB开始到2GB+12MB之间的映射
+  memset((void *)(uintptr_t)(((char *)pd) + (12 / 4 * 4)), 0, 512 * 4);
+  //把new_task->program映射到128MB的地方
+  pd_map_4M(pd, 0x8000000, new_task->program, ROUNDUP(program_size, _4M) / _4M,
+            PTE_P | PTE_W | PTE_PS | PTE_U);
+  // map用户栈（的结尾）到3GB的地方
+  // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
+  assert(STACK_SIZE <= _4M);
+  pd_map_4M(pd, 0xbfc00000, new_task->ustack, 1,
+            PTE_P | PTE_W | PTE_PS | PTE_U);
+  group->pgd = pd;
+
+  //设置上下文和栈
+  memset(&new_task->base.regs, 0, sizeof(struct registers));
+  // FIXME
+  assert(entry == DETECT_ENTRY);
+  new_task->base.regs.eip = header->e_entry;
+  // FIXME
+  new_task->base.regs.ebp = 0xbfc00000 + STACK_SIZE;
+  new_task->base.regs.esp = 0xbfc00000 + STACK_SIZE - 2 * sizeof(void *);
+  *(void **)(new_task->base.regs.esp + 4) = 0;
+  *(void **)(new_task->base.regs.esp) = 0;
+
+  list_add(&tasks, &new_task->base.global_head);
+  return new_task->base.id;
 }
 
 //创建内核线程
