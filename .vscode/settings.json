@@ -47,6 +47,7 @@
         "memory_manager.h": "c",
         "list.h": "c",
         "pow2_util.h": "c",
-        "syscall.h": "c"
+        "syscall.h": "c",
+        "*.tcc": "c"
     }
 }
