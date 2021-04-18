@@ -145,14 +145,29 @@ static void cache_init(struct cache *c, size_t objsize, size_t num) {
   c->num = num;
 }
 
+#define DEFAULT_OBJ_PER_SLAB 32
+
 //模块初始化
 void kmem_cache_init() {
   uint32_t exp = 5;
   for (size_t i = 0; i < sizeof(cache_cache) / sizeof(struct cache);
        i++, exp++) {
     const size_t objsize = pow2(exp);
-    //这32是什么意思？是cache中，每个slab包含多少个对象的意思
-    cache_init(cache_cache + i, objsize, 32);
+    uint32_t obj_per_slab;
+    //这是临时的一个策略，我觉得还是要实现当内存不足时，回收其他类型的slab的功能
+    if (objsize * DEFAULT_OBJ_PER_SLAB >= kmem_total_mem() / 4) {
+      if (objsize < kmem_total_mem() / 4) {
+        //如果对象大小的32倍大于内存的25%，但是单个对象没有内存的25%那么大，那么每个slab中的对象加起来不超过内存的25%
+        obj_per_slab = kmem_total_mem() / 4 / objsize;
+      } else {
+        //如果对象大小的32倍大于内存的25%，并且单个对象超过内存的25%，那么不支持这么大的对象
+        obj_per_slab = 0;
+      }
+    } else {
+      //如果对象大小的32倍小于内存的25%，那么每个slab含有32个对象
+      obj_per_slab = DEFAULT_OBJ_PER_SLAB;
+    }
+    cache_init(cache_cache + i, objsize, obj_per_slab);
   }
   //拿8k内存给hashmap
   hashmap = kmem_page_alloc(2);

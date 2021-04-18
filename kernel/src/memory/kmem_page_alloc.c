@@ -81,6 +81,9 @@ static uint32_t list_size(list_entry_t *head) {
   return cnt;
 }
 
+static uint32_t total_memory = 0;
+uint32_t kmem_total_mem() { return total_memory; }
+
 #define FREE_SPACE_END 768
 void kmem_page_init() {
   extern uint32_t kernel_page_directory[1024];
@@ -134,6 +137,7 @@ void kmem_page_init() {
     uintptr_t addr = (uintptr_t)(begin * _4M);
     //注意，这个指的是4k小页
     uint32_t page_count = (end - begin) * 1024;
+    total_memory += page_count * 4096;
 
 #ifndef NDEBUG
     printf("kmem_page_init: memory starts at 0x%08llx (total %d 4k pages) are "
@@ -181,6 +185,7 @@ void kmem_page_init() {
   terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("kmem_page_init: OK\n");
   terminal_default_color();
+  printf("total memory: %d\n", kmem_total_mem());
 #endif
 }
 

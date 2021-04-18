@@ -19,7 +19,7 @@ void kmem_cache_test() {
   assert(mem2);
   kmem_cache_free(mem2);
   kmem_cache_free(mem);
-  mem = kmem_cache_alloc(4 * 1024 * 1024);
+  mem = kmem_cache_alloc(32 * 1024 * 1024);
   assert(mem);
   mem2 = kmem_cache_alloc(4 * 1024 * 1024);
   assert(mem2);

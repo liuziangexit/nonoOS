@@ -6,6 +6,11 @@
 void kmem_init(struct e820map_t *memlayout);
 
 /*
+获取系统总内存数（字节）
+*/
+uint32_t kmem_total_mem();
+
+/*
 按页分配内存的接口
 用buddy算法实现
 */
