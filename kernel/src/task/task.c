@@ -267,15 +267,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     return 0;
   }
   //设置这个新group的虚拟内存
-  void *pd = aligned_alloc(_4K, _4K);
-  if (!pd) {
-    task_destory(new_task);
-    return 0;
-  }
-  //读elf
-  struct elfhdr *header = program;
-  // is this a valid ELF?
-  if (header->e_magic != ELF_MAGIC) {
+  void *page_directory = aligned_alloc(_4K, _4K);
+  if (!page_directory) {
     task_destory(new_task);
     return 0;
   }
@@ -285,37 +278,44 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     task_destory(new_task);
     return 0;
   }
-  struct proghdr *ph, *ph_end;
+  //读elf
+  struct elfhdr *elf_header = program;
+  if (elf_header->e_magic != ELF_MAGIC) {
+    task_destory(new_task);
+    return 0;
+  }
+  struct proghdr *program_header, *ph_end;
   // load each program segment (ignores ph flags)
-  ph = (struct proghdr *)((uintptr_t)header + header->e_phoff);
-  ph_end = ph + header->e_phnum;
-  for (; ph < ph_end; ph++) {
+  program_header =
+      (struct proghdr *)((uintptr_t)elf_header + elf_header->e_phoff);
+  ph_end = program_header + elf_header->e_phnum;
+  for (; program_header < ph_end; program_header++) {
     // readseg(ph->p_va & 0xFFFFFF, ph->p_memsz, ph->p_offset);
-    assert(ph->p_offset + ph->p_memsz < _4M);
-    memcpy(new_task->program + (ph->p_va - 0x8000000), program + ph->p_offset,
-           ph->p_memsz);
+    memcpy(new_task->program + (program_header->p_va - 0x8000000),
+           program + program_header->p_offset, program_header->p_filesz);
   }
 
   extern uint32_t kernel_page_directory[];
   //以内核页表为蓝本
-  memcpy(pd, kernel_page_directory, _4K);
+  memcpy(page_directory, kernel_page_directory, _4K);
   //清空12MB开始到2GB+12MB之间的映射
-  memset((void *)(uintptr_t)(((char *)pd) + (12 / 4 * 4)), 0, 512 * 4);
+  memset((void *)(uintptr_t)(((char *)page_directory) + (12 / 4 * 4)), 0,
+         512 * 4);
   //把new_task->program映射到128MB的地方
-  pd_map_4M(pd, 0x8000000, new_task->program, ROUNDUP(program_size, _4M) / _4M,
+  pd_map_4M(page_directory, 0x8000000, new_task->program, 1,
             PTE_P | PTE_W | PTE_PS | PTE_U);
   // map用户栈（的结尾）到3GB的地方
   // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
   assert(STACK_SIZE <= _4M);
-  pd_map_4M(pd, 0xbfc00000, new_task->ustack, 1,
+  pd_map_4M(page_directory, 0xbfc00000, new_task->ustack, 1,
             PTE_P | PTE_W | PTE_PS | PTE_U);
-  group->pgd = pd;
+  group->pgd = page_directory;
 
   //设置上下文和栈
   memset(&new_task->base.regs, 0, sizeof(struct registers));
   // FIXME
   assert(entry == DETECT_ENTRY);
-  new_task->base.regs.eip = header->e_entry;
+  new_task->base.regs.eip = elf_header->e_entry;
   // FIXME
   new_task->base.regs.ebp = 0xbfc00000 + STACK_SIZE;
   new_task->base.regs.esp = 0xbfc00000 + STACK_SIZE - 2 * sizeof(void *);

@@ -20,6 +20,7 @@ src/memory/kernel_pd.o\
 src/memory/e820map.o\
 src/memory/kmem_page_alloc.o\
 src/memory/kmem_alloc.o\
+src/memory/kmem_cache.o\
 src/memory/kmem_init.o\
 src/memory/bare_hashmap.o\
 src/interrupt/interrupt_handler.o\

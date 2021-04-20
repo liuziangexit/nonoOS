@@ -5,10 +5,18 @@
 
 void kmem_init(struct e820map_t *memlayout);
 
+#define MAX_ALIGNMENT 32
+
 /*
 获取系统总内存数（字节）
 */
 uint32_t kmem_total_mem();
+
+/*
+分配内存的接口
+*/
+void *kmem_alloc(size_t alignment, size_t size);
+void kmem_free(void *);
 
 /*
 按页分配内存的接口
@@ -27,7 +35,7 @@ void kmem_page_print_dump(void *dmp);
 https://www.kernel.org/doc/gorman/html/understand/understand011.html
 */
 void kmem_cache_init();
-void *kmem_cache_alloc(size_t);
+void *kmem_cache_alloc(size_t alignment, size_t size);
 void kmem_cache_free(void *);
 
 #endif
