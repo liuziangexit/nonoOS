@@ -1,6 +1,7 @@
 #ifndef __KERNEL_POW2_UTIL_H__
 #define __KERNEL_POW2_UTIL_H__
 #include <assert.h>
+#include <bit_util.h>
 #include <defs.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -13,9 +14,7 @@ static inline __always_inline bool is_pow2(uint32_t x) {
 //如果输入不是2的幂次，行为未定义
 static inline __always_inline uint32_t log2(uint32_t x) {
   assert(is_pow2(x));
-  uint32_t idx;
-  asm("bsrl %1, %0" : "=r"(idx) : "r"(x));
-  return idx;
+  return bit_scan_reverse(x);
 }
 
 //返回2^exp
