@@ -14,6 +14,7 @@
 #include <tty.h>
 #include <x86.h>
 
+// buddy
 // TODO 加锁
 
 //#define NDEBUG 1
@@ -162,7 +163,7 @@ void kmem_page_init() {
 
       struct page *pg = (struct page *)addr;
       list_init((list_entry_t *)pg);
-      const uint32_t log2_c = naive_log2(c);
+      const uint32_t log2_c = log2(c);
       list_add(&zones[log2_c].pages.li, (list_entry_t *)pg);
 
 #ifndef NDEBUG
@@ -271,12 +272,12 @@ static void combine(uint32_t exp, void *single) {
 
 void *kmem_page_alloc(size_t cnt) {
   cnt = next_pow2(cnt);
-  return split(naive_log2(cnt));
+  return split(log2(cnt));
 }
 
 void kmem_page_free(void *p, size_t cnt) {
   cnt = next_pow2(cnt);
-  combine(naive_log2(cnt), p);
+  combine(log2(cnt), p);
 }
 
 static bool write_dump(uint32_t *write_pos, void *dst, uint32_t dst_len,
