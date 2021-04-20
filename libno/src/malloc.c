@@ -2,11 +2,11 @@
 #include <memory_manager.h>
 #include <stdlib.h>
 
-void *malloc(size_t size) { return kmem_cache_alloc(size); }
+void *malloc(size_t size) { abort(); }
 
 void *aligned_alloc(size_t alignment, size_t size) {
   assert(size % alignment == 0);
-  return malloc(size);
+  abort();
 }
 
-void free(void *p) { kmem_cache_free(p); }
+void free(void *p) { abort(); }

@@ -10,79 +10,98 @@
 
 // FIXME 现在还没有正式的全面测试，应该给cache写一个类似于page那样的测试
 
-//对于2,4,8,16,32的对象，每个slab与对象在同一4k页上。这被视为“小对象”
-//对于64,128,256,512,1k,2k，slab与objects不在同一页上，每个slab含有的objects正好一页。这被视为“大对象”
+//对于8,16,32,64的对象，每个slab与对象在同一4k页上。这被视为“小对象”
+//对于128,256,512,1k,2k，slab与objects不在同一页上，每个slab含有的objects正好一页。这被视为“大对象”
 
 struct cache;
 
 // 24B，手动对齐到32B
 struct slab {
-  list_entry_t li; //在cache里的链表头8B
-  void *s_mem;     //连续的物理内存4B
-  size_t inuse;    //已分配的对象数4B
-  //可用对象的一个单向链表，用对象的那块内存作为链表节点，每个节点其实就是一个uintptr_t，指向下一个可用的对象
-  //在归还顺序与分配顺序不一致的情况下，链表的顺序可能与这些对象的物理地址的顺序有很大差别，这会导致cache
-  // miss吧，
-  //如果有必要的话，是不是归还的时候做个排序？但那样的话复杂度就变成O(n)了，但即使这样也比cache
-  // miss快一个数量级
-  uintptr_t free;           // 4B
-  struct cache *cache;      //包含本slab的cache 4B
-  unsigned char padding[8]; //让整个结构体对齐到32B
+  list_entry_t li; // 8B在cache里的链表头
+  list_entry_t
+      free_li; // 8B可用对象的一个双向链表(指针是位置的在4k页内的index)，
+               //不需要担心链表顺序和物理顺序不一致带来cachemiss，因为对象区域最多就4k，连i3都有32k的L1
+  void *mem;                // 4B连续的物理内存
+  struct cache *cache;      // 4B包含本slab的cache
+  uint16_t inuse;           // 2B已分配的对象数
+  unsigned char padding[6]; // 6B让整个结构体对齐到32B
 };
 
 struct cache {
   list_entry_t slabs_free;    //完全空闲的slab
   list_entry_t slabs_partial; //至少分配了一个对象的slab
-  size_t objsize;             //对象大小
-  size_t num;                 //一个slab包含的对象数
+  size_t obj_size;            //对象大小
+  size_t obj_num;             //一个slab包含的对象数
 };
 
-// 2^2 - 2^11
-static struct cache cache_cache[10];
-static void *big_obj_slabs; // 32MB的内存，用来储存大于32字节的struct
-                            // slab的，而这些slab的s_mem则是另外分配
+// 2^3B(8B) - 2^11B(2KB)
+static struct cache cache_cache[9];
+// 32MB的内存，用来储存大于32字节的structslab的，而这些slab的对象空间则是另外分配
+// 32MB是这样算来的：每个slab管理1页内存也就是4k，那么假如说有4G的内存，最多可以有
+// 2^32/2^12=1M个struct slab=32MB=8k页
+static void *big_obj_slabs;
+#define BIG_OBJ_SLABS_CNT 8192
+static uint32_t big_obj_slabs_ctl[BIG_OBJ_SLABS_CNT / 32];
+
+static struct slab *new_slab_struct() {
+  for (uint32_t i = 0; i < BIG_OBJ_SLABS_CNT; i++) {
+    if (big_obj_slabs_ctl[i] != 0xFFFFFFFF) {
+      uint32_t idx = bit_scan_forward(bit_flip(big_obj_slabs_ctl[i]));
+      big_obj_slabs_ctl[i] = bit_set(big_obj_slabs_ctl[i], idx, true);
+      return ((struct slab *)big_obj_slabs) + i * 32 + idx;
+    }
+  }
+  panic("new_slab_struct");
+}
+
+static void free_slab_struct(struct slab *s) {
+  assert(s > big_obj_slabs &&
+         s <= big_obj_slabs + (sizeof(struct slab) * BIG_OBJ_SLABS_CNT) &&
+         ((uintptr_t)s - (uintptr_t)big_obj_slabs) % sizeof(struct slab) == 0);
+  uint32_t idx =
+      ((uintptr_t)s - (uintptr_t)big_obj_slabs) / sizeof(struct slab);
+  uint32_t bit_idx = idx - ROUNDDOWN(idx, 32);
+  idx = ROUNDDOWN(idx, 32);
+  assert(bit_test(big_obj_slabs_ctl[idx], bit_idx));
+  big_obj_slabs_ctl[idx] = bit_set(big_obj_slabs_ctl[idx], bit_idx, false);
+}
 
 // hashmap用来追踪kmem_alloc分配出去的内存是属于哪一个slab里面的
 // key: 分配出去的内存指针  value: slab指针
 void *hashmap;
 uint32_t hashmap_pgcnt;
 
-//计算slab需要的内存
-static inline size_t cal_slab_size(size_t objsize, size_t num) {
-  return objsize * num + sizeof(struct slab);
-}
-
 //向cache中增加指定数量的slab
 static bool cache_add_slabs(struct cache *c, size_t slab_cnt) {
-  //计算一个slab多大
-  const size_t slab_size = cal_slab_size(c->objsize, c->num);
-  //这至少是多少个4k页呢
-  const size_t slab_pgcnt = ROUNDUP(slab_size, 4096) * slab_cnt / 4096;
-  //分配这么多4k页
-  const void *mem = kmem_page_alloc(slab_pgcnt);
-  if (!mem) {
-    return false;
-  }
-
-  list_entry_t *share_li = 0;
-
-  for (size_t __i = 0; __i < slab_cnt; __i++) {
-    struct slab *s = (struct slab *)(mem + ROUNDUP(slab_size, 4096) * __i);
+  for (size_t i = 0; i < slab_cnt; i++) {
+    struct slab *s = 0;
+    if (log2(c->obj_size) < 7) {
+      //小对象
+      const size_t slab_pgcnt = slab_cnt;
+      //分配这么多4k页
+      const void *mem = kmem_page_alloc(slab_pgcnt);
+      if (!mem) {
+        return false;
+      }
+      s = (struct slab *)(mem + 4096 * i);
+      s->mem = s + 1;
+    } else {
+      //大对象
+      s = new_slab_struct();
+      s->mem = kmem_page_alloc(1);
+      if (!s->mem) {
+        free_slab_struct(s);
+        return false;
+      }
+    }
     list_init(&s->li);
+    list_init(&s->free_li);
     s->inuse = 0;
-    s->s_mem =
-        (void *)(mem + ROUNDUP(slab_size, 4096) * __i) + sizeof(struct slab);
-    s->free = (uintptr_t)s->s_mem;
     s->cache = c;
 
-    //设置单向链表
-    for (size_t __j = 0; __j < c->num; __j++) {
-      void *p = (void *)(s->s_mem + __j * c->objsize);
-      if (__j != c->num - 1) {
-        *(uintptr_t *)(p) = (uintptr_t)(s->s_mem + (__j + 1) * c->objsize);
-      } else {
-        *(uintptr_t *)(p) = 0;
-      }
+    //设置free链表
+    for (size_t j = 0; j < c->obj_num; j++) {
+      list_add(&s->free_li, (list_entry_t *)(s->mem + c->obj_size * j));
     }
 
     list_add(&c->slabs_free, &s->li);
@@ -93,25 +112,32 @@ static bool cache_add_slabs(struct cache *c, size_t slab_cnt) {
 static void cache_init(struct cache *c, size_t objsize, size_t num) {
   list_init(&c->slabs_free);
   list_init(&c->slabs_partial);
-  c->objsize = objsize;
-  c->num = num;
+  c->obj_size = objsize;
+  c->obj_num = num;
 }
 
 //模块初始化
 void kmem_cache_init() {
 #ifndef NDEBUG
-  printf("kmem_cache_init: sizeof(struct slab) == %d\n", sizeof(struct slab));
+  printf("sizeof(struct slab) == %d\n", sizeof(struct slab));
 #endif
   assert(sizeof(struct slab) == 32);
-  big_obj_slabs = kmem_page_alloc(8);
+  big_obj_slabs = kmem_page_alloc(BIG_OBJ_SLABS_CNT);
   if (!big_obj_slabs)
     panic("kmem_cache_init allocate space for big_obj_slabs failed");
+  //初始化caches
   uint32_t exp = 2;
   for (size_t i = 0; i < sizeof(cache_cache) / sizeof(struct cache);
        i++, exp++) {
-    const size_t objsize = pow2(exp);
-    uint32_t obj_per_slab;
-    cache_init(cache_cache + i, objsize, obj_per_slab);
+    uint32_t obj_per_slab, obj_size = pow2(exp);
+    if (exp < 7) {
+      //小对象
+      obj_per_slab = (4096 - sizeof(struct slab)) / obj_size;
+    } else {
+      //大对象
+      obj_per_slab = 4096 / obj_size;
+    }
+    cache_init(cache_cache + i, obj_size, obj_per_slab);
   }
   //拿8k内存给hashmap
   hashmap = kmem_page_alloc(2);
@@ -126,39 +152,52 @@ void kmem_cache_init() {
 #endif
 }
 
-//在slab链表里寻找至少还能分配一个对象的slab
-static list_entry_t *find_free_slab(list_entry_t *head) {
+//在slab链表里分配一个对象
+static void *find_free_slab(list_entry_t *head, uint32_t alignment,
+                            struct slab **slab) {
   list_entry_t *it = list_next(head);
   while (it != head) {
     struct slab *s = (struct slab *)it;
-    if (s->cache->num > s->inuse) {
-      return it;
+    if (s->cache->obj_num > s->inuse) {
+      assert(!list_empty(&s->free_li));
+      void *ret = 0;
+      if (alignment == 0) {
+        //没有额外的对齐要求
+        ret = list_next(&s->free_li);
+      } else {
+        //寻找符合额外对齐要求的对象
+        list_entry_t *it = list_next(&s->free_li);
+        while (it != &s->free_li) {
+          if (((uintptr_t)it) % alignment == 0) {
+            ret = it;
+            break;
+          }
+          it = list_next(it);
+        }
+      }
+      if (ret) {
+        //找到对象了
+        s->inuse++;
+        list_del((list_entry_t *)ret);
+        // debug检查越界
+        if (log2(s->cache->obj_size) < 7) {
+          assert(ret < ((void *)s) + 4096 &&
+                 ret >= ((void *)s) + sizeof(struct slab));
+        } else {
+          assert(ret < ((void *)s->mem) + 4096 && ret >= ((void *)s->mem));
+        }
+        //记录分配的对象和slab的对应关系
+        uint32_t prev = bare_put(hashmap, hashmap_pgcnt, (uint32_t)ret,
+                                 (uint32_t)s, &hashmap, &hashmap_pgcnt);
+        assert(prev == 0);
+        *slab = s;
+        return ret;
+      }
+      //没有找到符合对齐要求的对象，继续...
     }
     it = list_next(it);
   }
   return 0;
-}
-
-//从slab中分配一个对象
-static void *slab_alloc(struct slab *s) {
-  //确认此slab至少还有1个对象可以分配
-  assert(s->cache->num > s->inuse);
-  //计数
-  s->inuse++;
-  //确认free链表不是空的
-  assert(s->free);
-  //分配的对象就是free链表的第一个元素
-  void *rv = (void *)s->free;
-  // debug检查越界
-  assert(rv < ((void *)s) + cal_slab_size(s->cache->objsize, s->cache->num) &&
-         rv >= (void *)s + sizeof(struct slab));
-  //将分配的对象从链表中移除
-  s->free = *(uintptr_t *)rv;
-  //记录分配的对象和slab的对应关系
-  uint32_t prev = bare_put(hashmap, hashmap_pgcnt, (uint32_t)rv, (uint32_t)s,
-                           &hashmap, &hashmap_pgcnt);
-  assert(prev == 0);
-  return rv;
 }
 
 // 模块接口，分配对齐到alignment，size大小的内存
@@ -166,67 +205,65 @@ static void *slab_alloc(struct slab *s) {
 // alignment为0表示没有额外对齐要求，将使用默认对齐规则，也就是对齐到大于等于size的最小的2的幂
 void *kmem_cache_alloc(size_t alignment, size_t size) {
   //处理alignment参数
-  if (alignment == 0) {
-    //默认对齐
-    alignment = next_pow2(size);
-  } else {
+  if (alignment != 0) {
     //指定对齐
     assert(is_pow2(alignment) && alignment <= MAX_ALIGNMENT);
   }
   //处理size参数，寻找合适的对象池(cache)
   size_t exp = log2(next_pow2(size));
-  if (exp < 5)
-    exp = 5;
-  if (exp > 5 + sizeof(cache_cache) / sizeof(struct cache))
+  if (exp < 3)
+    exp = 3;
+  if (exp >= 3 + sizeof(cache_cache) / sizeof(struct cache))
     panic("kmem_cache_alloc failed"); //没有这么大的对象池
   //合适的对象池
-  struct cache *cache = (cache_cache + (exp - 5));
-  //在对象池里的“已部分使用的slab”中寻找可用的slab
-  list_entry_t *free_slab = find_free_slab(&cache->slabs_partial);
-  if (!free_slab) {
-    //如果没有，在“未使用的slab”中寻找可用的slab
-    free_slab = find_free_slab(&cache->slabs_free);
-    if (!free_slab) {
-      //如果还是没有，说明1)此cache里所有的slab都分配满了，或者2)此cache里没有任何slab
-      //所以，向cache里增加1个slab
+  struct cache *cache = (cache_cache + (exp - 3));
+  //在对象池里的“已部分使用的slab”中分配
+  struct slab *alloc_from = 0;
+  void *object = find_free_slab(&cache->slabs_partial, alignment, &alloc_from);
+  if (!object) {
+    //如果没有，在“未使用的slab”中分配
+    object = find_free_slab(&cache->slabs_free, alignment, &alloc_from);
+    if (!object) {
+      //如果还是没有，说明1)此cache里所有的slab都正好没有指定对齐的对象，或者2)此cache里没有任何slab
+      //需要增加一个slab
       if (!cache_add_slabs(cache, 1)) {
         //如果增加失败（分配不到这么多连续物理页），那么真的失败了
         return 0;
       }
       //如果增加成功，再在“未使用的slab”中寻找可用的slab
-      free_slab = find_free_slab(&cache->slabs_free);
+      object = find_free_slab(&cache->slabs_free, alignment, &alloc_from);
       //此次必然成功，确认一下
-      assert(free_slab);
+      assert(object);
     }
     //从“未使用的slab”链表里移除这slab，将它加入“已部分使用的slab”链表
-    list_del(free_slab);
-    list_add(&cache->slabs_partial, free_slab);
+    list_del(alloc_from);
+    list_add(&cache->slabs_partial, alloc_from);
   }
-  //从这slab中分配对象
-  return slab_alloc((struct slab *)free_slab);
+  return object;
 }
 
 //将对象归还到slab中
 static void slab_free(struct slab *s, void *p) {
   // debug检查越界
-  assert(p < ((void *)s) + cal_slab_size(s->cache->objsize, s->cache->num) &&
-         p >= (void *)s + sizeof(struct slab));
+  if (log2(s->cache->obj_size) < 7) {
+    assert(p < ((void *)s) + 4096 && p >= ((void *)s) + sizeof(struct slab));
+  } else {
+    assert(p < ((void *)s->mem) + 4096 && p >= ((void *)s->mem));
+  }
 
   // debug时候把回收的内存清空
   // TODO
   // 出于进程之间隔离的考虑，要不要总是把这片内存清空？看看其他的os是怎么做的
   // 不过就算要清空，我估计也不是在这里，因为这个slab的分配算法是在内核里用的
 #ifndef NDEBUG
-  memset(p, 0, s->cache->objsize);
+  memset(p, 0, s->cache->obj_size);
 #endif
-
   //修改计数
   assert(s->inuse != 0);
   s->inuse--;
-  //修改free链表，将p作为链表的首个元素
-  *(uintptr_t *)p = s->free;
-  s->free = (uintptr_t)p;
-
+  //将p加入free链表
+  list_add(&s->free_li, (list_entry_t *)p);
+  //如果slab是全空的，移入slabs_free链表
   if (s->inuse == 0) {
     list_del(&s->li);
     list_add(&s->cache->slabs_free, &s->li);
