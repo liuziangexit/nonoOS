@@ -43,6 +43,7 @@ void kentry(void) {
   printf("\n");
   kmem_init(e820map);
   kmem_page_init();
+  kmem_alloc_init();
   kmem_cache_init();
   printf("\n");
   task_init();

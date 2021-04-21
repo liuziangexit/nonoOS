@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <memory_manager.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <tty.h>
 
 #ifdef NDEBUG
@@ -13,18 +14,33 @@
 void kmem_cache_test() {
   printf("running kmem_cache_test\n");
 
-  void *mem = kmem_cache_alloc(9710);
+  void *mem = kmem_cache_alloc(0, 1898);
   assert(mem);
-  void *mem2 = kmem_cache_alloc(9888);
+  void *mem2 = kmem_cache_alloc(0, 1998);
   assert(mem2);
   kmem_cache_free(mem2);
   kmem_cache_free(mem);
-  mem = kmem_cache_alloc(32 * 1024 * 1024);
+  mem = aligned_alloc(1, 32 * 1024 * 1024);
   assert(mem);
-  mem2 = kmem_cache_alloc(4 * 1024 * 1024);
+  mem2 = aligned_alloc(16, 4 * 1024 * 1024);
+  assert(mem2);
+  free(mem2);
+  free(mem);
+
+  mem = kmem_cache_alloc(32, 1898);
+  assert(mem);
+  mem2 = kmem_cache_alloc(8, 2);
   assert(mem2);
   kmem_cache_free(mem2);
   kmem_cache_free(mem);
+  mem = kmem_cache_alloc(32, 999);
+  assert(mem);
+  mem = aligned_alloc(1, 32 * 1024 * 1024);
+  assert(mem);
+  mem2 = aligned_alloc(1, 4 * 1024 * 1024);
+  assert(mem2);
+  free(mem2);
+  free(mem);
 
   unsigned char dmp1[256], dmp2[256];
   kmem_page_dump(dmp1, 256);

@@ -13,6 +13,9 @@
 //对于8,16,32,64的对象，每个slab与对象在同一4k页上。这被视为“小对象”
 //对于128,256,512,1k,2k，slab与objects不在同一页上，每个slab含有的objects正好一页。这被视为“大对象”
 
+extern void *cache_hashmap;
+extern uint32_t cache_hashmap_pgcnt;
+
 struct cache;
 
 // 24B，手动对齐到32B
@@ -65,11 +68,6 @@ static void free_slab_struct(struct slab *s) {
   assert(bit_test(big_obj_slabs_ctl[idx], bit_idx));
   big_obj_slabs_ctl[idx] = bit_set(big_obj_slabs_ctl[idx], bit_idx, false);
 }
-
-// hashmap用来追踪kmem_alloc分配出去的内存是属于哪一个slab里面的
-// key: 分配出去的内存指针  value: slab指针
-void *hashmap;
-uint32_t hashmap_pgcnt;
 
 //向cache中增加指定数量的slab
 static bool cache_add_slabs(struct cache *c, size_t slab_cnt) {
@@ -126,7 +124,7 @@ void kmem_cache_init() {
   if (!big_obj_slabs)
     panic("kmem_cache_init allocate space for big_obj_slabs failed");
   //初始化caches
-  uint32_t exp = 2;
+  uint32_t exp = 3;
   for (size_t i = 0; i < sizeof(cache_cache) / sizeof(struct cache);
        i++, exp++) {
     uint32_t obj_per_slab, obj_size = pow2(exp);
@@ -139,12 +137,6 @@ void kmem_cache_init() {
     }
     cache_init(cache_cache + i, obj_size, obj_per_slab);
   }
-  //拿8k内存给hashmap
-  hashmap = kmem_page_alloc(2);
-  if (!hashmap)
-    panic("kmem_cache_init allocate space for hashmap failed");
-  hashmap_pgcnt = 2;
-  bare_init(hashmap, hashmap_pgcnt);
 #ifndef NDEBUG
   terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("kmem_cache_init: OK\n");
@@ -152,7 +144,7 @@ void kmem_cache_init() {
 #endif
 }
 
-//在slab链表里分配一个对象
+//在slab链表里找到合适的slab然后分配一个对象
 static void *find_free_slab(list_entry_t *head, uint32_t alignment,
                             struct slab **slab) {
   list_entry_t *it = list_next(head);
@@ -187,8 +179,9 @@ static void *find_free_slab(list_entry_t *head, uint32_t alignment,
           assert(ret < ((void *)s->mem) + 4096 && ret >= ((void *)s->mem));
         }
         //记录分配的对象和slab的对应关系
-        uint32_t prev = bare_put(hashmap, hashmap_pgcnt, (uint32_t)ret,
-                                 (uint32_t)s, &hashmap, &hashmap_pgcnt);
+        uint32_t prev =
+            bare_put(cache_hashmap, cache_hashmap_pgcnt, (uint32_t)ret,
+                     (uint32_t)s, &cache_hashmap, &cache_hashmap_pgcnt);
         assert(prev == 0);
         *slab = s;
         return ret;
@@ -205,6 +198,8 @@ static void *find_free_slab(list_entry_t *head, uint32_t alignment,
 // alignment为0表示没有额外对齐要求，将使用默认对齐规则，也就是对齐到大于等于size的最小的2的幂
 void *kmem_cache_alloc(size_t alignment, size_t size) {
   //处理alignment参数
+  if (alignment == 1)
+    alignment = 0;
   if (alignment != 0) {
     //指定对齐
     assert(is_pow2(alignment) && alignment <= MAX_ALIGNMENT);
@@ -217,6 +212,7 @@ void *kmem_cache_alloc(size_t alignment, size_t size) {
     panic("kmem_cache_alloc failed"); //没有这么大的对象池
   //合适的对象池
   struct cache *cache = (cache_cache + (exp - 3));
+  assert(cache->obj_size >= size);
   //在对象池里的“已部分使用的slab”中分配
   struct slab *alloc_from = 0;
   void *object = find_free_slab(&cache->slabs_partial, alignment, &alloc_from);
@@ -271,16 +267,14 @@ static void slab_free(struct slab *s, void *p) {
 }
 
 //模块接口，归还内存
-void kmem_cache_free(void *p) {
-  if (!p) {
-    return;
-  }
+bool kmem_cache_free(void *p) {
+  assert(p);
   //找到p所属的slab
-  uint32_t s = bare_del(hashmap, hashmap_pgcnt, (uint32_t)p);
+  uint32_t s = bare_del(cache_hashmap, cache_hashmap_pgcnt, (uint32_t)p);
   if (!s) {
-    //没有p对应的记录，说明肯定是调用者写错代码了
-    abort(); //进程都给你扬啰
+    return false;
   }
   //将p归还到slab中
   slab_free((struct slab *)s, p);
+  return true;
 }
