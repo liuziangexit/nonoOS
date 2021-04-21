@@ -48,6 +48,7 @@
         "list.h": "c",
         "pow2_util.h": "c",
         "syscall.h": "c",
-        "*.tcc": "c"
+        "*.tcc": "c",
+        "cstdlib": "cpp"
     }
 }
