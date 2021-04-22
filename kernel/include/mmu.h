@@ -268,7 +268,7 @@ struct PDE {
 
 static inline void set_pde4m(struct PDE4M *c, uintptr_t page_frame,
                              uint32_t flags) {
-  assert(page_frame % (4096 * 1024) == 0);
+  // assert(page_frame % _4M == 0);
   c->flags = flags;
   c->page_frame = page_frame >> 22;
   c->PAT = 0;

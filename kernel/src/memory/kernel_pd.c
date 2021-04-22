@@ -29,7 +29,8 @@ _Alignas(4096) uint32_t kernel_page_directory[1024] = {
 void pd_map_4M(void *pd, uintptr_t linear, uintptr_t physical, uint32_t pgcnt,
                uint32_t flags) {
   assert(((uintptr_t)pd) % 4096 == 0);
-  assert(physical % _4M == 0 && linear % _4M == 0);
+  // assert physical % _4M == 0
+  assert(linear % _4M == 0);
   assert(linear / _4M + pgcnt < 1024);
   assert(physical / _4M + pgcnt < 1024);
   assert(flags >> 12 == 0);
