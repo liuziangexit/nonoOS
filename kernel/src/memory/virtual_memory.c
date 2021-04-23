@@ -1,15 +1,10 @@
-#include <assert.h>
-#include <defs.h>
 #include <memlayout.h>
 #include <mmu.h>
-#include <panic.h>
-#include <stdbool.h>
-#include <string.h>
+#include <stdint.h>
+#include <virtual_memory.h>
 
 /*
-本文件主要包含两个功能的实现
-1.页表/页目录表的相关操作
-2.用户进程虚拟地址空间管理
+本文件主要包含用户进程虚拟地址空间管理
 */
 
 // entry.S中使用的页目录表
