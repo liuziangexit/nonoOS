@@ -49,6 +49,7 @@
         "pow2_util.h": "c",
         "syscall.h": "c",
         "*.tcc": "c",
-        "cstdlib": "cpp"
+        "cstdlib": "cpp",
+        "virtual_memory.h": "c"
     }
 }
