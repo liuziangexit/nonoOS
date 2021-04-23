@@ -87,7 +87,7 @@ uint32_t kmem_total_mem() { return total_memory; }
 
 #define FREE_SPACE_END 768
 void kmem_page_init() {
-  extern uint32_t kernel_page_directory[1024];
+  extern uint32_t boot_pd[1024];
   for (uint32_t i = 0; i < sizeof(zones) / sizeof(struct zone); i++) {
     list_init(&zones[i].pages.li);
   }
@@ -97,7 +97,7 @@ void kmem_page_init() {
   //滑动窗口起始
   uint32_t begin = 0;
   for (uint32_t i = 1; i < FREE_SPACE_END; i++) {
-    const uint32_t *page = (uint32_t *)kernel_page_directory + i;
+    const uint32_t *page = (uint32_t *)boot_pd + i;
     if (!window) {
       //如果现在没有滑动窗口
       if (*page & PTE_PS) {

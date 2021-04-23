@@ -3,6 +3,10 @@
 #ifndef __KERNEL_MMU_H__
 #define __KERNEL_MMU_H__
 
+#define _4K (4096)
+#define _4M (_4K * 1024)
+#define _4G (_4M * 1024)
+
 // Eflags register
 #define FL_CF 0x00000001        // Carry Flag
 #define FL_PF 0x00000004        // Parity Flag
@@ -253,45 +257,94 @@ static inline void set_cr3(struct CR3 *c, uintptr_t pd_addr, bool pwt,
   c->pcd = pcd;
 }
 
-struct PDE4M {
+struct PDE {
   uint32_t flags : 12;
   uint32_t PAT : 1;
-  uint32_t unknown : 4;
-  uint32_t _0 : 5;
+  uint32_t _ignored0 : 4;
+  uint32_t _ignored1 : 5;
   uint32_t page_frame : 10;
 };
 
-struct PDE {
+struct PDE_PS {
   uint32_t flags : 12;
   uint32_t page_table : 20;
 };
 
-static inline void set_pde4m(struct PDE4M *c, uintptr_t page_frame,
-                             uint32_t flags) {
+static inline void set_pde_4m(struct PDE *c, uintptr_t page_frame,
+                              uint32_t flags) {
   // assert(page_frame % _4M == 0);
   c->flags = flags;
   c->page_frame = page_frame >> 22;
   c->PAT = 0;
-  c->unknown = 0;
-  c->_0 = 0;
+  c->_ignored0 = 0;
+  c->_ignored1 = 0;
 }
 
-struct PTE4K {
+struct PTE {
   uint32_t flags : 12;
   uint32_t page_frame : 20;
 };
 
-static inline void set_pte4k(struct PTE4K *c, uintptr_t page_frame,
-                             uint32_t flags) {
+static inline void set_pte(struct PTE *c, uintptr_t page_frame,
+                           uint32_t flags) {
   assert(page_frame % 4096 == 0);
   c->flags = flags;
   c->page_frame = page_frame >> 12;
 }
 
-#endif
+// map大页
+static inline void map_page_4M(void *pd, uintptr_t linear, uintptr_t physical,
+                               uint32_t pgcnt, uint32_t flags) {
+  assert(((uintptr_t)pd) % 4096 == 0);
+  // assert physical % _4M == 0
+  assert(linear % _4M == 0);
+  assert(linear / _4M + pgcnt < 1024);
+  assert(physical / _4M + pgcnt < 1024);
+  assert(flags >> 12 == 0);
+  assert((flags & PTE_PS) == PTE_PS);
 
-#define _4K (4096)
-#define _4M (_4K * 1024)
-#define _4G (_4M * 1024)
+  uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
+  union {
+    struct PDE_PS pde;
+    uint32_t val;
+  } pde;
+  for (uint32_t i = 0; i < pgcnt; i++) {
+    pde.val = 0;
+    set_pde_4m(&pde.pde, (physical + i * _4M), flags);
+    *(entry + i) = pde.val;
+  }
+}
 
+// uint32_t pd_value(void *pd, uintptr_t linear) {
+//   assert(((uintptr_t)pd) % 4096 == 0);
+//   linear = ROUNDDOWN(linear, _4M);
+//   uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
+//   return *entry;
+// }
+
+// map小页
+// void pd_map_4K(void *pt, uintptr_t linear, uintptr_t physical, uint32_t
+// pgcnt,
+//                uint32_t flags) {
+//   const uint32_t pt_idx = (0x3FFFFF & linear) >> 12;
+
+//   assert(((uintptr_t)pt) % 4096 == 0);
+//   assert(physical % _4K == 0 && linear % _4K == 0);
+//   assert(pt_idx + pgcnt < 1024);
+//   assert(physical / _4K + pgcnt < 1024 * 1024);
+//   assert(flags >> 12 == 0);
+
+//   uint32_t *entry = (uint32_t *)(pt + pt_idx * 4);
+//   union {
+//     struct PTE4K pte;
+//     uint32_t val;
+//   } pte;
+//   for (uint32_t i = 0; i < pgcnt; i++) {
+//     pte.val = 0;
+//     set_pte4k(&pte.pte, (physical + i * _4K), flags);
+//     *(entry + i) = pte.val;
+//   }
+// }
+
+#endif // ifndef ASSMBLER
 #endif

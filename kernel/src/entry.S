@@ -12,7 +12,7 @@ entry:
   orl     $(CR4_PSE), %eax
   movl    %eax, %cr4
   # Set page directory
-  movl    $(V2P(kernel_page_directory)), %eax
+  movl    $(V2P(boot_pd)), %eax
   movl    %eax, %cr3
   # Turn on paging.
   movl    %cr0, %eax
