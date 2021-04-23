@@ -4,12 +4,14 @@
 #include <list.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <virtual_memory.h>
 
 enum task_state {
-  CREATED, //
-  YIELDED, //
-  RUNNING, //
-  EXITED
+  CREATED, //已创建
+  YIELDED, //被调走
+  // WAITING, //正在等待同步或IO
+  RUNNING, //运行中
+  EXITED   //已退出
 };
 
 const char *task_state_str(enum task_state);
@@ -32,8 +34,8 @@ typedef uint32_t pid_t;
 struct task_group {
   list_entry_t tasks;
   uint32_t task_cnt;
-  bool is_kernel; //是否内核权限
-  uintptr_t pgd;  //页目录
+  bool is_kernel;           //是否内核权限
+  struct virtual_memory vm; //虚拟内存管理
 };
 typedef struct task_group task_group_t;
 

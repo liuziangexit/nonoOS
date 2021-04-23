@@ -15,8 +15,7 @@
 
 /*
 TODO
-这个地方想做一个有序数组，然后查找的方式是二分法，这样我们就可以有logn的查找速度
-首先需要实现一个std::vector一样的可变长数组，然后实现二分法的操作（直接实现c标准库里的），就可以了。
+这里改用红黑树
 */
 static list_entry_t tasks;
 static list_entry_t dead_tasks;
@@ -33,7 +32,7 @@ static task_group_t *task_group_create_impl(bool is_kernel) {
   group->task_cnt = 0;
   group->is_kernel = is_kernel;
   if (is_kernel) {
-    group->pgd = 0;
+    group->vm.page_directory = 0;
   }
   return group;
 }
@@ -48,8 +47,8 @@ static void task_group_add(task_group_t *g, ktask_t *t) {
 static void task_group_remove(task_group_t *g, ktask_t *t) {
   assert(g);
   if (g->task_cnt == 1) {
-    if (g->pgd) {
-      free((void *)g->pgd);
+    if (g->vm.page_directory) {
+      free((void *)g->vm.page_directory);
     }
     free(g);
   } else {
@@ -313,7 +312,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
   map_page_4M(page_directory, 0xB8000000, new_task->ustack, 1,
               PTE_P | PTE_W | PTE_PS | PTE_U);
-  group->pgd = (uintptr_t)page_directory;
+  group->vm.page_directory = (uintptr_t)page_directory;
 
   //设置上下文和栈
   memset(&new_task->base.regs, 0, sizeof(struct registers));
