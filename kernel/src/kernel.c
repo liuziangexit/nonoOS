@@ -48,7 +48,7 @@ void kentry(void) {
   printf("\n");
   task_init();
   task_test();
-  //TODO 考虑一下嵌套中断
+  // TODO 考虑一下嵌套中断
   sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
@@ -77,7 +77,7 @@ void kentry(void) {
   //        (uintptr_t)_binary____program_hello_world_hello_exe_start,
   //        (uint32_t)_binary____program_hello_world_hello_exe_size);
 
-  // printf("nonoOS:$ ");
+  printf("nonoOS:$ ");
 
   //
 
