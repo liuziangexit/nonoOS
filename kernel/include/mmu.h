@@ -257,7 +257,7 @@ static inline void set_cr3(struct CR3 *c, uintptr_t pd_addr, bool pwt,
   c->pcd = pcd;
 }
 
-struct PDE {
+struct PDE_PG {
   uint32_t flags : 12;
   uint32_t PAT : 1;
   uint32_t _ignored0 : 4;
@@ -265,12 +265,12 @@ struct PDE {
   uint32_t page_frame : 10;
 };
 
-struct PDE_PS {
+struct PDE {
   uint32_t flags : 12;
   uint32_t page_table : 20;
 };
 
-static inline void set_pde_4m(struct PDE *c, uintptr_t page_frame,
+static inline void set_pde_4m(struct PDE_PG *c, uintptr_t page_frame,
                               uint32_t flags) {
   // assert(page_frame % _4M == 0);
   c->flags = flags;
@@ -305,7 +305,7 @@ static inline void map_page_4M(void *pd, uintptr_t linear, uintptr_t physical,
 
   uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
   union {
-    struct PDE_PS pde;
+    struct PDE_PG pde;
     uint32_t val;
   } pde;
   for (uint32_t i = 0; i < pgcnt; i++) {

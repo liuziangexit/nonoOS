@@ -1,6 +1,7 @@
 #include "bare_hashmap.h"
 #include "pow2_util.h"
 #include <memory_manager.h>
+#include <panic.h>
 
 // TODO 其实这里可以key是内存地址，value是内存长度，这样就可以只用一个hashmap了
 

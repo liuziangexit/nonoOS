@@ -55,11 +55,13 @@ static struct slab *new_slab_struct() {
     }
   }
   panic("new_slab_struct");
+  __builtin_unreachable();
 }
 
 static void free_slab_struct(struct slab *s) {
-  assert(s > big_obj_slabs &&
-         s <= big_obj_slabs + (sizeof(struct slab) * BIG_OBJ_SLABS_CNT) &&
+  assert((uintptr_t)s > (uintptr_t)big_obj_slabs &&
+         (uintptr_t)s <= (uintptr_t)big_obj_slabs +
+                             (sizeof(struct slab) * BIG_OBJ_SLABS_CNT) &&
          ((uintptr_t)s - (uintptr_t)big_obj_slabs) % sizeof(struct slab) == 0);
   uint32_t idx =
       ((uintptr_t)s - (uintptr_t)big_obj_slabs) / sizeof(struct slab);
@@ -232,8 +234,8 @@ void *kmem_cache_alloc(size_t alignment, size_t size) {
       assert(object);
     }
     //从“未使用的slab”链表里移除这slab，将它加入“已部分使用的slab”链表
-    list_del(alloc_from);
-    list_add(&cache->slabs_partial, alloc_from);
+    list_del(&alloc_from->li);
+    list_add(&cache->slabs_partial, &alloc_from->li);
   }
   return object;
 }
