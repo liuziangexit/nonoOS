@@ -9,6 +9,8 @@ CVERSION=-std=gnu11
 INCLUDE=-I../include -I../../kernel/include -I../../driver/include
 
 OBJS=\
+../src/avlhash.o\
+../src/avlmini.o\
 ../src/stdout.o\
 ../src/stdin.o\
 ../src/string.o\
