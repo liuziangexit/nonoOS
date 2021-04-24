@@ -15,7 +15,7 @@ struct virtual_memory_area {
 };
 
 struct virtual_memory {
-  struct avl_tree vma;
+  struct avl_tree vma_tree;
   // uint32_t vma_cnt;
   uint32_t *page_directory;
 };
