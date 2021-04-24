@@ -50,6 +50,7 @@
         "syscall.h": "c",
         "*.tcc": "c",
         "cstdlib": "cpp",
-        "virtual_memory.h": "c"
+        "virtual_memory.h": "c",
+        "avlmini.h": "c"
     }
 }
