@@ -352,43 +352,36 @@ struct PTE {
   uint32_t page_frame : 20;
 };
 
-// static inline void set_pte(struct PTE *c, uintptr_t page_frame,
-//                            uint32_t flags) {
-//   assert(page_frame % _4K == 0);
-//   c->flags = flags;
-//   c->page_frame = page_frame >> 12;
-// }
+static inline void pte_map(struct PTE *c, uintptr_t page_frame,
+                           uint32_t flags) {
+  assert(page_frame % _4K == 0);
+  c->flags = flags;
+  c->page_frame = page_frame >> 12;
+}
 
-// uint32_t pd_value(void *pd, uintptr_t linear) {
-//   assert(((uintptr_t)pd) % 4096 == 0);
-//   linear = ROUNDDOWN(linear, _4M);
-//   uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
-//   return *entry;
-// }
+static inline void pt_map(void *pt, uintptr_t linear, uintptr_t physical,
+                          uint32_t pgcnt, uint32_t flags) {
+  //页目录的地址要对齐到4K
+  assert(((uintptr_t)pt) % _4K == 0);
+  //物理地址和线性地址要对齐到4K
+  assert(linear % _4K == 0 && physical % _4K == 0);
+  //不能超出页表空间尾部
+  // assert(linear / _4K + pgcnt < 1024 * 1024);
+  // assert(physical / _4K + pgcnt < 1024 * 1024);
+  //确保flags真的只是flags
+  assert(flags >> 12 == 0);
 
-// map小页
-// void pd_map_4K(void *pt, uintptr_t linear, uintptr_t physical, uint32_t
-// pgcnt,
-//                uint32_t flags) {
-//   const uint32_t pt_idx = (0x3FFFFF & linear) >> 12;
-
-//   assert(((uintptr_t)pt) % 4096 == 0);
-//   assert(physical % _4K == 0 && linear % _4K == 0);
-//   assert(pt_idx + pgcnt < 1024);
-//   assert(physical / _4K + pgcnt < 1024 * 1024);
-//   assert(flags >> 12 == 0);
-
-//   uint32_t *entry = (uint32_t *)(pt + pt_idx * 4);
-//   union {
-//     struct PTE4K pte;
-//     uint32_t val;
-//   } pte;
-//   for (uint32_t i = 0; i < pgcnt; i++) {
-//     pte.val = 0;
-//     set_pte4k(&pte.pte, (physical + i * _4K), flags);
-//     *(entry + i) = pte.val;
-//   }
-// }
+  uint32_t *entry = (uint32_t *)(pt + linear / _4M * 4);
+  union {
+    struct PTE pte;
+    uint32_t val;
+  } pte;
+  for (uint32_t i = 0; i < pgcnt; i++) {
+    pte.val = 0;
+    pte_map(&pte.pte, (physical + i * _4K), flags);
+    *(entry + i) = pte.val;
+  }
+}
 
 #endif // ifndef ASSMBLER
 #endif
