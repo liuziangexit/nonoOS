@@ -272,7 +272,7 @@ struct PDE {
 
 static inline void set_pde_4m(struct PDE_PG *c, uintptr_t page_frame,
                               uint32_t flags) {
-  // assert(page_frame % _4M == 0);
+  assert(page_frame % _4M == 0);
   c->flags = flags;
   c->page_frame = page_frame >> 22;
   c->PAT = 0;
@@ -295,8 +295,7 @@ static inline void set_pte(struct PTE *c, uintptr_t page_frame,
 // map大页
 static inline void map_page_4M(void *pd, uintptr_t linear, uintptr_t physical,
                                uint32_t pgcnt, uint32_t flags) {
-  assert(((uintptr_t)pd) % 4096 == 0);
-  // assert physical % _4M == 0
+  assert(((uintptr_t)pd) % 4096 == 0 && physical % _4M == 0);
   assert(linear % _4M == 0);
   assert(linear / _4M + pgcnt < 1024);
   assert(physical / _4M + pgcnt < 1024);
