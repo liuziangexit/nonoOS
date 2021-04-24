@@ -5,6 +5,7 @@
 
 void kmem_init(struct e820map_t *memlayout);
 
+//跟std::max_align_t意思是一样的
 #define MAX_ALIGNMENT 32
 
 /*
