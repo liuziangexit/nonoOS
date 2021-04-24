@@ -251,11 +251,13 @@ struct CR3 {
 
 static inline void set_cr3(struct CR3 *c, uintptr_t pd_addr, bool pwt,
                            bool pcd) {
-  assert(pd_addr % 4096 == 0);
+  assert(pd_addr % _4K == 0);
   c->pd_addr = ((uint32_t)(pd_addr)) >> 12;
   c->pwt = pwt;
   c->pcd = pcd;
 }
+
+//页目录操作
 
 struct PDE_PG {
   uint32_t flags : 12;
@@ -265,13 +267,9 @@ struct PDE_PG {
   uint32_t page_frame : 10;
 };
 
-struct PDE {
-  uint32_t flags : 12;
-  uint32_t page_table : 20;
-};
-
-static inline void set_pde_4m(struct PDE_PG *c, uintptr_t page_frame,
-                              uint32_t flags) {
+//设置page directory entry，映射一个4M页
+static inline void pde_map(struct PDE_PG *c, uintptr_t page_frame,
+                           uint32_t flags) {
   assert(page_frame % _4M == 0);
   c->flags = flags;
   c->page_frame = page_frame >> 22;
@@ -280,27 +278,20 @@ static inline void set_pde_4m(struct PDE_PG *c, uintptr_t page_frame,
   c->_ignored1 = 0;
 }
 
-struct PTE {
-  uint32_t flags : 12;
-  uint32_t page_frame : 20;
-};
-
-static inline void set_pte(struct PTE *c, uintptr_t page_frame,
-                           uint32_t flags) {
-  assert(page_frame % 4096 == 0);
-  c->flags = flags;
-  c->page_frame = page_frame >> 12;
-}
-
-// map大页
-static inline void map_page_4M(void *pd, uintptr_t linear, uintptr_t physical,
-                               uint32_t pgcnt, uint32_t flags) {
-  assert(((uintptr_t)pd) % 4096 == 0 && physical % _4M == 0);
-  assert(linear % _4M == 0);
+// 页目录map大页
+static inline void pd_map(void *pd, uintptr_t linear, uintptr_t physical,
+                          uint32_t pgcnt, uint32_t flags) {
+  //确保flags里开了4M
+  assert((flags & PTE_PS) == PTE_PS);
+  //页目录的地址要对齐到4K
+  assert(((uintptr_t)pd) % _4K == 0);
+  //物理地址和线性地址要对齐到4M
+  assert(linear % _4M == 0 && physical % _4M == 0);
+  //不能超出内存尾部
   assert(linear / _4M + pgcnt < 1024);
   assert(physical / _4M + pgcnt < 1024);
+  //确保flags真的只是flags
   assert(flags >> 12 == 0);
-  assert((flags & PTE_PS) == PTE_PS);
 
   uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
   union {
@@ -309,10 +300,64 @@ static inline void map_page_4M(void *pd, uintptr_t linear, uintptr_t physical,
   } pde;
   for (uint32_t i = 0; i < pgcnt; i++) {
     pde.val = 0;
-    set_pde_4m(&pde.pde, (physical + i * _4M), flags);
+    pde_map(&pde.pde, (physical + i * _4M), flags);
     *(entry + i) = pde.val;
   }
 }
+
+struct PDE_REF {
+  uint32_t flags : 12;
+  uint32_t page_table : 20;
+};
+
+// 设置page directory entry，引用一个页表
+static inline void pde_ref(struct PDE_REF *c, uintptr_t page_table,
+                           uint32_t flags) {
+  assert(page_table % _4K == 0);
+  c->flags = flags;
+  c->page_table = page_table >> 12;
+}
+
+// 页目录引用页表
+// 如果pgcnt>1，表示从linear开始pgcnt个PDE都要映射到从page_table开始的pgcnt个页表
+static inline void pd_ref(void *pd, uintptr_t linear, uintptr_t page_table,
+                          uint32_t pgcnt, uint32_t flags) {
+  //确保flags里没有开4M
+  assert((flags & PTE_PS) == 0);
+  //页目录的地址要对齐到4K
+  assert(((uintptr_t)pd) % _4K == 0);
+  //线性地址要对齐到4M，而页表地址要对齐到4K
+  assert(linear % _4M == 0 && page_table % _4K == 0);
+  //不能超出内存尾部
+  assert(linear / _4M + pgcnt < 1024);
+  //确保flags真的只是flags
+  assert(flags >> 12 == 0);
+
+  uint32_t *entry = (uint32_t *)(pd + linear / _4M * 4);
+  union {
+    struct PDE_REF pde;
+    uint32_t val;
+  } pde;
+  for (uint32_t i = 0; i < pgcnt; i++) {
+    pde.val = 0;
+    pde_ref(&pde.pde, (page_table + i * _4K), flags);
+    *(entry + i) = pde.val;
+  }
+}
+
+//页表操作
+
+struct PTE {
+  uint32_t flags : 12;
+  uint32_t page_frame : 20;
+};
+
+// static inline void set_pte(struct PTE *c, uintptr_t page_frame,
+//                            uint32_t flags) {
+//   assert(page_frame % _4K == 0);
+//   c->flags = flags;
+//   c->page_frame = page_frame >> 12;
+// }
 
 // uint32_t pd_value(void *pd, uintptr_t linear) {
 //   assert(((uintptr_t)pd) % 4096 == 0);

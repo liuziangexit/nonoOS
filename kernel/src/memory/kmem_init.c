@@ -24,12 +24,12 @@ void kmem_init(struct e820map_t *memlayout) {
   //好吧，现在开始修改真的页目录(boot_pd)
   memset(boot_pd, 0, _4K);
   //虚拟地址0到4M -> 物理地址0到4M（为了CGA这样的外设地址）
-  map_page_4M(boot_pd, 0, 0, 1, PTE_P | PTE_W | PTE_PS);
+  pd_map(boot_pd, 0, 0, 1, PTE_P | PTE_W | PTE_PS);
   // 8M内核映像
-  map_page_4M(boot_pd, KERNEL_VIRTUAL_BASE, 0, 2, PTE_P | PTE_W | PTE_PS);
+  pd_map(boot_pd, KERNEL_VIRTUAL_BASE, 0, 2, PTE_P | PTE_W | PTE_PS);
   // 4M内核栈
-  map_page_4M(boot_pd, KERNEL_VIRTUAL_BASE + KERNEL_STACK, KERNEL_STACK, 1,
-              PTE_P | PTE_W | PTE_PS);
+  pd_map(boot_pd, KERNEL_VIRTUAL_BASE + KERNEL_STACK, KERNEL_STACK, 1,
+         PTE_P | PTE_W | PTE_PS);
 
   /*
   处理 up to 2G 的 free space
@@ -130,8 +130,8 @@ void kmem_init(struct e820map_t *memlayout) {
 #endif
     }
     //好了，现在准备妥当了，开始做map
-    map_page_4M(boot_pd, (uintptr_t)addr, (uintptr_t)addr, page_count,
-                PTE_P | PTE_W | PTE_PS);
+    pd_map(boot_pd, (uintptr_t)addr, (uintptr_t)addr, page_count,
+           PTE_P | PTE_W | PTE_PS);
   }
 
   //重新加载真的页目录(boot_pd)

@@ -306,12 +306,12 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   memset((void *)(uintptr_t)(((char *)page_directory) + (12 / 4 * 4)), 0,
          512 * 4);
   //把new_task->program映射到128MB的地方
-  map_page_4M(page_directory, 0x8000000, (uintptr_t)new_task->program, 1,
-              PTE_P | PTE_W | PTE_PS | PTE_U);
+  pd_map(page_directory, 0x8000000, (uintptr_t)new_task->program, 1,
+         PTE_P | PTE_W | PTE_PS | PTE_U);
   // map用户栈（的结尾）到3GB-128M的地方
   // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
-  map_page_4M(page_directory, 0xB8000000, new_task->ustack, 1,
-              PTE_P | PTE_W | PTE_PS | PTE_U);
+  pd_map(page_directory, 0xB8000000, new_task->ustack, 1,
+         PTE_P | PTE_W | PTE_PS | PTE_U);
   group->vm.page_directory = (uintptr_t)page_directory;
 
   //设置上下文和栈
