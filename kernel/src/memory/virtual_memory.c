@@ -67,8 +67,11 @@ struct virtual_memory_area *virtual_memory_find(struct virtual_memory *vm,
 //在一个虚拟地址空间结构中进行以4k为边界映射
 //返回false如果指定的虚拟地址已经有映射了，或者系统没有足够的内存
 bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
-                        uintptr_t vma_size) {
-  assert(vma_start % 4096 == 0 && vma_size % 4096 == 0);
+                        uintptr_t vma_size, uintptr_t physical_addr,
+                        uint16_t flags) {
+  assert(vma_start % 4096 == 0 && vma_size % 4096 == 0 &&
+         physical_addr % 4096 == 0);
+  assert(flags >> 8 == 0); //确保flags真的只是flags
   struct virtual_memory_area key;
   key.vma_start = vma_start;
   //确定一下有没有重叠
@@ -91,13 +94,32 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
   }
   //确认没有重叠，开始新增了
   struct virtual_memory_area *vma = malloc(sizeof(struct virtual_memory_area));
-  if (!vma)
+  if (!vma) {
     return false;
+  }
+  vma->vm = vm;
   vma->vma_start = vma_start;
   vma->vma_size = vma_size;
   if (avl_tree_add(&vm->vma_tree, vma)) {
     // never!
     abort();
+  }
+  //逐个在页目录里map
+  for (uint32_t p = vma_start; p < vma_start + vma_size; p += _4K) {
+    uint32_t pd_idx = p / _4M, pt_idx = p / _4K;
+    uint32_t *pde = &vm->page_directory[pd_idx];
+    assert((*pde) & PTE_P == 0);
+    //分配一个页表
+    uint32_t *pt = kmem_page_alloc(1);
+    assert(pt); // FIXME 这里失败的时候，应该要回收已分配的结构，并且返回false
+    memset(pt, 0, _4K);
+    union {
+      struct PDE_REF pde;
+      uint32_t value;
+    } punning;
+    punning.value = 0;
+    pde_ref(&punning.pde, pt, flags);
+    *pde = punning.value;
   }
   return true;
 }
