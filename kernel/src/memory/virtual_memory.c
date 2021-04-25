@@ -71,7 +71,9 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
                         uint16_t flags) {
   assert(vma_start % 4096 == 0 && vma_size % 4096 == 0 &&
          physical_addr % 4096 == 0);
-  assert(flags >> 8 == 0); //确保flags真的只是flags
+  //我们只允许US、RW和P
+  assert(flags >> 3 == 0);
+
   struct virtual_memory_area key;
   key.vma_start = vma_start;
   //确定一下有没有重叠
@@ -105,6 +107,8 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
     abort();
   }
   //逐个在页目录里map
+  //在这个函数中，PTE和PDE的这些flags必须是同样的，也就是说参数flags不仅
+  //是新的PTE的flags，也必须和已有的PDE flags不冲突
   for (uint32_t p = vma_start; p < vma_start + vma_size; p += _4K) {
     uint32_t pd_idx = p / _4M, pt_idx = p / _4K;
     uint32_t *pde = &vm->page_directory[pd_idx];
