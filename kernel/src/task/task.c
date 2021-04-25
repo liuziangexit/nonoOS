@@ -339,31 +339,26 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                            KERNEL_VIRTUAL_BASE + KERNEL_STACK, _4M,
                            KERNEL_VIRTUAL_BASE + KERNEL_STACK, PTE_P | PTE_W);
   assert(ret);
-
-  // memcpy(page_directory, boot_pd, _4K);
-  // //清空12MB开始到2GB+12MB之间的映射
-  // memset((void *)(uintptr_t)(((char *)page_directory) + (12 / 4 * 4)), 0,
-  //        512 * 4);
   // //把new_task->program映射到128MB的地方
-  // pd_map(page_directory, 0x8000000, (uintptr_t)new_task->program, 1,
-  //        PTE_P | PTE_W | PTE_PS | PTE_U);
+  ret = virtual_memory_map(new_task->base.group->vm, 0x8000000, _4M,
+                           (uintptr_t)new_task->program, PTE_P | PTE_U);
+  assert(ret);
   // // map用户栈（的结尾）到3GB-128M的地方
-  // // TODO
-  // 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
-  // pd_map(page_directory, 0xB8000000, new_task->ustack, 1,
-  //        PTE_P | PTE_W | PTE_PS | PTE_U);
-  // group->vm.page_directory = (uintptr_t)page_directory;
+  // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
+  ret = virtual_memory_map(new_task->base.group->vm, 0xB8000000, _4M,
+                           new_task->ustack, PTE_P | PTE_W | PTE_U);
+  assert(ret);
 
-  // //设置上下文和栈
-  // memset(&new_task->base.regs, 0, sizeof(struct registers));
-  // // FIXME
-  // assert(entry == DETECT_ENTRY);
-  // new_task->base.regs.eip = elf_header->e_entry;
-  // // FIXME
-  // new_task->base.regs.ebp = 0xB8000000;
-  // new_task->base.regs.esp = 0xB8000000 - 2 * sizeof(void *);
-  // //*(void **)(new_task->base.regs.esp + 4) = 999;
-  // //*(void **)(new_task->base.regs.esp) = 888;
+  // 设置上下文和栈
+  memset(&new_task->base.regs, 0, sizeof(struct registers));
+  // FIXME
+  assert(entry == DETECT_ENTRY);
+  new_task->base.regs.eip = elf_header->e_entry;
+  // FIXME
+  new_task->base.regs.ebp = 0xB8000000;
+  new_task->base.regs.esp = 0xB8000000 - 2 * sizeof(void *);
+  //*(void **)(new_task->base.regs.esp + 4) = 999;
+  //*(void **)(new_task->base.regs.esp) = 888;
 
   list_add(&tasks, &new_task->base.global_head);
   return new_task->base.id;

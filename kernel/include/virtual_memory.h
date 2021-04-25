@@ -25,8 +25,8 @@ struct virtual_memory *virtual_memory_create();
 //销毁一个虚拟地址空间结构
 void virtual_memory_destroy(struct virtual_memory *vm);
 //寻找对应的vma，如果没有返回0
-struct virtual_memory_area *virtual_memory_find(struct virtual_memory *vm,
-                                                uint32_t vma_start);
+struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
+                                                   uint32_t vma_start);
 //在一个虚拟地址空间结构中进行以4k为边界映射
 //返回false如果指定的虚拟地址已经有映射了
 bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
@@ -35,7 +35,11 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
 void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t vma_start);
 //在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
 //返回0表示找不到
-uintptr_t virtual_memory_alloc(struct virtual_memory *vm, uint32_t vma_size,
-                               uintptr_t begin, uintptr_t end);
+uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
+                                  uintptr_t begin, uintptr_t end);
+//一直期待的虚拟内存分配
+void *virtual_memory_alloc(struct virtual_memory *vm, uint32_t alignment,
+                           uint32_t size);
+bool virtual_memory_free(struct virtual_memory *vm, void *);
 
 #endif

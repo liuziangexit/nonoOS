@@ -18,7 +18,7 @@ uint32_t kmem_total_mem();
 */
 void kmem_alloc_init();
 void *kmem_alloc(size_t alignment, size_t size);
-void kmem_free(void *);
+bool kmem_free(void *);
 
 /*
 按页分配内存的接口

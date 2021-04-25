@@ -56,8 +56,8 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
 }
 
 //寻找对应的vma，如果没有返回0
-struct virtual_memory_area *virtual_memory_find(struct virtual_memory *vm,
-                                                uint32_t vma_start) {
+struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
+                                                   uint32_t vma_start) {
   assert(vma_start % 4096 == 0);
   struct virtual_memory_area vma;
   vma.vma_start = vma_start;
@@ -74,8 +74,8 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
   //我们只允许US、RW和P
   assert(flags >> 3 == 0);
   //确定一下有没有重叠
-  assert(vma_start ==
-         virtual_memory_alloc(vm, vma_size, vma_start, vma_start + vma_size));
+  assert(vma_start == virtual_memory_find_fit(vm, vma_size, vma_start,
+                                              vma_start + vma_size));
   //确认没有重叠，开始新增了
   struct virtual_memory_area *vma = malloc(sizeof(struct virtual_memory_area));
   if (!vma) {
@@ -145,10 +145,8 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t vma_start) {
 
 //在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
 //返回0表示找不到
-//实际上，这个函数并没有真的alloc任何东西，这个函数实际上是read-only的
-//叫alloc只是因为我想不到更好的名字了
-uintptr_t virtual_memory_alloc(struct virtual_memory *vm, uint32_t vma_size,
-                               uintptr_t begin, uintptr_t end) {
+uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
+                                  uintptr_t begin, uintptr_t end) {
   assert(end - begin >= _4K && vma_size % _4K == 0);
   uintptr_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDUP(end, _4K);
   assert(real_end - real_begin >= vma_size);
@@ -197,6 +195,49 @@ uintptr_t virtual_memory_alloc(struct virtual_memory *vm, uint32_t vma_size,
   //不太放心，再确认下
   assert(real_begin % 4096 == 0 && real_end - real_begin >= vma_size);
   return real_begin;
+}
+
+//大家一直期待的虚拟内存分配
+void *virtual_memory_alloc(struct virtual_memory *vm, uint32_t alignment,
+                           uint32_t size) {
+  //临时解决方案，每次要分配的时候直接按页给好了
+  size = ROUNDUP(size, _4K);
+  void *kmem = malloc(size);
+  if (!kmem) {
+    return 0;
+  }
+  // TODO
+  // 这个0x10000000和0xB0000000之间就是heap区，到时候heap区是要根据程序大小和栈大小动态算出来的
+  uintptr_t virtual_addr =
+      virtual_memory_find_fit(vm, size, 0x10000000, 0xB0000000);
+  if (!virtual_addr) {
+    free(kmem);
+    return 0;
+  }
+  if (!virtual_memory_map(vm, virtual_addr, size, (uintptr_t)kmem,
+                          PTE_P | PTE_W | PTE_U)) {
+    free(kmem);
+    return 0;
+  }
+  return (void *)virtual_addr;
+}
+
+bool virtual_memory_free(struct virtual_memory *vm, void *p) {
+  uintptr_t vma_start = (uintptr_t)p;
+  uint32_t pd_idx = vma_start / _4M, pt_idx = 0x3FF & (vma_start >> 12);
+  if ((vm->page_directory[pd_idx] & PTE_P) == 0) {
+    return false;
+  }
+  uint32_t *pt = (uint32_t *)(vm->page_directory[pd_idx] & ~0xFFF);
+  if ((pt[pt_idx] & PTE_P) == 0) {
+    return false;
+  }
+  void *ptr = (void *)(pt[pt_idx] & ~0xFFF);
+  if (!kmem_free(ptr)) {
+    return false;
+  }
+  virtual_memory_unmap(vm, vma_start);
+  return true;
 }
 
 // entry.S中使用的页目录表

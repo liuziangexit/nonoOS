@@ -52,15 +52,17 @@ void *kmem_alloc(size_t alignment, size_t size) {
   }
 }
 
-void kmem_free(void *p) {
+bool kmem_free(void *p) {
   assert(p);
-  if (!kmem_cache_free(p)) {
-    if (((uintptr_t)p) % 4096 == 0) {
-      uint32_t page_cnt =
-          bare_del(page_hashmap, page_hashmap_pgcnt, (uint32_t)p);
-      if (page_cnt != 0) {
-        kmem_page_free(p, page_cnt);
-      }
+  if (kmem_cache_free(p)) {
+    return true;
+  }
+  if (((uintptr_t)p) % 4096 == 0) {
+    uint32_t page_cnt = bare_del(page_hashmap, page_hashmap_pgcnt, (uint32_t)p);
+    if (page_cnt != 0) {
+      kmem_page_free(p, page_cnt);
+      return true;
     }
   }
+  return false;
 }

@@ -11,6 +11,9 @@ void *aligned_alloc(size_t alignment, size_t size) {
   return kmem_alloc(alignment, size);
 }
 
-void free(void *p) { kmem_free(p); }
+void free(void *p) {
+  bool ret = kmem_free(p);
+  assert(ret);
+}
 
 #endif
