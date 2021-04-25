@@ -325,8 +325,20 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
            program + program_header->p_offset, program_header->p_filesz);
   }
 
-  // extern uint32_t boot_pd[];
-  // //首先有一部分和内核页表一样，
+  bool ret;
+  // FIXME 有必要吗
+  // 0到4MB的直接映射
+  ret = virtual_memory_map(new_task->base.group->vm, 0, _4M, 0, PTE_P | PTE_W);
+  assert(ret);
+  // 映射内核映像
+  ret = virtual_memory_map(new_task->base.group->vm, KERNEL_VIRTUAL_BASE,
+                           _4M * 2, KERNEL_VIRTUAL_BASE, PTE_P | PTE_W);
+  assert(ret);
+  // 映射内核栈
+  ret = virtual_memory_map(new_task->base.group->vm,
+                           KERNEL_VIRTUAL_BASE + KERNEL_STACK, _4M,
+                           KERNEL_VIRTUAL_BASE + KERNEL_STACK, PTE_P | PTE_W);
+  assert(ret);
 
   // memcpy(page_directory, boot_pd, _4K);
   // //清空12MB开始到2GB+12MB之间的映射
@@ -336,7 +348,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   // pd_map(page_directory, 0x8000000, (uintptr_t)new_task->program, 1,
   //        PTE_P | PTE_W | PTE_PS | PTE_U);
   // // map用户栈（的结尾）到3GB-128M的地方
-  // // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
+  // // TODO
+  // 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
   // pd_map(page_directory, 0xB8000000, new_task->ustack, 1,
   //        PTE_P | PTE_W | PTE_PS | PTE_U);
   // group->vm.page_directory = (uintptr_t)page_directory;
