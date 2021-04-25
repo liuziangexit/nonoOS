@@ -43,7 +43,7 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
     //如果一个PDE presented，并且不是大页，那肯定就是引用了一个PT
     if (entry & PTE_P && (entry & PTE_PS) == 0) {
       //移除flags，得到页表地址
-      void *page_table = (void *)(entry | ~(uint32_t)0xFFF);
+      void *page_table = (void *)(entry & ~(uint32_t)0xFFF);
       kmem_page_free(page_table, 1);
     }
   }
@@ -99,7 +99,6 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
   if (!vma) {
     return false;
   }
-  vma->vm = vm;
   vma->vma_start = vma_start;
   vma->vma_size = vma_size;
   if (avl_tree_add(&vm->vma_tree, vma)) {
@@ -109,21 +108,36 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
   //逐个在页目录里map
   //在这个函数中，PTE和PDE的这些flags必须是同样的，也就是说参数flags不仅
   //是新的PTE的flags，也必须和已有的PDE flags不冲突
-  for (uint32_t p = vma_start; p < vma_start + vma_size; p += _4K) {
+  for (uint32_t p = vma_start; p < vma_start + vma_size;
+       p += _4K, physical_addr += _4K) {
     uint32_t pd_idx = p / _4M, pt_idx = p / _4K;
     uint32_t *pde = &vm->page_directory[pd_idx];
-    assert((*pde) & PTE_P == 0);
-    //分配一个页表
-    uint32_t *pt = kmem_page_alloc(1);
-    assert(pt); // FIXME 这里失败的时候，应该要回收已分配的结构，并且返回false
-    memset(pt, 0, _4K);
+    if (((*pde) & PTE_P) == 0) {
+      // PDE是空的，分配一个页表
+      uint32_t *pt = kmem_page_alloc(1);
+      // FIXME 这里失败的时候，应该要回收本次函数调用已分配的结构，并且返回false
+      assert(pt);
+      memset(pt, 0, _4K);
+      union {
+        struct PDE_REF pde;
+        uint32_t value;
+      } punning;
+      punning.value = 0;
+      pde_ref(&punning.pde, (uintptr_t)pt, flags);
+      *pde = punning.value;
+    } else {
+      assert(((*pde) & PTE_PS) == 0);
+      // PDE已经有一个页表了
+    }
+    //确定页表没问题了，现在开始改页表
+    uint32_t *pte = (uint32_t *)(((uint32_t)*pde) & ~0xFFF);
     union {
-      struct PDE_REF pde;
+      struct PTE pte;
       uint32_t value;
     } punning;
     punning.value = 0;
-    pde_ref(&punning.pde, pt, flags);
-    *pde = punning.value;
+    pte_map(&punning.pte, physical_addr, flags);
+    pte[pt_idx] = punning.value;
   }
   return true;
 }
@@ -132,9 +146,17 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t vma_start) {
   assert(vma_start % 4096 == 0);
   struct virtual_memory_area key;
   key.vma_start = vma_start;
-  //确定一下有没有重叠
   struct virtual_memory_area *vma = avl_tree_find(&vm->vma_tree, &key);
   assert(vma); //用户参数有问题，直接崩
+  //在页表里取消这些地址的map
+  for (uintptr_t p = vma->vma_start; p < vma->vma_start + vma->vma_size;
+       p += _4K) {
+    uint32_t pd_idx = p / _4M, pt_idx = p / _4K;
+    assert(vm->page_directory[pd_idx] & PTE_P);
+    assert((vm->page_directory[pd_idx] & PTE_PS) == 0);
+    uint32_t *pt = (uint32_t *)(vm->page_directory[pd_idx] & ~0xFFF);
+    pt[pt_idx] = 0;
+  }
   avl_tree_remove(&vm->vma_tree, vma);
   free(vma);
 }
