@@ -11,7 +11,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <task.h>
+#include <virtual_memory.h>
 #include <x86.h>
+
+/*
+TODO
+需要再看一下函数里出错return时有没有内存泄漏的问题
+*/
 
 /*
 TODO
@@ -23,7 +29,7 @@ static ktask_t *current;
 // FIXME atomic
 static pid_t id_seq;
 
-static task_group_t *task_group_create_impl(bool is_kernel) {
+static task_group_t *task_group_create(bool is_kernel) {
   task_group_t *group = malloc(sizeof(task_group_t));
   if (!group) {
     return 0;
@@ -32,7 +38,9 @@ static task_group_t *task_group_create_impl(bool is_kernel) {
   group->task_cnt = 0;
   group->is_kernel = is_kernel;
   if (is_kernel) {
-    group->vm.page_directory = 0;
+    group->vm = 0;
+  } else {
+    group->vm = virtual_memory_create();
   }
   return group;
 }
@@ -44,13 +52,17 @@ static void task_group_add(task_group_t *g, ktask_t *t) {
   t->group = g;
 }
 
+static void task_group_destroy(task_group_t *g) {
+  if (g->vm) {
+    virtual_memory_destroy(g->vm);
+  }
+  free(g);
+}
+
 static void task_group_remove(task_group_t *g, ktask_t *t) {
   assert(g);
   if (g->task_cnt == 1) {
-    if (g->vm.page_directory) {
-      free((void *)g->vm.page_directory);
-    }
-    free(g);
+    task_group_destroy(g);
   } else {
     g->task_cnt--;
     list_del(&t->group_head);
@@ -61,6 +73,29 @@ static void task_group_remove(task_group_t *g, ktask_t *t) {
 // head不是第一个成员，所以需要加减一下指针才能得到ktask的地址
 inline static ktask_t *task_group_list_retrieve(list_entry_t *head) {
   return (ktask_t *)(head - 1);
+}
+
+static pid_t gen_pid() {
+  //生成pid
+  /* FIXME
+   1.当系统中存在的进程数量达到2^32-1时（正在创建第2^32个进程时），这会无限循环
+   2.当以特别快的速度创建和销毁进程时，比如说线程1在此处创建了任务1，但是还未将任务1
+  加入进程列表时，另一个线程快速地用光了所有剩下的id，以至于id_seq从1重新开始，
+  这个时候就是一个racing了
+
+  对于第一个问题，下面已经作出了处理，但是可以看出还不够充分，需要对下面的代码加锁才是真正正确的
+  对于第二个问题，加一个锁就可以解决
+
+  所以这个地方目前只需要加锁就完事了，等锁做好了记得来改
+  */
+  pid_t result;
+  const pid_t begins = id_seq;
+  do {
+    result = ++id_seq;
+    if (result == begins)
+      panic("running out of pid");
+  } while (task_find(result));
+  return result;
 }
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
@@ -80,56 +115,45 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
       }
     } else {
       //如果没有指定线程组（意思是要创建一个），那么确保这是首个内核线程（idle）
-      if (task_find(1))
-        return 0;
+      assert(task_find(1) == 0);
     }
   }
 
+  bool group_created = false;
   if (!group) {
     //创建一个group
-    group = task_group_create_impl(kernel);
+    group = task_group_create(kernel);
     if (!group) {
       return 0;
     }
+    group_created = true;
   }
 
   ktask_t *new_task;
   if (kernel) {
     new_task = malloc(sizeof(ktask_t));
-    memset(new_task, 0, sizeof(ktask_t));
+    if (new_task) {
+      memset(new_task, 0, sizeof(ktask_t));
+    }
   } else {
     new_task = malloc(sizeof(utask_t));
-    memset(new_task, 0, sizeof(utask_t));
+    if (new_task) {
+      memset(new_task, 0, sizeof(utask_t));
+    }
   }
   if (!new_task) {
+    if (group_created) {
+      task_group_destroy(group);
+    }
     return 0;
   }
 
   list_init(&new_task->global_head);
   list_init(&new_task->group_head);
   new_task->state = CREATED;
-
-  //生成pid
-  /* FIXME
-   1.当系统中存在的进程数量达到2^32-1时（正在创建第2^32个进程时），这会无限循环
-   2.当以特别快的速度创建和销毁进程时，比如说线程1在此处创建了任务1，但是还未将任务1
-  加入进程列表时，另一个线程快速地用光了所有剩下的id，以至于id_seq从1重新开始，
-  这个时候就是一个racing了
-
-  对于第一个问题，下面已经作出了处理，但是可以看出还不够充分，需要对下面的代码加锁才是真正正确的
-  对于第二个问题，加一个锁就可以解决
-
-  所以这个地方目前只需要加锁就完事了，等锁做好了记得来改
-  */
-  const pid_t begins = id_seq;
-  do {
-    new_task->id = ++id_seq;
-    if (new_task->id == begins)
-      return 0; // running out of pid
-  } while (task_find(new_task->id));
-
   new_task->parent = current;
   new_task->name = name;
+  new_task->id = gen_pid();
 
   //加入group
   task_group_add(group, new_task);
@@ -157,6 +181,7 @@ static void task_destory(ktask_t *t) {
   free(t);
 }
 
+// FIXME 只要有一个switchto就够了，只要发现from是null，就不保存上下文
 //保存上下文再切换
 void switch_to(void *from, void *to);
 //直接切换，不保存上下文（exit时用）
@@ -258,6 +283,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   if (!new_task) {
     return 0;
   }
+  group = new_task->base.group;
   //内核栈
   new_task->base.kstack = (uintptr_t)kmem_page_alloc(1);
   if (!new_task->base.kstack) {
@@ -271,8 +297,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     return 0;
   }
   //设置这个新group的虚拟内存
-  void *page_directory = kmem_page_alloc(1);
-  if (!page_directory) {
+  group->vm = virtual_memory_create();
+  if (!group->vm) {
     task_destory((struct ktask *)new_task);
     return 0;
   }
@@ -299,31 +325,32 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
            program + program_header->p_offset, program_header->p_filesz);
   }
 
-  extern uint32_t boot_pd[];
-  //以内核页表为蓝本
-  memcpy(page_directory, boot_pd, _4K);
-  //清空12MB开始到2GB+12MB之间的映射
-  memset((void *)(uintptr_t)(((char *)page_directory) + (12 / 4 * 4)), 0,
-         512 * 4);
-  //把new_task->program映射到128MB的地方
-  pd_map(page_directory, 0x8000000, (uintptr_t)new_task->program, 1,
-         PTE_P | PTE_W | PTE_PS | PTE_U);
-  // map用户栈（的结尾）到3GB-128M的地方
-  // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
-  pd_map(page_directory, 0xB8000000, new_task->ustack, 1,
-         PTE_P | PTE_W | PTE_PS | PTE_U);
-  group->vm.page_directory = (uintptr_t)page_directory;
+  // extern uint32_t boot_pd[];
+  // //首先有一部分和内核页表一样，
 
-  //设置上下文和栈
-  memset(&new_task->base.regs, 0, sizeof(struct registers));
-  // FIXME
-  assert(entry == DETECT_ENTRY);
-  new_task->base.regs.eip = elf_header->e_entry;
-  // FIXME
-  new_task->base.regs.ebp = 0xB8000000;
-  new_task->base.regs.esp = 0xB8000000 - 2 * sizeof(void *);
-  //*(void **)(new_task->base.regs.esp + 4) = 999;
-  //*(void **)(new_task->base.regs.esp) = 888;
+  // memcpy(page_directory, boot_pd, _4K);
+  // //清空12MB开始到2GB+12MB之间的映射
+  // memset((void *)(uintptr_t)(((char *)page_directory) + (12 / 4 * 4)), 0,
+  //        512 * 4);
+  // //把new_task->program映射到128MB的地方
+  // pd_map(page_directory, 0x8000000, (uintptr_t)new_task->program, 1,
+  //        PTE_P | PTE_W | PTE_PS | PTE_U);
+  // // map用户栈（的结尾）到3GB-128M的地方
+  // // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
+  // pd_map(page_directory, 0xB8000000, new_task->ustack, 1,
+  //        PTE_P | PTE_W | PTE_PS | PTE_U);
+  // group->vm.page_directory = (uintptr_t)page_directory;
+
+  // //设置上下文和栈
+  // memset(&new_task->base.regs, 0, sizeof(struct registers));
+  // // FIXME
+  // assert(entry == DETECT_ENTRY);
+  // new_task->base.regs.eip = elf_header->e_entry;
+  // // FIXME
+  // new_task->base.regs.ebp = 0xB8000000;
+  // new_task->base.regs.esp = 0xB8000000 - 2 * sizeof(void *);
+  // //*(void **)(new_task->base.regs.esp + 4) = 999;
+  // //*(void **)(new_task->base.regs.esp) = 888;
 
   list_add(&tasks, &new_task->base.global_head);
   return new_task->base.id;

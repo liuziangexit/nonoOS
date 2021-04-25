@@ -16,6 +16,18 @@ enum task_state {
 
 const char *task_state_str(enum task_state);
 
+typedef uint32_t pid_t;
+
+// task group中的tasks共享同一个地址空间
+// 每个task都必须属于一个task group，每个task group至少要有一个task
+struct task_group {
+  list_entry_t tasks;
+  uint32_t task_cnt;
+  bool is_kernel;            //是否内核权限
+  struct virtual_memory *vm; //虚拟内存管理
+};
+typedef struct task_group task_group_t;
+
 struct registers {
   uint32_t eip;
   uint32_t esp;
@@ -26,18 +38,6 @@ struct registers {
   uint32_t edi;
   uint32_t ebp;
 };
-
-typedef uint32_t pid_t;
-
-// task group中的tasks共享同一个地址空间
-// 每个task都必须属于一个task group，每个task group至少要有一个task
-struct task_group {
-  list_entry_t tasks;
-  uint32_t task_cnt;
-  bool is_kernel;           //是否内核权限
-  struct virtual_memory vm; //虚拟内存管理
-};
-typedef struct task_group task_group_t;
 
 //内核task
 struct ktask {
