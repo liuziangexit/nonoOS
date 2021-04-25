@@ -55,14 +55,115 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
   free(vm);
 }
 
+//寻找对应的vma，如果没有返回0
+struct virtual_memory_area *virtual_memory_find(struct virtual_memory *vm,
+                                                uint32_t vma_start) {
+  assert(vma_start % 4096 == 0);
+  struct virtual_memory_area vma;
+  vma.vma_start = vma_start;
+  return (struct virtual_memory_area *)avl_tree_find(&vm->vma_tree, &vma);
+}
+
 //在一个虚拟地址空间结构中进行以4k为边界映射
-//返回false如果指定的虚拟地址已经有映射了
+//返回false如果指定的虚拟地址已经有映射了，或者系统没有足够的内存
 bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
-                        uintptr_t vma_size);
-void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t vma_start);
-//在一个虚拟地址空间结构中寻找空闲的指定长度的地址空间
+                        uintptr_t vma_size) {
+  assert(vma_start % 4096 == 0 && vma_size % 4096 == 0);
+  struct virtual_memory_area key;
+  key.vma_start = vma_start;
+  //确定一下有没有重叠
+  struct virtual_memory_area *nearest = avl_tree_nearest(&vm->vma_tree, &key);
+  if (nearest) {
+    if (nearest->vma_start < vma_start) {
+      //如果最近的vma在之前，看看它有没有覆盖新映射的区域
+      if (nearest->vma_start + nearest->vma_size > vma_start) {
+        return false;
+      }
+    } else if (nearest->vma_start == vma_start) {
+      //已经有一个同位置的映射，不管此映射的长度是多少，新的映射都是非法的
+      return false;
+    } else {
+      //最近的vma在之后，看看新映射的区域有没有覆盖它
+      if (vma_start + vma_size > nearest->vma_start) {
+        return false;
+      }
+    }
+  }
+  //确认没有重叠，开始新增了
+  struct virtual_memory_area *vma = malloc(sizeof(struct virtual_memory_area));
+  if (!vma)
+    return false;
+  vma->vma_start = vma_start;
+  vma->vma_size = vma_size;
+  if (avl_tree_add(&vm->vma_tree, vma)) {
+    // never!
+    abort();
+  }
+  return true;
+}
+
+void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t vma_start) {
+  assert(vma_start % 4096 == 0);
+  struct virtual_memory_area key;
+  key.vma_start = vma_start;
+  //确定一下有没有重叠
+  struct virtual_memory_area *vma = avl_tree_find(&vm->vma_tree, &key);
+  assert(vma); //用户参数有问题，直接崩
+  avl_tree_remove(&vm->vma_tree, vma);
+  free(vma);
+}
+
+//在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
 //返回0表示找不到
-uintptr_t virtual_memory_find(struct virtual_memory *vm, uint32_t vma_size);
+//实际上，这个函数并没有真的alloc任何东西，这个函数实际上是read-only的
+//叫alloc只是因为我想不到更好的名字了
+uintptr_t virtual_memory_alloc(struct virtual_memory *vm, uint32_t vma_size,
+                               uintptr_t begin, uintptr_t end) {
+  assert(end - begin >= _4K && vma_size % _4K == 0);
+  uintptr_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDUP(end, _4K);
+  assert(real_end - real_begin > vma_size);
+  struct virtual_memory_area key;
+  key.vma_start = real_begin;
+  struct virtual_memory_area *nearest = avl_tree_nearest(&vm->vma_tree, &key);
+  if (nearest) {
+    // struct virtual_memory_area *prev = 0, *next = 0;
+    //确定空闲内存起始
+    if (nearest->vma_start <= real_begin) {
+      if (nearest->vma_start + nearest->vma_size > real_begin) {
+        real_begin = nearest->vma_start + nearest->vma_size;
+        if (real_end - real_begin < vma_size) {
+          //新映射的空间至少前半部分被占用了，并且剩下的部分不够大了
+          return 0;
+        }
+      }
+      nearest = avl_tree_next(&vm->vma_tree, nearest);
+    }
+    if (nearest) {
+      assert(nearest->vma_start >= real_begin);
+      if (nearest->vma_start == real_begin) {
+        //这种情况只有可能是从上面的nearest->vma_start <= real_begin里面出来的
+        //这意味着新映射的空间完全被占用满了
+        return 0;
+      }
+      if (nearest->vma_start > real_begin) {
+        //现在我们来看后半部分有没有被占用，如果有，剩下的空间够不够大
+        if (nearest->vma_start < real_end) {
+          //后半部分被占用了
+          real_end = nearest->vma_start;
+        }
+        //看看够不够大呢
+        if (real_end - real_begin < vma_size) {
+          //不够大
+          return 0;
+        }
+        //够大
+      }
+    }
+  }
+  //不太放心，再确认下
+  assert(real_begin % 4096 == 0 && real_end - real_begin < vma_size);
+  return real_begin;
+}
 
 // entry.S中使用的页目录表
 // 页目和页表必须对齐到页边界(4k)
