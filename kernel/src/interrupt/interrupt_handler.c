@@ -1,4 +1,6 @@
+#include "../../include/syscall.h"
 #include <assert.h>
+#include <cga.h>
 #include <defs.h>
 #include <interrupt.h>
 #include <kbd.h>
@@ -7,6 +9,7 @@
 #include <panic.h>
 #include <stdio.h>
 #include <string.h>
+#include <tty.h>
 #include <x86.h>
 
 /* *
@@ -84,9 +87,11 @@ static inline void print_pgfault(struct trapframe *tf) {
    * bit 1 == 0 means read, 1 means write
    * bit 2 == 0 means kernel, 1 means user
    * */
+  terminal_fgcolor(CGA_COLOR_RED);
   printf("page fault at 0x%08x: %c/%c [%s].\n", rcr2(),
          (tf->tf_err & 4) ? 'U' : 'K', (tf->tf_err & 2) ? 'W' : 'R',
          (tf->tf_err & 1) ? "protection fault" : "no page found");
+  terminal_default_color();
 }
 
 static struct trapframe switchk2u, *switchu2k;
@@ -96,6 +101,9 @@ void interrupt_handler(struct trapframe *tf) {
   switch (tf->tf_trapno) {
   case IRQ_OFFSET + IRQ_KBD:
     kbd_isr();
+    break;
+  case T_SYSCALL:
+    syscall(tf);
     break;
   case T_SWITCH_USER:
     if (tf->tf_cs != USER_CS) {
@@ -133,11 +141,11 @@ void interrupt_handler(struct trapframe *tf) {
       /*
       最后一个问题，硬件进来（int）的时候push trapframe没有push
       ss和esp，那为什么返回（iret）的时候硬件自动就知道要多pop ss和esp了呢？
-      原理是硬件检查了特权级是否发生了变化，如果有变化，就去多pop那两个东西出来。
-      硬件怎么看特权级是否有变化呢？看cs寄存器里的某些bit就知道了
+      原理是硬件检查了特权级是否有提升，如果有，就去多pop那两个东西出来
 
       所以这实际上也解释了为啥switchk2u是一个tf对象，而switchu2k只是一个tf指针，
-      因为switchu2k的时候要转换特权级，所以硬件就在
+      当u2k的时候，要提权，所以栈上本来就有那ss和esp，因此我们直接改栈就好了。
+      当k2u的时候，不需要提权，所以栈上没有ss和esp，那我们又需要这两个东西，所以只好拷贝一下了。
       */
     }
     break;

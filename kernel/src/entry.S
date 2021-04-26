@@ -12,7 +12,7 @@ entry:
   orl     $(CR4_PSE), %eax
   movl    %eax, %cr4
   # Set page directory
-  movl    $(V2P(kernel_page_directory)), %eax
+  movl    $(V2P(boot_pd)), %eax
   movl    %eax, %cr3
   # Turn on paging.
   movl    %cr0, %eax
@@ -21,6 +21,7 @@ entry:
 
   # Set up the stack pointer.
   movl $(P2V(KERNEL_STACK + KERNEL_STACK_SIZE - 1)), %esp
+  movl $0, %ebp
   
   # Jump to kentry(), and switch to executing at
   # high addresses. The indirect call is needed because

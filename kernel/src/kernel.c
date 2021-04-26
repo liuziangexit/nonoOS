@@ -2,6 +2,7 @@
 #include "../test/kmem_cache.h"
 #include "../test/kmem_page.h"
 #include "../test/ring_buffer.h"
+#include "../test/task.h"
 #include <cga.h>
 #include <debug.h>
 #include <defs.h>
@@ -12,8 +13,10 @@
 #include <memory_manager.h>
 #include <mmu.h>
 #include <picirq.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <task.h>
 #include <tty.h>
 #include <x86.h>
 
@@ -38,11 +41,13 @@ void kentry(void) {
   terminal_init();
   print_e820();
   printf("\n");
-  kmem_init();
-  kmem_page_init(e820map);
+  kmem_init(e820map);
+  kmem_page_init();
+  kmem_alloc_init();
   kmem_cache_init();
   printf("\n");
-  sti();
+  task_init();
+  task_test();
 
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
@@ -63,8 +68,20 @@ void kentry(void) {
   printf("\n\n");
   print_cur_status();
   printf("\n\n");
+
+  // extern char _binary____program_hello_world_hello_exe_start[],
+  //     _binary____program_hello_world_hello_exe_size[];
+  // printf("program_hello_start: 0x%08x, size: %d\n\n",
+  //        (uintptr_t)_binary____program_hello_world_hello_exe_start,
+  //        (uint32_t)_binary____program_hello_world_hello_exe_size);
+
   printf("nonoOS:$ ");
-  //
+
+  // TODO 考虑一下嵌套中断
+  sti();
+
+  task_schd();
+
   while (1) {
     hlt();
   }

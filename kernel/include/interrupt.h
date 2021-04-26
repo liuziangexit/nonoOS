@@ -38,8 +38,9 @@
 #define IRQ_SPURIOUS 31
 
 // 软中断
-#define T_SWITCH_KERNEL         120 // 内核态
-#define T_SWITCH_USER           121 //用户态
+#define T_SWITCH_KERNEL 120 //用户切到内核
+#define T_SWITCH_USER 121   //内核切到用户
+#define T_SYSCALL 122       //系统调用
 
 /* pushal储存的General-purpose registers */
 struct gprs {
@@ -71,7 +72,7 @@ struct trapframe {
   uint16_t tf_padding4;
   uint32_t tf_eflags;
   /* below here only when crossing rings, such as from user to kernel */
-  //int指令发生的时候，处理器会检查RPL(由IDT里gate的seg指示)是否小于CPL
+  // int指令发生的时候，处理器会检查RPL(由IDT里gate的seg指示)是否小于CPL
   //如果小于的话 1.将CPL切到RPL  2.使用TSS里指定的RPL(ring0)栈  3.会额外push下面8字节的数据
   uintptr_t tf_esp;
   uint16_t tf_ss;
