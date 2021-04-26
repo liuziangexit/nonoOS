@@ -48,8 +48,6 @@ void kentry(void) {
   printf("\n");
   task_init();
   task_test();
-  // TODO 考虑一下嵌套中断
-  sti();
 
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
@@ -79,7 +77,8 @@ void kentry(void) {
 
   printf("nonoOS:$ ");
 
-  //
+  // TODO 考虑一下嵌套中断
+  sti();
 
   task_schd();
 
