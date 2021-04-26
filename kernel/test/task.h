@@ -32,6 +32,9 @@ void utask_test() {
   pid_t upid = task_create_user(_binary____program_hello_world_hello_exe_start,
                                 _binary____program_hello_world_hello_exe_size,
                                 "user", 0, DETECT_ENTRY, 0);
+  printf("switch to user process...\n");
+  task_switch(upid);
+  printf("kernel task back!\n");
 }
 
 void task_test() {

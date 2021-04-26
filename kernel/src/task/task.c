@@ -347,15 +347,14 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   }
 
   bool ret;
-  // FIXME 有必要吗
-  // 0到4MB的直接映射
-  // ret = virtual_memory_map(new_task->base.group->vm, 0, _4M, 0, PTE_P |
-  // PTE_W); assert(ret);
-  // // 映射内核映像
-  // ret = virtual_memory_map(new_task->base.group->vm, KERNEL_VIRTUAL_BASE,
-  //                          _4M * 2, KERNEL_VIRTUAL_BASE, PTE_P | PTE_W);
-  // assert(ret);
-  // // 映射内核栈
+  // 0到4MB的直接映射(FIXME 有必要吗?)
+  ret = virtual_memory_map(new_task->base.group->vm, 0, _4M, 0, PTE_P | PTE_W);
+  assert(ret);
+  // 映射内核映像
+  ret = virtual_memory_map(new_task->base.group->vm, KERNEL_VIRTUAL_BASE,
+                           _4M * 2, 0, PTE_P | PTE_W);
+  assert(ret);
+  // 映射内核栈
   // ret = virtual_memory_map(new_task->base.group->vm,
   //                          KERNEL_VIRTUAL_BASE + KERNEL_STACK, _4M,
   //                          KERNEL_VIRTUAL_BASE + KERNEL_STACK, PTE_P |
@@ -446,20 +445,45 @@ void task_exit() {
 // TODO 这个是不是应该限制只有内核态才能用？
 void task_switch(pid_t pid) {
   assert(current);
+  extern uint32_t boot_pd[];
   if (current->id == pid) {
     // FIXME 不应该panic
     panic("task_switch: switch to self is prohibited");
   }
 
-  ktask_t *t = task_find(pid);
-  if (t == 0) {
+  ktask_t *next = task_find(pid);
+  if (next == 0) {
     // FIXME 不应该panic
     panic("task_switch: pid not found");
   }
   current->state = YIELDED;
-  // load_esp0(t->kstack + STACK_SIZE);
-  t->state = RUNNING;
+  if (!current->group->is_kernel || !next->group->is_kernel) {
+    //不是内核到内核的切换
+    // 1. 切换页表
+    union {
+      struct CR3 cr3;
+      uintptr_t val;
+    } cr3;
+    cr3.val = 0;
+    //如果是用户到内核，那么切换到boot_pd
+    if (next->group->is_kernel) {
+      set_cr3(&cr3.cr3, V2P((uintptr_t)boot_pd), false, false);
+    } else {
+      //如果是用户到用户或者内核到用户，那么切换到PCB里的页表
+      set_cr3(&cr3.cr3, (uintptr_t)next->group->vm->page_directory, false,
+              false);
+      // memcpy(next->group->vm->page_directory, boot_pd, 4096);
+    }
+    lcr3(cr3.val);
+
+    // 2.如果是切到用户，那么要切换tss栈
+    if (!next->group->is_kernel) {
+      load_esp0(next->kstack + _4K * STACK_SIZE);
+    }
+  }
+  next->state = RUNNING;
   ktask_t *prev = current;
-  current = t;
-  switch_to(&prev->regs, &t->regs);
+  current = next;
+  // 切换寄存器，包括eip、esp和ebp
+  switch_to(&prev->regs, &next->regs);
 }
