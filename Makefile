@@ -7,7 +7,6 @@ fs.img: tools
 	tools/mkfs fs.img
 
 nonoOS.img: kernel
-	dd if=/dev/zero of=nonoOS.img count=10000
 	dd if=kernel/bootblock of=nonoOS.img conv=notrunc
 	dd if=kernel/kernel of=nonoOS.img seek=1 conv=notrunc
 
