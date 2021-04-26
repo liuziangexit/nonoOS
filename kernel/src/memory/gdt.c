@@ -30,11 +30,12 @@ static inline void lgdt(struct pseudodesc *pd) {
   asm volatile("ljmp %0, $1f\n 1:" ::"i"(KERNEL_CS));
 }
 
-unsigned char stack0[1024];
+//还没有task模块时候，系统用的tss栈
+//有了task之后，一个正在运行的用户线程如果遇到了中断，tss栈将会是utask::base.kstack
+unsigned char boot_tss_stack[1024];
 
 void gdt_init() {
-  // TSS目前唯一的用途是实现用户态到内核态的转换
-  load_esp0((uint32_t)stack0 + sizeof(stack0));
+  load_esp0((uint32_t)boot_tss_stack + sizeof(boot_tss_stack));
   ts.ss0 = KERNEL_DS;
 
   // initialize the TSS filed of the gdt
