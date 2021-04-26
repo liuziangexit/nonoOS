@@ -29,6 +29,9 @@ static ktask_t *current;
 // FIXME atomic
 static pid_t id_seq;
 
+//这个指的是4k页数
+#define STACK_SIZE 1024
+
 static task_group_t *task_group_create(bool is_kernel) {
   task_group_t *group = malloc(sizeof(task_group_t));
   if (!group) {
@@ -168,7 +171,7 @@ static void task_destory(ktask_t *t) {
   assert(t);
   bool kernel = t->group->is_kernel;
   if (t->kstack) {
-    kmem_page_free((void *)t->kstack, 1);
+    kmem_page_free((void *)t->kstack, STACK_SIZE);
   }
   task_group_remove(t->group, t);
   if (!kernel) {
@@ -247,9 +250,26 @@ void task_init() {
     panic("creating task init failed");
   }
   init->state = RUNNING;
-  init->kstack = 0;
+  init->kstack = kmem_page_alloc(STACK_SIZE);
+  assert(init->kstack);
   list_add(&tasks, &init->global_head);
   current = init;
+
+  //将现在用的栈切换成这个内核任务的栈
+  uint32_t esp, ebp, new_esp, new_ebp,
+      stack_top = KERNEL_VIRTUAL_BASE + KERNEL_STACK + KERNEL_STACK_SIZE;
+  uint32_t used_stack, current_stack_frame_size;
+  resp(&esp);
+  rebp(&ebp);
+  used_stack = stack_top - esp;
+  current_stack_frame_size = ebp - esp;
+  new_esp = init->kstack + (STACK_SIZE * _4K - used_stack);
+  memcpy(new_esp, esp, used_stack);
+  new_ebp = new_esp + current_stack_frame_size;
+  lesp(new_esp);
+  lebp(new_ebp);
+  //然后清空原来的内核栈，其实这样做是没有意义的，但我就是想这么做
+  memset(KERNEL_VIRTUAL_BASE + KERNEL_STACK, 0, KERNEL_STACK_SIZE);
 }
 
 void task_schd() {
@@ -371,7 +391,7 @@ pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name) {
   if (!new_task)
     return 0;
 
-  new_task->kstack = (uintptr_t)kmem_page_alloc(1);
+  new_task->kstack = (uintptr_t)kmem_page_alloc(STACK_SIZE);
   if (!new_task->kstack) {
     task_destory(new_task);
     return 0;
