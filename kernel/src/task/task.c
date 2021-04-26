@@ -472,7 +472,6 @@ void task_switch(pid_t pid) {
       //如果是用户到用户或者内核到用户，那么切换到PCB里的页表
       set_cr3(&cr3.cr3, (uintptr_t)next->group->vm->page_directory, false,
               false);
-      // memcpy(next->group->vm->page_directory, boot_pd, 4096);
     }
     lcr3(cr3.val);
 
