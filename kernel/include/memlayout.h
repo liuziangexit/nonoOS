@@ -23,22 +23,18 @@ Physical Address                         |        Virtual Address        |
 //物理地址转虚拟地址
 #define P2V(n) (n + KERNEL_VIRTUAL_BASE)
 
+#ifndef __ASSEMBLER__
+#include <stdbool.h>
+#include <stdint.h>
+
 /*
 注意，这个“内核栈”是在task系统初始化之前用的，task系统初始化之后，
 当前的控制流将被视为系统内的首个线程（下文称为init），此处内核栈的内容将被拷贝到
 init的线程栈上，并且在那个线程栈上继续执行。
 到那时，这个内核栈就没有用了
 */
-//内核栈位置
-#define KERNEL_STACK 0x800000
-//内核栈大小
-#define KERNEL_STACK_SIZE 0x400000
-//可用区域
-#define KERNEL_FREESPACE (KERNEL_STACK + KERNEL_STACK_SIZE)
-
-#ifndef __ASSEMBLER__
-#include <stdbool.h>
-#include <stdint.h>
+#define KERNEL_BOOT_STACK_SIZE (4 * 1024 * 1024)
+#define KERNEL_BOOT_STACK (1023 << 22)
 
 // some constants for bios interrupt 15h AX = 0xE820
 #define E820MAX 20 // number of entries in E820MAP

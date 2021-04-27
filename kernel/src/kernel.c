@@ -20,17 +20,45 @@
 #include <tty.h>
 #include <x86.h>
 
-void kentry(void) {
-  /*
-  实际上在编译器与loader之间有一个约定，就是loader要负责把bss段全部清0
-  之前没有把bss清0，所以程序里的static变量没有被初始化，于是就产生了逻辑错误
-  https://en.wikipedia.org/wiki/.bss#BSS_in_C
+void kmain();
 
-  另外，这里extern char[]也有讲究，不能写成extern char*
-  如果写成了extern char*，那这些值会变成0xffff这样的东西，
-  然后接下来memset往0xffff地址写的时候就会挂掉。
-  这个我也想不通是怎么回事，因为我们都知道char[]和char*实际上是一个东西（虽然在语言层面不是）
-  */
+void kentry() {
+  {
+    extern uint32_t kernel_pd[];
+    extern uint32_t program_end[];
+    extern char bss_begin[], bss_end[];
+    _Alignas(_4K) uint32_t temp_pd[1024];
+
+    //确定kernel_pd是在bss外面的
+    assert(V2P(kernel_pd) >= bss_end || V2P(kernel_pd) < bss_begin);
+
+    //现在用的还是bootloader栈，要换成boot栈，它是内核映像结束之后第一个物理4M页
+    //把它map到虚拟内存最后一个4M页上
+    memcpy(temp_pd, kernel_pd, 4096);
+    //加载临时页表因为temp_pd是在bootloader栈上，这部分是V=P，所以不需要V2P
+    lcr3((uintptr_t)temp_pd);
+    //现在增加一个boot stack的map
+    uint32_t physical_stack =
+        V2P(ROUNDUP((uint32_t)program_end, 4 * 1024 * 1024));
+    //把这个物理大页map到虚拟地址最后一个大页的位置，也就是KERNEL_BOOT_STACK
+    kernel_pd[1023] = (physical_stack & ~0x3FFFFF) | PTE_P | PTE_PS | PTE_W;
+    lcr3(V2P((uintptr_t)kernel_pd));
+
+    //在新栈上调kmain
+    asm volatile("movl 0, %%ebp;movl $0xFFFFFFFF, %%esp;call kmain;" ::
+                     : "memory");
+    __builtin_unreachable();
+  }
+}
+
+void kmain() {
+  {
+    uint32_t ebp;
+    rebp(&ebp);
+    *(uint32_t *)ebp = 0;
+    *(uint32_t *)(ebp + 4) = 0;
+  }
+  //清bss https://en.wikipedia.org/wiki/.bss#BSS_in_C
   extern char bss_begin[], bss_end[];
   memset(bss_begin, 0, bss_end - bss_begin);
 
@@ -85,4 +113,5 @@ void kentry(void) {
   while (1) {
     hlt();
   }
+  __builtin_unreachable();
 }
