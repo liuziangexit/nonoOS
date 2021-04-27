@@ -110,6 +110,8 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
     } else {
       assert(((*pde) & PTE_PS) == 0);
       // PDE已经有一个页表了
+      // 确定PDE的flags和现在要加的PTE flags是一样的
+      assert((uint16_t)((*pde) & 0x1F) == flags);
     }
     //确定页表没问题了，现在开始改页表
     uint32_t *pte = (uint32_t *)(((uint32_t)*pde) & ~0xFFF);
