@@ -383,5 +383,27 @@ static inline void pt_map(void *pt, uintptr_t linear, uintptr_t physical,
   }
 }
 
+//可能有方法直接让CPU用正常的方法查(比如经过TLB)，这里手工查速度肯定很慢，不能经常用
+static inline uintptr_t pd_lookup(const uint32_t *pd, uintptr_t linear) {
+  //页目录的地址要对齐到4K
+  assert(((uintptr_t)pd) % _4K == 0);
+  uint32_t pd_idx = linear / _4M, pt_idx = 0x3FF & (linear >> 12);
+  if ((pd[pd_idx] & PTE_P) == 0) {
+    return 0;
+  }
+  if (pd[pd_idx] & PTE_PS) {
+    // 4M页
+    uintptr_t page_frame = (uintptr_t)(pd[pd_idx] & 0xFFC00000);
+    return page_frame + (linear % _4M);
+  }
+  // 4K页
+  uint32_t *pt = (uint32_t *)(pd[pd_idx] & ~0xFFF);
+  if ((pt[pt_idx] & PTE_P) == 0) {
+    return 0;
+  }
+  uintptr_t page_frame = (uintptr_t)(pt[pt_idx] & 0xFFC00000);
+  return page_frame + (linear % _4K);
+}
+
 #endif // ifndef ASSMBLER
 #endif

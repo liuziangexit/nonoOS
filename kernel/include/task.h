@@ -6,6 +6,9 @@
 #include <stdint.h>
 #include <virtual_memory.h>
 
+//这个指的是4k页数
+#define TASK_STACK_SIZE 1024
+
 enum task_state {
   CREATED, //已创建
   YIELDED, //被调走

@@ -29,9 +29,6 @@ static ktask_t *current;
 // FIXME atomic
 static pid_t id_seq;
 
-//这个指的是4k页数
-#define STACK_SIZE 1024
-
 static task_group_t *task_group_create(bool is_kernel) {
   task_group_t *group = malloc(sizeof(task_group_t));
   if (!group) {
@@ -172,7 +169,7 @@ static void task_destory(ktask_t *t) {
   assert(t);
   bool kernel = t->group->is_kernel;
   if (t->kstack) {
-    kmem_page_free((void *)t->kstack, STACK_SIZE);
+    kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
   }
   task_group_remove(t->group, t);
   if (!kernel) {
@@ -251,26 +248,10 @@ void task_init() {
     panic("creating task init failed");
   }
   init->state = RUNNING;
-  init->kstack = kmem_page_alloc(STACK_SIZE);
+  init->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   assert(init->kstack);
   list_add(&tasks, &init->global_head);
   current = init;
-
-  //将现在用的栈切换成这个内核任务的栈
-  uint32_t esp, ebp, new_esp, new_ebp,
-      stack_top = KERNEL_VIRTUAL_BASE + KERNEL_STACK + KERNEL_STACK_SIZE;
-  uint32_t used_stack, current_stack_frame_size;
-  resp(&esp);
-  rebp(&ebp);
-  used_stack = stack_top - esp;
-  current_stack_frame_size = ebp - esp;
-  new_esp = init->kstack + (STACK_SIZE * _4K - used_stack);
-  memcpy(new_esp, esp, used_stack);
-  new_ebp = new_esp + current_stack_frame_size;
-  lesp(new_esp);
-  lebp(new_ebp);
-  //然后清空原来的内核栈，其实这样做是没有意义的，但我就是想这么做
-  memset(KERNEL_VIRTUAL_BASE + KERNEL_STACK, 0, KERNEL_STACK_SIZE);
 }
 
 void task_schd() {
@@ -306,13 +287,13 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   }
   group = new_task->base.group;
   //内核栈
-  new_task->base.kstack = (uintptr_t)kmem_page_alloc(STACK_SIZE);
+  new_task->base.kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->base.kstack) {
     task_destory((struct ktask *)new_task);
     return 0;
   }
   //用户栈
-  new_task->ustack = (uintptr_t)kmem_page_alloc(STACK_SIZE);
+  new_task->ustack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->ustack) {
     task_destory((struct ktask *)new_task);
     return 0;
@@ -366,17 +347,18 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   assert(ret);
   // // map用户栈（的结尾）到3GB-128M的地方
   // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
-  ret =
-      virtual_memory_map(new_task->base.group->vm, 0xB8000000, _4K * STACK_SIZE,
-                         new_task->ustack, PTE_P | PTE_W | PTE_U);
+  ret = virtual_memory_map(new_task->base.group->vm, 0xB8000000,
+                           _4K * TASK_STACK_SIZE, new_task->ustack,
+                           PTE_P | PTE_W | PTE_U);
   assert(ret);
 
   //设置上下文和内核栈
   memset(&new_task->base.regs, 0, sizeof(struct registers));
   new_task->base.regs.eip = (uint32_t)(uintptr_t)user_task_entry;
-  new_task->base.regs.ebp = 0xB8000000 + _4K * STACK_SIZE;
+  new_task->base.regs.ebp = 0xB8000000 + _4K * TASK_STACK_SIZE;
   new_task->base.regs.esp = new_task->base.regs.ebp - 2 * sizeof(void *);
-  void *kesp = new_task->base.kstack + _4K * STACK_SIZE - 2 * sizeof(void *);
+  void *kesp =
+      new_task->base.kstack + _4K * TASK_STACK_SIZE - 2 * sizeof(void *);
   *(void **)(kesp + 4) = (void *)9710;
   *(void **)(kesp) = (void *)0x8000000;
 
@@ -391,7 +373,7 @@ pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name) {
   if (!new_task)
     return 0;
 
-  new_task->kstack = (uintptr_t)kmem_page_alloc(STACK_SIZE);
+  new_task->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->kstack) {
     task_destory(new_task);
     return 0;
@@ -400,7 +382,7 @@ pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name) {
   //设置上下文和内核栈
   memset(&new_task->regs, 0, sizeof(struct registers));
   new_task->regs.eip = (uint32_t)(uintptr_t)kernel_task_entry;
-  new_task->regs.ebp = new_task->kstack + _4K * STACK_SIZE;
+  new_task->regs.ebp = new_task->kstack + _4K * TASK_STACK_SIZE;
   new_task->regs.esp = new_task->regs.ebp - 2 * sizeof(void *);
   *(void **)(new_task->regs.esp + 4) = arg;
   *(void **)(new_task->regs.esp) = (void *)func;
@@ -445,7 +427,7 @@ void task_exit() {
 // TODO 这个是不是应该限制只有内核态才能用？
 void task_switch(pid_t pid) {
   assert(current);
-  extern uint32_t boot_pd[];
+  extern uint32_t kernel_pd[];
   if (current->id == pid) {
     // FIXME 不应该panic
     panic("task_switch: switch to self is prohibited");
@@ -465,9 +447,9 @@ void task_switch(pid_t pid) {
       uintptr_t val;
     } cr3;
     cr3.val = 0;
-    //如果是用户到内核，那么切换到boot_pd
+    //如果是用户到内核，那么切换到kernel_pd
     if (next->group->is_kernel) {
-      set_cr3(&cr3.cr3, V2P((uintptr_t)boot_pd), false, false);
+      set_cr3(&cr3.cr3, V2P((uintptr_t)kernel_pd), false, false);
     } else {
       //如果是用户到用户或者内核到用户，那么切换到PCB里的页表
       set_cr3(&cr3.cr3, (uintptr_t)next->group->vm->page_directory, false,
@@ -477,7 +459,7 @@ void task_switch(pid_t pid) {
 
     // 2.如果是切到用户，那么要切换tss栈
     if (!next->group->is_kernel) {
-      load_esp0(next->kstack + _4K * STACK_SIZE);
+      load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
     }
   }
   next->state = RUNNING;

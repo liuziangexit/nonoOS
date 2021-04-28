@@ -79,7 +79,8 @@ void kmem_init(struct e820map_t *memlayout) {
     // 4M对齐
     char *addr = (char *)ROUNDUP((uintptr_t)memlayout->ard[i].addr, _4M);
     uint32_t round_diff = (uintptr_t)addr - (uintptr_t)memlayout->ard[i].addr;
-    int32_t page_count = (int32_t)((memlayout->ard[i].size - round_diff) / _4M);
+    uint32_t page_count =
+        (uint32_t)((memlayout->ard[i].size - round_diff) / _4M);
     //如果对齐之后发现凑不到要求的页数了，那这块内存就没用了
     if (page_count < normal_region_size / _4M) {
       continue;
@@ -106,7 +107,7 @@ void kmem_init(struct e820map_t *memlayout) {
     if (page_count < normal_region_size / _4M) {
       continue;
     }
-    normal_region_paddr = addr;
+    normal_region_paddr = (uintptr_t)addr;
     //好了，现在准备妥当了，开始做map
     pd_map(kernel_pd, normal_region_vaddr, normal_region_paddr, page_count,
            PTE_P | PTE_W | PTE_PS);

@@ -21,6 +21,7 @@
 #include <x86.h>
 
 void kmain();
+void ktask0();
 
 void kentry() {
   extern uint32_t kernel_pd[];
@@ -69,14 +70,6 @@ void kentry() {
 }
 
 void kmain() {
-  {
-    //将old ebp和ret address设为0
-    uint32_t ebp;
-    rebp(&ebp);
-    *(uint32_t *)ebp = 0;
-    *(uint32_t *)(ebp + 4) = 0;
-  }
-
   gdt_init();
   idt_init();
   pic_init();
@@ -86,31 +79,80 @@ void kmain() {
   printf("\n");
   kmem_init(e820map);
   kmem_page_init();
-  // kmem_alloc_init();
-  // kmem_cache_init();
-  // printf("\n");
-  // task_init();
-  // task_test();
+  kmem_alloc_init();
+  kmem_cache_init();
+  printf("\n");
+  task_init();
 
+  uint32_t esp, ebp, new_esp, new_ebp;
+  const uint32_t stack_top = KERNEL_VIRTUAL_BOOT_STACK + KERNEL_BOOT_STACK_SIZE;
+  uint32_t used_stack, current_stack_frame_size;
+  extern uint32_t kernel_pd[];
+  _Alignas(4096) uint32_t temp_pd[1024];
+  //将现在用的栈切换成这个内核任务的栈
+  resp(&esp);
+  rebp(&ebp);
+  used_stack = stack_top - esp;
+  current_stack_frame_size = ebp - esp;
+  // FIXME find 0也能找到?
+  struct ktask *init = task_find(1);
+  new_esp = init->kstack + (TASK_STACK_SIZE * 4096 - used_stack);
+  new_ebp = new_esp + current_stack_frame_size;
+
+  memcpy((void *)new_esp, (void *)esp, used_stack);
+  // {
+  //   //因为栈上的old ebp们还是指向老栈，我们必须回溯栈来修改他们
+  //   uintptr_t ebp_iterater = new_ebp;
+  //   do {
+  //     *(uint32_t *)ebp_iterater =
+  //         init->kstack +
+  //         (STACK_SIZE * _4K - (stack_top - *(uint32_t *)ebp_iterater));
+  //     ebp_iterater = *(uint32_t *)ebp_iterater;
+  //   } while (*(uint32_t *)ebp_iterater != 0);
+  // }
+
+  //然后unmap清空原来的内核栈，这样如果还有代码访问那个地方，就会被暴露出来
+  memcpy(temp_pd, kernel_pd, _4K);
+  lcr3(pd_lookup(kernel_pd, (uintptr_t)temp_pd));
+  kernel_pd[1023] = 0;
+  //在任务栈上调ktask0
+  asm volatile("movl %0, %%ebp;movl %1, %%esp;call ktask0;"
+               :
+               : "r"(new_ebp), "r"(new_esp)
+               : "memory");
+  __builtin_unreachable();
+}
+
+void ktask0() {
+  {
+    extern uint32_t kernel_pd[];
+    lcr3(V2P((uintptr_t)kernel_pd));
+    //将old ebp和ret address设为0
+    uint32_t ebp;
+    rebp(&ebp);
+    *(uint32_t *)ebp = 0;
+    *(uint32_t *)(ebp + 4) = 0;
+  }
+  task_test();
   // // https://en.wikipedia.org/wiki/Code_page_437
-  // putchar(1);
-  // putchar(1);
-  // putchar(1);
-  // printf("Welcome...\n");
-  // printf("\n\n");
+  putchar(1);
+  putchar(1);
+  putchar(1);
+  printf("Welcome...\n");
+  printf("\n\n");
 
   // //跑测试
-  // ring_buffer_test();
-  // kmem_page_test();
+  ring_buffer_test();
+  kmem_page_test();
   // bare_hashmap_test();
   // kmem_cache_test();
 
-  // printf("\n\n");
-  // print_kernel_size();
-  // printf("\n");
-  // printf("\n\n");
-  // print_cur_status();
-  // printf("\n\n");
+  printf("\n\n");
+  print_kernel_size();
+  printf("\n");
+  printf("\n\n");
+  print_cur_status();
+  printf("\n\n");
 
   // // extern char _binary____program_hello_world_hello_exe_start[],
   // //     _binary____program_hello_world_hello_exe_size[];
