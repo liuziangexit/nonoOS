@@ -32,6 +32,9 @@ extern uintptr_t boot_stack_paddr;
 uintptr_t boot_stack_v2p(uintptr_t);
 uintptr_t boot_stack_p2v(uintptr_t);
 
+extern uintptr_t normal_region;
+extern uint32_t normal_region_size;
+
 // some constants for bios interrupt 15h AX = 0xE820
 #define E820MAX 20 // number of entries in E820MAP
 #define E820_ADDR_AVAILABLE(type) ((type == 1) ? 1 : 0)

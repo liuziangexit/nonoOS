@@ -14,6 +14,7 @@ src/entry.o\
 src/kernel.o\
 src/memory/kernel_pd.o\
 src/memory/boot_stack.o\
+src/memory/normal_region.o\
 src/panic.o\
 src/ctl_char_handler.o\
 src/tty.o\
