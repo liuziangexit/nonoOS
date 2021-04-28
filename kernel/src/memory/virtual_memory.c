@@ -199,31 +199,6 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   return real_begin;
 }
 
-//大家一直期待的虚拟内存分配
-void *virtual_memory_alloc(struct virtual_memory *vm, uint32_t alignment,
-                           uint32_t size) {
-  //临时解决方案，每次要分配的时候直接按页给好了
-  size = ROUNDUP(size, _4K);
-  void *kmem = malloc(size);
-  if (!kmem) {
-    return 0;
-  }
-  // TODO
-  // 这个0x10000000和0xB0000000之间就是heap区，到时候heap区是要根据程序大小和栈大小动态算出来的
-  uintptr_t virtual_addr =
-      virtual_memory_find_fit(vm, size, 0x10000000, 0xB0000000);
-  if (!virtual_addr) {
-    free(kmem);
-    return 0;
-  }
-  if (!virtual_memory_map(vm, virtual_addr, size, (uintptr_t)kmem,
-                          PTE_P | PTE_W | PTE_U)) {
-    free(kmem);
-    return 0;
-  }
-  return (void *)virtual_addr;
-}
-
 bool virtual_memory_free(struct virtual_memory *vm, void *p) {
   uintptr_t vma_start = (uintptr_t)p;
   uint32_t pd_idx = vma_start / _4M, pt_idx = 0x3FF & (vma_start >> 12);

@@ -37,9 +37,6 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t vma_start);
 //返回0表示找不到
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   uintptr_t begin, uintptr_t end);
-//一直期待的虚拟内存分配
-void *virtual_memory_alloc(struct virtual_memory *vm, uint32_t alignment,
-                           uint32_t size);
 bool virtual_memory_free(struct virtual_memory *vm, void *);
 
 #endif
