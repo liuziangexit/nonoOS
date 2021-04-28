@@ -23,6 +23,7 @@
 void kmain();
 void ktask0();
 
+//此函数用的是bootloader栈
 void kentry() {
   extern uint32_t kernel_pd[];
   extern uint32_t program_begin[], program_end[];
@@ -69,6 +70,7 @@ void kentry() {
   __builtin_unreachable();
 }
 
+//此函数用的是boot栈
 void kmain() {
   gdt_init();
   idt_init();
@@ -123,6 +125,7 @@ void kmain() {
   __builtin_unreachable();
 }
 
+//此函数用的是task1的任务栈
 void ktask0() {
   {
     extern uint32_t kernel_pd[];
