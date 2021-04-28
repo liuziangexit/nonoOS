@@ -123,13 +123,14 @@ void kmem_init(struct e820map_t *memlayout) {
 
   //验证是不是都可以访问
   for (uintptr_t p = normal_region_vaddr;
-       p < normal_region_paddr + normal_region_size; p += 4) {
+       p < normal_region_vaddr + normal_region_size; p += 4) {
     *(volatile uint32_t *)p = 0xFFFFFFFF;
   }
   for (uintptr_t p = normal_region_vaddr;
-       p < normal_region_paddr + normal_region_size; p += 4) {
+       p < normal_region_vaddr + normal_region_size; p += 4) {
     if (*(volatile uint32_t *)p != 0xFFFFFFFF) {
-      panic("test normal_region failed");
+      panic("normal_region write test failed");
     }
   }
+  printf("normal_region write test passed\n");
 }
