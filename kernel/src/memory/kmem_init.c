@@ -132,5 +132,7 @@ void kmem_init(struct e820map_t *memlayout) {
       panic("normal_region write test failed");
     }
   }
+  terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("normal_region write test passed\n");
+  terminal_default_color();
 }
