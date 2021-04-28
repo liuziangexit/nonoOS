@@ -82,111 +82,54 @@ static uint32_t list_size(list_entry_t *head) {
   return cnt;
 }
 
-static uint32_t total_memory = 0;
-uint32_t kmem_total_mem() { return total_memory; }
-
-#define FREE_SPACE_END 768
 void kmem_page_init() {
-  extern uint32_t boot_pd[1024];
+  extern uint32_t kernel_pd[1024];
   for (uint32_t i = 0; i < sizeof(zones) / sizeof(struct zone); i++) {
     list_init(&zones[i].pages.li);
   }
 
-  //现在是否在一个窗口里面
-  bool window = false;
-  //滑动窗口起始
-  uint32_t begin = 0;
-  for (uint32_t i = 1; i < FREE_SPACE_END; i++) {
-    const uint32_t *page = (uint32_t *)boot_pd + i;
-    if (!window) {
-      //如果现在没有滑动窗口
-      if (*page & PTE_PS) {
-        //如果当前页存在，开始一个滑动窗口
-        begin = i;
-        window = true;
+  uintptr_t p = normal_region_vaddr;
+  //这里的页都是小页
+  uint32_t page_cnt = normal_region_size / _4K;
+
 #ifndef NDEBUG
-        printf("kmem_page_init: window begin at page %d(0x%08llx)\n", i,
-               (int64_t)((int64_t)begin * _4M));
+  printf("kmem_page_init: memory starts at 0x%08llx (total %d 4k pages) are "
+         "being split into ",
+         (int64_t)p, page_cnt);
 #endif
-      }
-      continue;
-    }
 
-    //滑动窗口结束
-    uint32_t end;
-
-    if (i != FREE_SPACE_END - 1 && *page & PTE_PS) {
-      //如果现在不是最后一页并且这页存在，继续扩大窗口
-      continue;
+  while (page_cnt > 0) {
+    int32_t c;
+    if (page_cnt == 1) {
+      c = 1;
     } else {
-      //如果现在是最后一页或者本页不存在，结束滑动窗口
-      if (i == FREE_SPACE_END - 1 && *page & PTE_PS) {
-        //如果是最后一页并且该页存在，那么滑动窗口end应该是1024
-        end = FREE_SPACE_END;
-      } else {
-        //如果本页不存在，滑动窗口end就是本页
-        end = i;
-      }
+      c = prev_pow2(page_cnt);
     }
 
 #ifndef NDEBUG
-    printf("kmem_page_init: window end at page %d(0x%08llx)\n", end,
-           (int64_t)((int64_t)end * _4M));
+    printf("%d ", c);
+    volatile int *test = (volatile int *)p;
+    *test = 9710;
+    assert(*test == 9710);
 #endif
 
-    //滑动窗口好了，现在开始处理
-    uintptr_t addr = (uintptr_t)(begin * _4M);
-    //注意，这个指的是4k小页
-    uint32_t page_count = (end - begin) * 1024;
-    total_memory += page_count * 4096;
-
-#ifndef NDEBUG
-    printf("kmem_page_init: memory starts at 0x%08llx (total %d 4k pages) are "
-           "been split into ",
-           (int64_t)((int64_t)begin * _4M), page_count);
-#endif
-
-    while (page_count > 0) {
-      int32_t c;
-      if (page_count == 1) {
-        c = 1;
-      } else {
-        c = prev_pow2(page_count);
-      }
+    struct page *pg = (struct page *)p;
+    list_init((list_entry_t *)pg);
+    const uint32_t log2_c = log2(c);
+    list_add(&zones[log2_c].pages.li, (list_entry_t *)pg);
 
 #ifndef NDEBUG
-      printf("%d ", c);
-      volatile int *test = (volatile int *)addr;
-      *test = 9710;
-      assert(*test == 9710);
+    zones[log2_c].cnt++;
 #endif
-
-      struct page *pg = (struct page *)addr;
-      list_init((list_entry_t *)pg);
-      const uint32_t log2_c = log2(c);
-      list_add(&zones[log2_c].pages.li, (list_entry_t *)pg);
-
-#ifndef NDEBUG
-      zones[log2_c].cnt++;
-#endif
-      page_count -= c;
-      addr += (_4K * c);
-#ifndef NDEBUG
-      assert(((uint64_t)(uintptr_t)(pg) + (uint64_t)pow2(log2_c) * _4K) <
-             0x80C00000);
-#endif
-    }
-    //处理完窗口之后，把状态设置为false
-    window = false;
-#ifndef NDEBUG
-    printf("\n\n");
-#endif
+    page_cnt -= c;
+    p += (_4K * c);
   }
+
 #ifndef NDEBUG
+  printf("\n");
   terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("kmem_page_init: OK\n");
   terminal_default_color();
-  printf("total memory: %d\n", kmem_total_mem());
 #endif
 }
 

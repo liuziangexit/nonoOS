@@ -9,11 +9,6 @@ void kmem_init(struct e820map_t *memlayout);
 #define MAX_ALIGNMENT 32
 
 /*
-获取系统总内存数（字节）
-*/
-uint32_t kmem_total_mem();
-
-/*
 分配内存的接口
 */
 void kmem_alloc_init();
