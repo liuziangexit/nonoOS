@@ -1,23 +1,16 @@
 #ifndef __KERNEL_MEMLAYOUT_H__
 #define __KERNEL_MEMLAYOUT_H__
 
-/*
-注意，这里的物理地址就是线性地址，因为我们有平坦的segementation
-Physical Address                         |        Virtual Address        |
-[0x0, 0x7C00)                            |    [0xC0000000, 0xC0007C00)   | bootloader栈
-[0x7C00, 0x7E00)                         |    [0xC0007C00, 0xC0007E00)   | bootloader代码，512字节
-[0x0, 0x100000)                          |    [0xC0000000, 0xC0100000)   | 保留区域，1MB
-[0x100000, 0x800000)                     |    [0xC0100000, 0xC0800000)   | 内核代码区域，7MB
-[0x800000, 0xC00000)                     |    [0xC0800000, 0xC0C00000)   | 内核栈，4M
-[0xC00000, max(内存上限, 2GB+12MB))       |    [0xC00000,   ...)          |  FREE SPACE
-*/
-
-//低1MB是保留区域
-#define PRESERVED 0x100000
-//内核虚拟基地址
 #define KERNEL_VIRTUAL_BASE 0xC0000000
-//内核被link到的虚拟地址
-#define KERNEL_LINKED (KERNEL_VIRTUAL_BASE + PRESERVED)
+// DMA从0到16MB
+#define DMA_REGION 0x0
+#define DMA_REGION_SIZE 0x1000000
+// 内核代码从16MB开始
+#define KERNEL_IMAGE 0x1000000
+// NORMAL_REGION是动态的
+// 内核vmalloc的地方从896MB开始
+#define KERNEL_VMALLOC_REGION 0x38000000
+#define KERNEL_VMALLOC_REGION_SIZE (0x40000000 - 0x38000000)
 //虚拟地址转物理地址
 #define V2P(n) (n - KERNEL_VIRTUAL_BASE)
 //物理地址转虚拟地址

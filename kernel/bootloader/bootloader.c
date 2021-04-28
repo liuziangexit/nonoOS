@@ -95,22 +95,17 @@ void bootmain(void) {
   ph = (struct proghdr *)((uintptr_t)ELFHDR + ELFHDR->e_phoff);
   ph_end = ph + ELFHDR->e_phnum;
   for (; ph < ph_end; ph++) {
-    readseg(ph->p_va & 0xFFFFFF, ph->p_memsz, ph->p_offset);
+    readseg(ph->p_va - 0xC0000000, ph->p_memsz, ph->p_offset);
   }
 
   // search entry_flag
-  uintptr_t entry = 0xffffffff;
   for (uint32_t *p = (uint32_t *)ELFHDR->e_entry;
        p < (uint32_t *)(ELFHDR->e_entry + 512); p++) {
-    if (*(uint32_t *)((uintptr_t)p & 0xFFFFFF) == 8899174) {
-      uintptr_t diff = *(uint16_t *)((uintptr_t)(p + 1) & 0xFFFFFF);
-      entry = ((uintptr_t)p - diff) & 0xFFFFFF;
-      break;
+    if (*(uint32_t *)((uintptr_t)p - 0xC0000000) == 0x4AB062DE) {
+      uintptr_t entry = (uintptr_t)(p + 1) - 0xC0000000;
+      ((void (*)(void))entry)();
+      goto bad;
     }
-  }
-
-  if (entry != 0xffffffff) {
-    ((void (*)(void))entry)();
   }
 
 bad:

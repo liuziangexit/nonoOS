@@ -6,7 +6,7 @@ OUTPUT_ARCH(i386)
 
 SECTIONS {
 	/* Load the kernel at this address: "." means the current address */
-	. = 0xC0100000;
+	. = 0xC1000000;
 
 	PROVIDE(program_begin = .);
 	

@@ -7,6 +7,8 @@
 .align 4
 .text
 entry:
+flag:
+  .long 0x4AB062DE
   # Turn on page size extension for 4MB pages
   movl    %cr4, %eax
   orl     $(CR4_PSE), %eax
@@ -29,8 +31,3 @@ entry:
 spin:
   hlt
   jmp spin
-
-.align 4
-entry_flag:
-    .long 8899174
-    .word (entry_flag - entry)
