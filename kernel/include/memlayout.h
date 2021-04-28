@@ -28,6 +28,9 @@ init的线程栈上，并且在那个线程栈上继续执行。
 */
 #define KERNEL_BOOT_STACK_SIZE (4 * 1024 * 1024)
 #define KERNEL_BOOT_STACK (1023 << 22)
+extern uintptr_t boot_stack_paddr;
+uintptr_t boot_stack_v2p(uintptr_t);
+uintptr_t boot_stack_p2v(uintptr_t);
 
 // some constants for bios interrupt 15h AX = 0xE820
 #define E820MAX 20 // number of entries in E820MAP

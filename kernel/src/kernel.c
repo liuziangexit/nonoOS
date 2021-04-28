@@ -32,18 +32,36 @@ void kentry() {
   lcr3((uintptr_t)temp_pd);
 
   //现在只map了内核代码的前4M，我们需要map完整的内核映像
-  for (uintptr_t p = ((uintptr_t)program_begin) + _4M; p < program_end;
-       p += _4M) {
+  for (uintptr_t p = ((uintptr_t)program_begin) + _4M;
+       p < (uintptr_t)program_end; p += _4M) {
     kernel_pd[p >> PDXSHIFT] = V2P(p) | PTE_P | PTE_PS | PTE_W;
+  }
+  //虚拟地址0到16M -> 物理地址0到16M
+  //虚拟地址3G到3G+16M -> 物理地址0到16M
+  for (uintptr_t p = 0; p < _4M * 4; p += _4M) {
+    kernel_pd[p >> PDXSHIFT] = p | PTE_P | PTE_PS | PTE_W;
+    kernel_pd[P2V(p) >> PDXSHIFT] = p | PTE_P | PTE_PS | PTE_W;
   }
   //现在用的还是bootloader栈，要换成boot栈，它是内核映像结束之后第一个物理4M页
   //把它map到虚拟内存最后一个4M页上
-  uint32_t physical_stack = V2P(ROUNDUP((uint32_t)program_end, _4M));
+  uintptr_t pstack = V2P(ROUNDUP((uint32_t)program_end, _4M));
   //把这个物理大页map到虚拟地址最后一个大页的位置，也就是KERNEL_BOOT_STACK
-  kernel_pd[1023] = (physical_stack & ~0x3FFFFF) | PTE_P | PTE_PS | PTE_W;
+  kernel_pd[1023] = (pstack & ~0x3FFFFF) | PTE_P | PTE_PS | PTE_W;
 
   //切回kernel_pd
   lcr3(V2P((uintptr_t)kernel_pd));
+
+  //确定kernel_pd是在bss外面的
+  extern uint32_t kernel_pd[];
+  extern char bss_begin[], bss_end[];
+  assert((uintptr_t)V2P(kernel_pd) >= (uintptr_t)bss_end ||
+         (uintptr_t)V2P(kernel_pd) < (uintptr_t)bss_begin);
+  //清bss https://en.wikipedia.org/wiki/.bss#BSS_in_C
+  extern char bss_begin[], bss_end[];
+  memset(bss_begin, 0, bss_end - bss_begin);
+
+  boot_stack_paddr = pstack;
+
   //在新栈上调kmain
   asm volatile("movl 0, %%ebp;movl $0xFFFFFFFF, %%esp;call kmain;" ::
                    : "memory");
@@ -58,13 +76,6 @@ void kmain() {
     *(uint32_t *)ebp = 0;
     *(uint32_t *)(ebp + 4) = 0;
   }
-  //确定kernel_pd是在bss外面的
-  extern uint32_t kernel_pd[];
-  extern char bss_begin[], bss_end[];
-  assert(V2P(kernel_pd) >= bss_end || V2P(kernel_pd) < bss_begin);
-  //清bss https://en.wikipedia.org/wiki/.bss#BSS_in_C
-  extern char bss_begin[], bss_end[];
-  memset(bss_begin, 0, bss_end - bss_begin);
 
   gdt_init();
   idt_init();
@@ -107,10 +118,10 @@ void kmain() {
   // //        (uintptr_t)_binary____program_hello_world_hello_exe_start,
   // //        (uint32_t)_binary____program_hello_world_hello_exe_size);
 
-  // printf("nonoOS:$ ");
+  printf("nonoOS:$ ");
 
   // // TODO 考虑一下嵌套中断
-  // sti();
+  sti();
 
   // task_schd();
 

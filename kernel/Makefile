@@ -12,10 +12,11 @@ INCLUDE=-Iinclude -I../libno/include -I../driver/include
 KERNEL_OBJS=\
 src/entry.o\
 src/kernel.o\
+src/memory/kernel_pd.o\
+src/memory/boot_stack.o\
 src/panic.o\
 src/ctl_char_handler.o\
 src/tty.o\
-src/memory/kernel_pd.o\
 src/memory/gdt.o\
 src/memory/e820map.o\
 src/memory/kmem_page_alloc.o\
