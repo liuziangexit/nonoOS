@@ -64,6 +64,7 @@ static inline __always_inline void ltr(uint16_t sel) {
 }
 
 static __always_inline void lcr3(uintptr_t cr3) {
+  assert(cr3 % 4096 == 0);
   asm volatile("mov %0, %%cr3" ::"r"(cr3) : "memory");
 }
 

@@ -446,6 +446,27 @@ void task_switch(pid_t pid) {
       set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
               false);
     }
+    // memcpy(next->group->vm->page_directory, kernel_pd, 4096);
+    // page_directory_debug(next->group->vm->page_directory);
+    // sti();
+    // while (1)
+    //   hlt();
+    if (((uintptr_t)next->group->vm->page_directory) % 4096) {
+      panic("wocao ? 1111");
+    }
+    if (V2P((uintptr_t)next->group->vm->page_directory) % 4096) {
+      panic("wocao ? 2222");
+    }
+    if (cr3.val % 4096) {
+      panic("wocao ? 2222");
+    }
+    //FIXME 现在问题已经明确，NORMAL_REGION的东西和他的实际地址之间是差3GB的，kernel_pd和V2P在
+    //这一点上都没有错，但是next->group->vm->page_directory错了，这显然是clone时候出的错
+    //修一下
+    uintptr_t loook = pd_lookup(next->group->vm->page_directory, 0xc73fbf70);
+    uintptr_t loook2 = pd_lookup(kernel_pd, 0xc73fbf70);
+    uintptr_t loook3 = V2P(0xc73fbf70);
+    loook = pd_lookup(next->group->vm->page_directory, 0xc10074a3);
     lcr3(cr3.val);
 
     // 2.如果是切到用户，那么要切换tss栈

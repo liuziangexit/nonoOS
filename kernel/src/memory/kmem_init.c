@@ -108,6 +108,7 @@ void kmem_init(struct e820map_t *memlayout) {
       continue;
     }
     normal_region_paddr = (uintptr_t)addr;
+    assert(normal_region_paddr == V2P(normal_region_vaddr));
     //好了，现在准备妥当了，开始做map
     pd_map(kernel_pd, normal_region_vaddr, normal_region_paddr, page_count,
            PTE_P | PTE_W | PTE_PS);
