@@ -27,7 +27,6 @@ struct zone {
   struct page pages;
 #ifndef NDEBUG
   uint32_t cnt;
-  uint32_t exp;
 #endif
 };
 
@@ -80,6 +79,16 @@ static uint32_t list_size(list_entry_t *head) {
     cnt++;
   }
   return cnt;
+}
+
+void kmem_page_debug() {
+  printf("kmem_page_debug\n");
+  printf("******************************************\n");
+  for (int i = 0; i < sizeof(zones) / sizeof(struct zone); i++) {
+    if (zones[i].cnt)
+      printf("zone for 2^%d contains %d\n", i, zones[i].cnt);
+  }
+  printf("******************************************\n");
 }
 
 void kmem_page_init() {

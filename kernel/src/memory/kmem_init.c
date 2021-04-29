@@ -123,16 +123,29 @@ void kmem_init(struct e820map_t *memlayout) {
   lcr3(V2P((uintptr_t)kernel_pd));
 
   //验证是不是都可以访问
+  uintptr_t cnt =
+      normal_region_vaddr + normal_region_size - normal_region_vaddr;
   for (uintptr_t p = normal_region_vaddr;
        p < normal_region_vaddr + normal_region_size; p += 4) {
     *(volatile uint32_t *)p = 0xFFFFFFFF;
+    if (cnt != 0 && cnt / (normal_region_vaddr + normal_region_size - p) == 2) {
+      printf("25%...");
+      cnt = 0;
+    }
   }
+  printf("50%...");
+  cnt = normal_region_vaddr + normal_region_size - normal_region_vaddr;
   for (uintptr_t p = normal_region_vaddr;
        p < normal_region_vaddr + normal_region_size; p += 4) {
     if (*(volatile uint32_t *)p != 0xFFFFFFFF) {
       panic("normal_region write test failed");
     }
+    if (cnt != 0 && cnt / (normal_region_vaddr + normal_region_size - p) == 2) {
+      printf("75%...");
+      cnt = 0;
+    }
   }
+  printf("100%\n");
   terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("normal_region write test passed\n");
   terminal_default_color();

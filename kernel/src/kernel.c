@@ -20,6 +20,9 @@
 #include <tty.h>
 #include <x86.h>
 
+//用来测试程序映像很大的时候会怎么样
+// static char fuck[1024 * 1024 * 32];
+
 void kmain();
 void ktask0();
 
@@ -81,6 +84,7 @@ void kmain() {
   printf("\n");
   kmem_init(e820map);
   kmem_page_init();
+  kmem_page_debug();
   kmem_alloc_init();
   kmem_cache_init();
   printf("\n");
@@ -136,8 +140,8 @@ void ktask0() {
   // //跑测试
   ring_buffer_test();
   kmem_page_test();
-  // bare_hashmap_test();
-  // kmem_cache_test();
+  bare_hashmap_test();
+  kmem_cache_test();
 
   printf("\n\n");
   print_kernel_size();

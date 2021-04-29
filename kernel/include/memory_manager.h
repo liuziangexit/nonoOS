@@ -19,6 +19,7 @@ bool kmem_free(void *);
 按页分配内存的接口
 用buddy算法实现
 */
+void kmem_page_debug();
 void kmem_page_init();
 void *kmem_page_alloc(size_t cnt);
 void kmem_page_free(void *, size_t cnt);
