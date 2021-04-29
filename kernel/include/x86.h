@@ -1,6 +1,7 @@
 #ifndef __KERNEL_X86_H__
 #define __KERNEL_X86_H__
 
+#include <assert.h>
 #include <defs.h>
 
 /* Pseudo-descriptors used for LGDT, LLDT(not used) and LIDT instructions. */
