@@ -40,7 +40,7 @@ void virtual_memory_clone(struct virtual_memory *vm,
                           const uint32_t *page_directory) {
   assert(((uintptr_t)page_directory) % _4K == 0);
   for (uint32_t pd_idx = 0; pd_idx < 1024; pd_idx++) {
-    if ((page_directory[pd_idx] & PTE_P)) {
+    if (page_directory[pd_idx] & PTE_P) {
       uintptr_t ps_page_frame =
           (uintptr_t)(page_directory[pd_idx] & 0xFFC00000);
       if (page_directory[pd_idx] & PTE_PS) {
@@ -144,14 +144,14 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
       assert((uint16_t)((*pde) & 0x1F) == flags);
     }
     //确定页表没问题了，现在开始改页表
-    uint32_t *pte = (uint32_t *)(((uint32_t)*pde) & ~0xFFF);
+    uint32_t *pt = (uint32_t *)(((uint32_t)*pde) & ~0xFFF);
     union {
       struct PTE pte;
       uint32_t value;
     } punning;
     punning.value = 0;
     pte_map(&punning.pte, physical_addr, flags);
-    pte[pt_idx] = punning.value;
+    pt[pt_idx] = punning.value;
   }
   return true;
 }
