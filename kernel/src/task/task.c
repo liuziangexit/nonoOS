@@ -331,39 +331,27 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   }
 
   bool ret;
-  // 0到4MB的直接映射(FIXME 有必要吗?)
-  ret = virtual_memory_map(new_task->base.group->vm, 0, _4M, 0, PTE_P | PTE_W);
-  assert(ret);
-  // 映射内核映像
-  ret = virtual_memory_map(new_task->base.group->vm, KERNEL_VIRTUAL_BASE,
-                           _4M * 2, 0, PTE_P | PTE_W);
-  assert(ret);
-  // 映射内核栈
-  // ret = virtual_memory_map(new_task->base.group->vm,
-  //                          KERNEL_VIRTUAL_BASE + KERNEL_STACK, _4M,
-  //                          KERNEL_VIRTUAL_BASE + KERNEL_STACK, PTE_P |
-  //                          PTE_W);
-  assert(ret);
-  // //把new_task->program映射到128MB的地方
+  extern uint32_t kernel_pd[];
+  virtual_memory_clone(new_task->base.group->vm, kernel_pd);
+  // 把new_task->program映射到128MB的地方
   ret = virtual_memory_map(new_task->base.group->vm, 0x8000000, _4M,
                            (uintptr_t)new_task->program, PTE_P | PTE_U);
   assert(ret);
-  // // map用户栈（的结尾）到3GB-128M的地方
+  //  map用户栈（的结尾）到3GB-128M的地方
   // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
-  ret = virtual_memory_map(new_task->base.group->vm, 0xB8000000,
-                           _4K * TASK_STACK_SIZE, new_task->ustack,
-                           PTE_P | PTE_W | PTE_U);
+  ret = virtual_memory_map(
+      new_task->base.group->vm, 0xB8000000, _4K * TASK_STACK_SIZE,
+      pd_lookup(kernel_pd, new_task->ustack), PTE_P | PTE_W | PTE_U);
   assert(ret);
 
   //设置上下文和内核栈
   memset(&new_task->base.regs, 0, sizeof(struct registers));
   new_task->base.regs.eip = (uint32_t)(uintptr_t)user_task_entry;
-  new_task->base.regs.ebp = 0xB8000000 + _4K * TASK_STACK_SIZE;
-  new_task->base.regs.esp = new_task->base.regs.ebp - 2 * sizeof(void *);
-  void *kesp =
-      new_task->base.kstack + _4K * TASK_STACK_SIZE - 2 * sizeof(void *);
-  *(void **)(kesp + 4) = (void *)9710;
-  *(void **)(kesp) = (void *)0x8000000;
+  new_task->base.regs.ebp = 0;
+  uintptr_t stack_top = new_task->base.kstack + _4K * TASK_STACK_SIZE;
+  new_task->base.regs.esp = stack_top - 2 * sizeof(void *);
+  *(void **)(new_task->base.regs.esp + 4) = (void *)9710;
+  *(void **)(new_task->base.regs.esp) = (void *)0x8000000;
 
   list_add(&tasks, &new_task->base.global_head);
   return new_task->base.id;
@@ -455,8 +443,9 @@ void task_switch(pid_t pid) {
       set_cr3(&cr3.cr3, V2P((uintptr_t)kernel_pd), false, false);
     } else {
       //如果是用户到用户或者内核到用户，那么切换到PCB里的页表
-      set_cr3(&cr3.cr3, (uintptr_t)next->group->vm->page_directory, false,
-              false);
+      set_cr3(&cr3.cr3,
+              pd_lookup(kernel_pd, (uintptr_t)next->group->vm->page_directory),
+              false, false);
     }
     lcr3(cr3.val);
 
