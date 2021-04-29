@@ -405,5 +405,7 @@ static inline uintptr_t pd_lookup(const uint32_t *pd, uintptr_t linear) {
   return page_frame + (linear % _4K);
 }
 
+void page_directory_debug(const uint32_t *pd);
+
 #endif // ifndef ASSMBLER
 #endif

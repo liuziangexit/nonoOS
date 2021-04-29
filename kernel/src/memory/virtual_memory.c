@@ -9,6 +9,7 @@
 
 /*
 本文件主要包含用户进程虚拟地址空间管理
+TODO 合并邻近的VMA
 */
 
 int vma_compare(const void *a, const void *b) {
@@ -32,6 +33,35 @@ struct virtual_memory *virtual_memory_create() {
   avl_tree_init(&vm->vma_tree, vma_compare, sizeof(struct virtual_memory_area),
                 0);
   return vm;
+}
+
+//从一个已有的页目录里建立vma
+void virtual_memory_clone(struct virtual_memory *vm,
+                          const uint32_t *page_directory) {
+  assert(((uintptr_t)page_directory) % _4K == 0);
+  for (uint32_t pd_idx = 0; pd_idx < 1024; pd_idx++) {
+    if ((page_directory[pd_idx] & PTE_P)) {
+      uintptr_t ps_page_frame =
+          (uintptr_t)(page_directory[pd_idx] & 0xFFC00000);
+      if (page_directory[pd_idx] & PTE_PS) {
+        // 4M页
+        bool ret = virtual_memory_map(vm, pd_idx * _4M, _4M, ps_page_frame,
+                                      page_directory[pd_idx] & 7);
+        assert(ret);
+      } else {
+        // 4K页
+        uint32_t *pt = (uint32_t *)(page_directory[pd_idx] & ~0xFFF);
+        for (uint32_t pt_idx = 0; pt_idx < 1024; pt_idx++) {
+          if ((pt[pt_idx] & PTE_P) == 0) {
+            uintptr_t page_frame = (uintptr_t)(pt[pt_idx] & ~0xFFF);
+            bool ret = virtual_memory_map(vm, pt_idx * _4K + ps_page_frame, _4K,
+                                          page_frame, pt[pt_idx] & 7);
+            assert(ret);
+          }
+        }
+      }
+    }
+  }
 }
 
 //销毁一个虚拟地址空间结构

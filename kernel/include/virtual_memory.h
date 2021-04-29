@@ -22,6 +22,9 @@ struct virtual_memory {
 
 //初始化一个虚拟地址空间结构
 struct virtual_memory *virtual_memory_create();
+//从一个已有的页目录里建立vma
+void virtual_memory_clone(struct virtual_memory *vm,
+                          const uint32_t *page_directory);
 //销毁一个虚拟地址空间结构
 void virtual_memory_destroy(struct virtual_memory *vm);
 //寻找对应的vma，如果没有返回0
