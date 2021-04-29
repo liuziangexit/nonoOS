@@ -339,9 +339,9 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   assert(ret);
   //  map用户栈（的结尾）到3GB-128M的地方
   // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
-  ret = virtual_memory_map(
-      new_task->base.group->vm, 0xB8000000, _4K * TASK_STACK_SIZE,
-      pd_lookup(kernel_pd, new_task->ustack), PTE_P | PTE_W | PTE_U);
+  ret = virtual_memory_map(new_task->base.group->vm, 0xB8000000,
+                           _4K * TASK_STACK_SIZE, V2P(new_task->ustack),
+                           PTE_P | PTE_W | PTE_U);
   assert(ret);
 
   //设置上下文和内核栈
@@ -443,9 +443,8 @@ void task_switch(pid_t pid) {
       set_cr3(&cr3.cr3, V2P((uintptr_t)kernel_pd), false, false);
     } else {
       //如果是用户到用户或者内核到用户，那么切换到PCB里的页表
-      set_cr3(&cr3.cr3,
-              pd_lookup(kernel_pd, (uintptr_t)next->group->vm->page_directory),
-              false, false);
+      set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
+              false);
     }
     lcr3(cr3.val);
 

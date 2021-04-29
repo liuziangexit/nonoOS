@@ -84,7 +84,7 @@ static uint32_t list_size(list_entry_t *head) {
 void kmem_page_debug() {
   printf("kmem_page_debug\n");
   printf("******************************************\n");
-  for (int i = 0; i < sizeof(zones) / sizeof(struct zone); i++) {
+  for (uint32_t i = 0; i < sizeof(zones) / sizeof(struct zone); i++) {
     if (zones[i].cnt)
       printf("zone for 2^%d contains %d\n", i, zones[i].cnt);
   }
@@ -92,7 +92,6 @@ void kmem_page_debug() {
 }
 
 void kmem_page_init() {
-  extern uint32_t kernel_pd[1024];
   for (uint32_t i = 0; i < sizeof(zones) / sizeof(struct zone); i++) {
     list_init(&zones[i].pages.li);
   }

@@ -46,14 +46,14 @@ void *kmem_alloc(size_t alignment, size_t size) {
                              page_cnt, &page_hashmap, &page_hashmap_pgcnt);
     assert(prev == 0);
     extern uint32_t kernel_pd[];
-    assert(pd_lookup(kernel_pd, mem) == V2P(mem));
+    assert(pd_lookup(kernel_pd, (uintptr_t)mem) == V2P((uintptr_t)mem));
     return mem;
   } else {
     //对象分配
     //记录hashmap的工作由cache那边做
     void *mem = kmem_cache_alloc(alignment, size);
     extern uint32_t kernel_pd[];
-    assert(pd_lookup(kernel_pd, mem) == V2P(mem));
+    assert(pd_lookup(kernel_pd, (uintptr_t)mem) == V2P((uintptr_t)mem));
     return mem;
   }
 }
