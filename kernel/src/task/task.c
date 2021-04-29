@@ -350,10 +350,14 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   memset(&new_task->base.regs, 0, sizeof(struct registers));
   new_task->base.regs.eip = (uint32_t)(uintptr_t)user_task_entry;
   new_task->base.regs.ebp = 0;
-  uintptr_t stack_top = new_task->base.kstack + _4K * TASK_STACK_SIZE;
-  new_task->base.regs.esp = stack_top - 2 * sizeof(void *);
-  *(void **)(new_task->base.regs.esp + 4) = (void *)9710;
-  *(void **)(new_task->base.regs.esp) = (void *)0x8000000;
+  uintptr_t kstack_top = new_task->base.kstack + _4K * TASK_STACK_SIZE;
+  new_task->base.regs.esp = kstack_top - sizeof(void *) * 3;
+  //参数
+  *(void **)(new_task->base.regs.esp + 8) = (uintptr_t)elf_header->e_entry;
+  //用户栈
+  *(void **)(new_task->base.regs.esp + 4) = new_task->ustack;
+  //用户代码入口
+  *(void **)(new_task->base.regs.esp) = (uintptr_t)9710;
 
   list_add(&tasks, &new_task->base.global_head);
   return new_task->base.id;
@@ -449,6 +453,8 @@ void task_switch(pid_t pid) {
               false);
     }
     lcr3(cr3.val);
+    //FIXME 读不了那个页
+    uint32_t look = *(uint32_t *)0x8000000;
 
     // 2.如果是切到用户，那么要切换tss栈
     if (!next->group->is_kernel) {
