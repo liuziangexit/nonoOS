@@ -1,6 +1,7 @@
 #include "bare_hashmap.h"
 #include "pow2_util.h"
 #include <memory_manager.h>
+#include <mmu.h>
 #include <panic.h>
 
 // TODO 其实这里可以key是内存地址，value是内存长度，这样就可以只用一个hashmap了
@@ -44,11 +45,16 @@ void *kmem_alloc(size_t alignment, size_t size) {
     uint32_t prev = bare_put(page_hashmap, page_hashmap_pgcnt, (uint32_t)mem,
                              page_cnt, &page_hashmap, &page_hashmap_pgcnt);
     assert(prev == 0);
+    extern uint32_t kernel_pd[];
+    assert(pd_lookup(kernel_pd, mem) == V2P(mem));
     return mem;
   } else {
     //对象分配
     //记录hashmap的工作由cache那边做
-    return kmem_cache_alloc(alignment, size);
+    void *mem = kmem_cache_alloc(alignment, size);
+    extern uint32_t kernel_pd[];
+    assert(pd_lookup(kernel_pd, mem) == V2P(mem));
+    return mem;
   }
 }
 
