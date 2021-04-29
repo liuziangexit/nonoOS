@@ -88,6 +88,10 @@ void kmain() {
   kmem_alloc_init();
   kmem_cache_init();
   printf("\n");
+  {
+    extern uint32_t kernel_pd[];
+    // page_directory_debug(kernel_pd);
+  }
   task_init();
 
   uint32_t esp, ebp, new_esp, new_ebp;
@@ -136,6 +140,11 @@ void ktask0() {
   putchar(1);
   printf("Welcome...\n");
   printf("\n\n");
+
+  {
+    extern uint32_t kernel_pd[];
+    // page_directory_debug(kernel_pd);
+  }
 
   // //跑测试
   ring_buffer_test();
