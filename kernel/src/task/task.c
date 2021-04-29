@@ -200,14 +200,17 @@ ktask_t *task_find(pid_t pid) {
 
 void task_display() {
   printf("\n\nTask Display   Current: %s", current->name);
-  printf("\n****************************\n");
+  printf("\n*******************************************************************"
+         "******\n");
   for (list_entry_t *p = list_next(&tasks); p != &tasks; p = list_next(p)) {
     ktask_t *t = (ktask_t *)p;
-    printf("State:%s  ID:%d  Supervisor:%s  Group:%d  Name:%s\n",
+    printf("State:%s  ID:%d  Supervisor:%s  Group:0x%08llx  Name:%s\n",
            task_state_str(t->state), (int)t->id,
-           t->group->is_kernel ? "T" : "F", (int32_t)t->group, t->name);
+           t->group->is_kernel ? "T" : "F",
+           (int64_t)(uint64_t)(uintptr_t)t->group, t->name);
   }
-  printf("****************************\n\n");
+  printf("*********************************************************************"
+         "****\n\n");
 }
 
 const char *task_state_str(enum task_state s) {

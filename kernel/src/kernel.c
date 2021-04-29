@@ -102,17 +102,6 @@ void kmain() {
   new_ebp = new_esp + current_stack_frame_size;
 
   memcpy((void *)new_esp, (void *)esp, used_stack);
-  // {
-  //   //因为栈上的old ebp们还是指向老栈，我们必须回溯栈来修改他们
-  //   uintptr_t ebp_iterater = new_ebp;
-  //   do {
-  //     *(uint32_t *)ebp_iterater =
-  //         init->kstack +
-  //         (STACK_SIZE * _4K - (stack_top - *(uint32_t *)ebp_iterater));
-  //     ebp_iterater = *(uint32_t *)ebp_iterater;
-  //   } while (*(uint32_t *)ebp_iterater != 0);
-  // }
-
   //然后unmap清空原来的内核栈，这样如果还有代码访问那个地方，就会被暴露出来
   memcpy(temp_pd, kernel_pd, _4K);
   lcr3(pd_lookup(kernel_pd, (uintptr_t)temp_pd));
