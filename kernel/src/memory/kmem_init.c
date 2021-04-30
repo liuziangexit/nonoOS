@@ -85,7 +85,7 @@ void kmem_init(struct e820map_t *memlayout) {
     if (page_count < normal_region_size / _4M) {
       continue;
     }
-    //如果addr小于FREESPACE（其实就是物理地址12MB起的部分），就让他等于12MB
+    //如果addr小于NORMAL_REGION开头，就让他从NORMALREGION开始
     if ((uintptr_t)addr < boot_stack_paddr + _4M) {
       if ((uint32_t)addr + (uint32_t)(page_count * _4M) >
           (uint32_t)boot_stack_paddr + _4M) {
@@ -103,6 +103,12 @@ void kmem_init(struct e820map_t *memlayout) {
     if ((uint32_t)addr + (uint32_t)(page_count * _4M) >= 0xFFFFFFFF) {
       assert((0xFFFFFFFF - (uint32_t)addr) % _4M == 0);
       page_count = (0xFFFFFFFF - (int32_t)addr) / _4M;
+    }
+    //对于虚拟地址越过4G界的处理
+    //虚拟地址最后4M是boot栈，所以不能改那里
+    if ((uint64_t)normal_region_vaddr + ((uint64_t)page_count * _4M) >=
+        (uint64_t)(0xFFFFFFFF - _4M)) {
+      page_count = ((0xFFFFFFFF - _4M) - (int32_t)normal_region_vaddr) / _4M;
     }
     if (page_count < normal_region_size / _4M) {
       continue;
@@ -124,6 +130,7 @@ void kmem_init(struct e820map_t *memlayout) {
   lcr3(V2P((uintptr_t)kernel_pd));
 
   //验证是不是都可以访问
+  printf("checking memory: 0%...");
   uintptr_t cnt =
       normal_region_vaddr + normal_region_size - normal_region_vaddr;
   for (uintptr_t p = normal_region_vaddr;
