@@ -4,7 +4,7 @@ source ./clean.sh
 source ./build.sh
 
 clear
-echo "nonoOS Debugging Environment"
-sleep 2
+echo "nonoOS Debugger"
+#sleep 1
 
 screen -c debug_screenrc

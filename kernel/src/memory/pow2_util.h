@@ -1,6 +1,7 @@
 #ifndef __KERNEL_POW2_UTIL_H__
 #define __KERNEL_POW2_UTIL_H__
 #include <assert.h>
+#include <bit_util.h>
 #include <defs.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -11,18 +12,15 @@ static inline __always_inline bool is_pow2(uint32_t x) {
 
 //输入2的n次幂，返回n
 //如果输入不是2的幂次，行为未定义
-static inline __always_inline uint32_t naive_log2(uint32_t x) {
+static inline __always_inline uint32_t log2(uint32_t x) {
   assert(is_pow2(x));
-  uint32_t idx;
-  asm("bsrl %1, %0" : "=r"(idx) : "r"(x));
-  return idx;
+  return bit_scan_reverse(x);
 }
 
 //返回2^exp
 static inline __always_inline uint32_t pow2(uint32_t exp) { return 1 << exp; }
 
-//找到第一个大于等于x的2的幂
-//如果x已经是2的幂，返回x
+// 找到最近的大于等于x的2的幂(如果x已经是2的幂，返回x)
 // https://graphics.stanford.edu/~seander/bithacks.html#RoundUpPowerOf2
 static inline __always_inline uint32_t next_pow2(uint32_t x) {
   assert(x > 0);

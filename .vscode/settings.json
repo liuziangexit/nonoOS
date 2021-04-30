@@ -47,5 +47,16 @@
         "memory_manager.h": "c",
         "list.h": "c",
         "pow2_util.h": "c",
+        "syscall.h": "c",
+        "*.tcc": "c",
+        "cstdlib": "cpp",
+        "virtual_memory.h": "c",
+        "avlmini.h": "c",
+        "optional": "c",
+        "istream": "c",
+        "ostream": "c",
+        "system_error": "c",
+        "type_traits": "c",
+        "utility": "c"
     }
 }

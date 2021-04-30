@@ -1,6 +1,7 @@
 #ifndef __KERNEL_X86_H__
 #define __KERNEL_X86_H__
 
+#include <assert.h>
 #include <defs.h>
 
 /* Pseudo-descriptors used for LGDT, LLDT(not used) and LIDT instructions. */
@@ -33,10 +34,22 @@ static inline __always_inline void outw(uint16_t port, uint16_t data) {
   asm volatile("outw %0, %1" ::"a"(data), "d"(port));
 }
 
-static inline __always_inline uint32_t read_ebp(void) {
-  uint32_t ebp;
-  asm volatile("movl %%ebp, %0" : "=r"(ebp));
-  return ebp;
+//这函数必须是inline，否则它的栈帧会导致esp与ebp的移动！
+static inline __always_inline void rebp(uint32_t *ret) {
+  asm volatile("movl %%ebp, %0" : "=r"(*ret));
+}
+
+//这函数必须是inline，否则它的栈帧会导致esp与ebp的移动！
+static inline __always_inline void resp(uint32_t *ret) {
+  asm volatile("movl %%esp, %0" : "=r"(*ret));
+}
+
+static inline __always_inline void lebp(uint32_t ebp) {
+  asm volatile("movl %0, %%ebp" ::"r"(ebp) : "memory");
+}
+
+static inline __always_inline void lesp(uint32_t esp) {
+  asm volatile("movl %0, %%esp" ::"r"(esp) : "memory");
 }
 
 static inline __always_inline void lidt(struct pseudodesc *pd) {
@@ -52,6 +65,7 @@ static inline __always_inline void ltr(uint16_t sel) {
 }
 
 static __always_inline void lcr3(uintptr_t cr3) {
+  assert(cr3 % 4096 == 0);
   asm volatile("mov %0, %%cr3" ::"r"(cr3) : "memory");
 }
 

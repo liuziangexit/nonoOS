@@ -17,6 +17,8 @@ end
 add-symbol-file-auto ../kernel/kernel
 add-symbol-file-auto ../kernel/unsigned_bootblock
 
-b kentry
-b bootmain
+#b kentry
+#b kmain
+b ktask0
+#b bootmain
 c

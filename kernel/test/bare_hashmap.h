@@ -18,6 +18,9 @@ void bare_hashmap_test() {
   uint32_t hashmap_pgcnt = 2;
 
   assert(hashmap);
+
+  bare_init(hashmap, hashmap_pgcnt);
+
   void *c_npg;
   uint32_t c_npgcnt;
   uint32_t prev =

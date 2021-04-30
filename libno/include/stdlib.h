@@ -16,6 +16,7 @@ int ltoa(uint64_t num, char *str, uint32_t len, uint32_t base);
 
 //堆内存
 void *malloc(size_t size);
+void *aligned_alloc(size_t alignment, size_t size);
 void free(void *p);
 
 #ifdef __cplusplus

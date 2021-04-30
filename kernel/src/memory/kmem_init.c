@@ -3,145 +3,151 @@
 #include <memlayout.h>
 #include <memory_manager.h>
 #include <mmu.h>
+#include <panic.h>
 #include <stdio.h>
 #include <string.h>
 #include <tty.h>
 #include <x86.h>
 
+// DMA_REGION是boot stack之后的16MB内存
+// NORMAL_REGION是DMA_REGION之后的剩余内存中的1/4
+// 例：总共有255MB内存，最初4MB是程序映像，第二个4MB是boot
+// stack，接着是16MB的DMA_REGION，
+// 然后是(255-4-4-16)/4=57MB的NORMAL_REGION，剩下的区域是FREESPACE，用于VMA
 void kmem_init(struct e820map_t *memlayout) {
-  extern uint32_t kernel_page_directory[];
-  //如果直接修改正在使用的页目录，会翻车
-  //所以lcr3一个一模一样的页目录副本，这样我们才能开始修改真正的页目录
+  extern uint32_t kernel_pd[];
   _Alignas(_4K) uint32_t temp_pd[1024];
-  memcpy(temp_pd, kernel_page_directory, _4K);
-  union {
-    struct CR3 cr3;
-    uintptr_t val;
-  } cr3;
-  cr3.val = 0;
-  set_cr3(&(cr3.cr3), V2P((uintptr_t)temp_pd), false, false);
-  lcr3(cr3.val);
-  //好吧，现在开始修改真的页目录(kernel_page_directory)
-  memset(kernel_page_directory, 0, _4K);
-  //虚拟地址0到4M -> 物理地址0到4M（为了CGA这样的外设地址）
-  pd_map_ps(kernel_page_directory, 0, 0, 1, PTE_P | PTE_W | PTE_PS);
-  // 8M内核映像
-  pd_map_ps(kernel_page_directory, KERNEL_VIRTUAL_BASE, 0, 2,
-            PTE_P | PTE_W | PTE_PS);
-  // 4M内核栈
-  pd_map_ps(kernel_page_directory, KERNEL_VIRTUAL_BASE + KERNEL_STACK,
-            KERNEL_STACK, 1, PTE_P | PTE_W | PTE_PS);
-
+  memcpy(temp_pd, kernel_pd, _4K);
+  lcr3(boot_stack_v2p((uintptr_t)temp_pd));
   /*
-  处理 up to 2G 的 free space
-  为什么不是3G呢？因为0-1MB那块硬件区域让这件事变得比较复杂，现在不想搞这种细节，以后再说
-
-  这块区域，物理上是在kernel stack之后(12MB)，直到物理内存结束(最多2G+12MB)，
-  我们把它map到虚存12MB的位置
-  （为啥是12MB这个地方？因为这样的话就跟物理地址一一对应了，这样也是为了少处理一些细节
-   */
+  现在已经有
+  1)DMA_REGION
+  2)程序映像的映射，从16MB到3G+16MB
+  3)boot stack的映射
+  接下来加上NORMAL_REGION的映射
+  */
+  normal_region_vaddr = KERNEL_VIRTUAL_BASE + boot_stack_paddr + _4M;
+  //这个for只是为了计算系统内存总量
+  uint32_t total_memory;
   for (uint32_t i = 0; i < memlayout->count; i++) {
     // BIOS保留的内存
     if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {
-#ifndef NDEBUG
-      printf("kmem_init: memory at e820[%d] is reserved, "
-             "ignore\n",
-             i);
-#endif
-
       continue;
     }
-    //小于1页的内存
-    if (memlayout->ard[i].size < _4M) {
-#ifndef NDEBUG
-      terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-      printf("kmem_init: memory at e820[%d] is smaller than 4M, "
-             "ignore\n",
-             i);
-      terminal_default_color();
-#endif
+    //高于4G
+    if (memlayout->ard[i].addr >= 0xffffffff) {
       continue;
     }
-    //高于4G的内存，只可远观不可亵玩焉
-    if (memlayout->ard[i].addr > 0xfffffffe) {
-#ifndef NDEBUG
-      terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-      printf("kmem_init: memory at e820[%d] is too high, ignore\n", i);
-      terminal_default_color();
-#endif
+    if (memlayout->ard[i].addr + memlayout->ard[i].size > 0xffffffff) {
+      //如果尾端超出4G，那么截去超出部分
+      total_memory += (uint32_t)((uint64_t)0xffffffff - memlayout->ard[i].addr);
+    } else {
+      total_memory += memlayout->ard[i].size;
+    }
+  }
+  //现在计算normal_region应该有多大
+  normal_region_size = total_memory / 4;
+  // 1G-4M(boot stack用的)-normal_region=还剩多少虚拟地址空间
+  uint32_t vm_left = 0xffffffff - 0x400000 - normal_region_vaddr;
+  if (normal_region_size > vm_left) {
+    normal_region_size = vm_left;
+  }
+  normal_region_size = ROUNDDOWN(normal_region_size, _4M);
+  assert(normal_region_size >= _4M);
+  printf("kmem_init: total_memory       =0x%09llx\n", (int64_t)total_memory);
+  printf("kmem_init: normal_region_vaddr=0x%09llx\n",
+         (int64_t)normal_region_vaddr);
+  printf("kmem_init: normal_region_size =0x%09llx\n",
+         (int64_t)normal_region_size);
 
+  //开始寻找合适的物理内存并map到这个normal_region
+  normal_region_paddr = 0;
+  for (uint32_t i = 0; i < memlayout->count; i++) {
+    // BIOS保留的内存
+    if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {
+      continue;
+    }
+    //小于normal_region_size的内存
+    if (memlayout->ard[i].size < normal_region_size) {
+      continue;
+    }
+    //高于4G的内存
+    if (memlayout->ard[i].addr >= 0xffffffff) {
       continue;
     }
 
     // 4M对齐
-    char *addr = ROUNDUP((char *)(uintptr_t)memlayout->ard[i].addr, _4M);
+    char *addr = (char *)ROUNDUP((uintptr_t)memlayout->ard[i].addr, _4M);
     uint32_t round_diff = (uintptr_t)addr - (uintptr_t)memlayout->ard[i].addr;
-    int32_t page_count = (int32_t)((memlayout->ard[i].size - round_diff) / _4M);
-    //如果对齐之后发现凑不到1页了，那这块内存就没用了
-    if (page_count == 0) {
+    uint32_t page_count =
+        (uint32_t)((memlayout->ard[i].size - round_diff) / _4M);
+    //如果对齐之后发现凑不到要求的页数了，那这块内存就没用了
+    if (page_count < normal_region_size / _4M) {
       continue;
     }
-
     //如果addr小于FREESPACE（其实就是物理地址12MB起的部分），就让他等于12MB
-    if ((uintptr_t)addr < KERNEL_FREESPACE) {
+    if ((uintptr_t)addr < boot_stack_paddr + _4M) {
       if ((uint32_t)addr + (uint32_t)(page_count * _4M) >
-          (uint32_t)KERNEL_FREESPACE) {
-        page_count -= ((KERNEL_FREESPACE - (uintptr_t)addr) / _4M);
-        addr = (char *)KERNEL_FREESPACE;
-        assert(page_count > 0);
-#ifndef NDEBUG
-        terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-        printf("kmem_init: memory at e820[%d] is starting at "
-               "FREESPACE(12MB) now\n",
-               i);
-        terminal_default_color();
-#endif
+          (uint32_t)boot_stack_paddr + _4M) {
+        page_count -= ((boot_stack_paddr + _4M - (uintptr_t)addr) / _4M);
+        addr = (char *)boot_stack_paddr + _4M;
       } else {
-#ifndef NDEBUG
-        terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-        printf("kmem_init: memory at e820[%d] is too low, "
-               "ignore\n",
-               i);
-        terminal_default_color();
-#endif
         continue;
       }
     }
-    //如果addr大于等于2G+12M，就忽略
-    if ((uintptr_t)addr >= 0x80C00000) {
-#ifndef NDEBUG
-      terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-      printf("kmem_init: memory at e820[%d] is higher than 0x80C00000, "
-             "ignore\n");
-      terminal_default_color();
-#endif
+    //如果addr大于等于4G，就忽略
+    if ((uintptr_t)addr >= 0xFFFFFFFF) {
       continue;
     }
-
-    //对于addr+size越过2G+12M界的处理
-    if ((uint32_t)addr + (uint32_t)(page_count * _4M) >= 0x80C00000) {
-      assert((0x80C00000 - (uint32_t)addr) % _4M == 0);
-      page_count = (0x80C00000 - (int32_t)addr) / _4M;
-      assert(page_count > 0);
-#ifndef NDEBUG
-      terminal_fgcolor(CGA_COLOR_LIGHT_BROWN);
-      printf("kmem_init: memory %08llx at e820[%d] now ending at 0x80C00000\n",
-             (int64_t)(uintptr_t)addr, i);
-      terminal_default_color();
-#endif
+    //对于addr+size越过4G界的处理
+    if ((uint32_t)addr + (uint32_t)(page_count * _4M) >= 0xFFFFFFFF) {
+      assert((0xFFFFFFFF - (uint32_t)addr) % _4M == 0);
+      page_count = (0xFFFFFFFF - (int32_t)addr) / _4M;
     }
+    if (page_count < normal_region_size / _4M) {
+      continue;
+    }
+    normal_region_paddr = (uintptr_t)addr;
+    assert(normal_region_paddr == V2P(normal_region_vaddr));
     //好了，现在准备妥当了，开始做map
-    pd_map_ps(kernel_page_directory, (uintptr_t)addr, (uintptr_t)addr,
-              page_count, PTE_P | PTE_W | PTE_PS);
+    pd_map(kernel_pd, normal_region_vaddr, normal_region_paddr, page_count,
+           PTE_P | PTE_W | PTE_PS);
+    break;
   }
 
-  //重新加载真的页目录(kernel_page_directory)
-  cr3.val = 0;
-  set_cr3(&(cr3.cr3), V2P((uintptr_t)kernel_page_directory), false, false);
-  lcr3(cr3.val);
-#ifndef NDEBUG
+  if (!normal_region_paddr) {
+    panic("normal_region_paddr == 0");
+  }
+  printf("kmem_init: normal_region_paddr=0x%09llx\n",
+         (int64_t)normal_region_paddr);
+
+  lcr3(V2P((uintptr_t)kernel_pd));
+
+  //验证是不是都可以访问
+  uintptr_t cnt =
+      normal_region_vaddr + normal_region_size - normal_region_vaddr;
+  for (uintptr_t p = normal_region_vaddr;
+       p < normal_region_vaddr + normal_region_size; p += 4) {
+    *(volatile uint32_t *)p = 0xFFFFFFFF;
+    if (cnt != 0 && cnt / (normal_region_vaddr + normal_region_size - p) == 2) {
+      printf("25%...");
+      cnt = 0;
+    }
+  }
+  printf("50%...");
+  cnt = normal_region_vaddr + normal_region_size - normal_region_vaddr;
+  for (uintptr_t p = normal_region_vaddr;
+       p < normal_region_vaddr + normal_region_size; p += 4) {
+    if (*(volatile uint32_t *)p != 0xFFFFFFFF) {
+      panic("normal_region write test failed");
+    }
+    if (cnt != 0 && cnt / (normal_region_vaddr + normal_region_size - p) == 2) {
+      printf("75%...");
+      cnt = 0;
+    }
+  }
+  printf("100%\n");
   terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
-  printf("kmem_init: OK\n");
+  printf("normal_region write test passed\n");
   terminal_default_color();
-#endif
 }

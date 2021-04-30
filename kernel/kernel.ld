@@ -6,31 +6,36 @@ OUTPUT_ARCH(i386)
 
 SECTIONS {
 	/* Load the kernel at this address: "." means the current address */
-	. = 0xC0100000;
+	. = 0xC1000000;
 
+	PROVIDE(program_begin = .);
+	
+	PROVIDE(text_begin = .);
 	.text : {
 		*(.text .stub .text.* .gnu.linkonce.t.*)
 	}
-
-	PROVIDE(etext = .);	/* Define the 'etext' symbol to this value */
-
+	PROVIDE(text_end = .);
+	
+	PROVIDE(rodata_begin = .);
 	.rodata : {
 		*(.rodata .rodata.* .gnu.linkonce.r.*)
 	}
+	PROVIDE(rodata_end = .);
 
 	/* Adjust the address for the data segment to the next page */
 	. = ALIGN(0x1000);
-
-	/* The data segment */
+	
+	PROVIDE(data_begin = .);
 	.data : {
 		*(.data)
 	}
+	PROVIDE(data_end = .);
 
 	PROVIDE(bss_begin = .);
-
 	.bss : {
 		*(.bss)
 	}
-
 	PROVIDE(bss_end = .);
+
+	PROVIDE(program_end = .);
 }

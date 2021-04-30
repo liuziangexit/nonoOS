@@ -12,16 +12,21 @@ INCLUDE=-Iinclude -I../libno/include -I../driver/include
 KERNEL_OBJS=\
 src/entry.o\
 src/kernel.o\
+src/memory/kernel_pd.o\
+src/memory/boot_stack.o\
+src/memory/normal_region.o\
 src/panic.o\
 src/ctl_char_handler.o\
 src/tty.o\
 src/memory/gdt.o\
-src/memory/kernel_pd.o\
 src/memory/e820map.o\
 src/memory/kmem_page_alloc.o\
+src/memory/kmem_cache_alloc.o\
 src/memory/kmem_alloc.o\
 src/memory/kmem_init.o\
 src/memory/bare_hashmap.o\
+src/memory/virtual_memory.o\
+src/memory/page_directory_debug.o\
 src/interrupt/interrupt_handler.o\
 src/interrupt/idtvector.o\
 src/interrupt/interrupt_entry.o\
@@ -31,9 +36,11 @@ src/debug/print_e820.o\
 src/task/task.o\
 src/task/switch_to.o\
 src/task/switch_to2.o\
-src/task/entry.o
+src/task/entry.o\
+src/task/user_entry.o\
+src/syscall/syscall.o
 
-.PHONY: all clean
+.PHONY: all clean crt
 .SUFFIXES: .o .c .S
 
 all: bootblock kernel
@@ -46,11 +53,16 @@ bootblock:
 	../tools/sign bootblock bootblock
 	cp bootloader/bootblock.o unsigned_bootblock
 
-kernel: $(KERNEL_OBJS) crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o 
-	$(CC) -T kernel.ld -e 0xC0100000 -o kernel $(CFLAGS) \
+kernel: $(KERNEL_OBJS) crt
+	$(CC) -T kernel.ld -o kernel $(CFLAGS) \
 	crt/crti.o crt/crtbegin.o \
-	$(KERNEL_OBJS) -nostdlib -L../libno -lno -L../driver -ldriver -static-libgcc -lgcc \
-	crt/crtend.o crt/crtn.o
+	$(KERNEL_OBJS) \
+	-nostdlib -L../libno/kernel_build -lno -L../driver -ldriver -static-libgcc -lgcc \
+	crt/crtend.o crt/crtn.o \
+	-Wl,-b -Wl,binary -Wl,../program/hello_world/hello.exe
+	
+
+crt: crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o
 
 crt/crtbegin.o crt/crtend.o:
 	CPFROM=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$CPFROM" $@

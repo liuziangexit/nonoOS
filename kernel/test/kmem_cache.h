@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <memory_manager.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <tty.h>
 
 #ifdef NDEBUG
@@ -13,12 +14,59 @@
 void kmem_cache_test() {
   printf("running kmem_cache_test\n");
 
-  void *mem = kmem_cache_alloc(9710);
+  void *mem = kmem_cache_alloc(0, 1898);
   assert(mem);
-  void *mem2 = kmem_cache_alloc(9888);
+  void *mem2 = kmem_cache_alloc(0, 1998);
   assert(mem2);
   kmem_cache_free(mem2);
   kmem_cache_free(mem);
+  mem = aligned_alloc(1, 32 * 1024 * 1024);
+  if (!mem) {
+    terminal_fgcolor(CGA_COLOR_LIGHT_RED);
+    printf("32MB allocation failed\n");
+    kmem_page_debug();
+    terminal_default_color();
+  }
+  mem2 = aligned_alloc(16, 4 * 1024 * 1024);
+  if (!mem2) {
+    terminal_fgcolor(CGA_COLOR_LIGHT_RED);
+    printf("16MB allocation failed\n");
+    kmem_page_debug();
+    terminal_default_color();
+  }
+  if (mem2)
+    free(mem2);
+  if (mem)
+    free(mem);
+
+  mem = kmem_cache_alloc(32, 1898);
+  assert(mem);
+  mem2 = kmem_cache_alloc(8, 2);
+  assert(mem2);
+  kmem_cache_free(mem2);
+  kmem_cache_free(mem);
+  mem = kmem_cache_alloc(32, 999);
+  assert(mem);
+  kmem_cache_free(mem);
+
+  mem = aligned_alloc(1, 32 * 1024 * 1024);
+  if (!mem) {
+    terminal_fgcolor(CGA_COLOR_LIGHT_RED);
+    printf("32MB allocation failed\n");
+    kmem_page_debug();
+    terminal_default_color();
+  }
+  mem2 = aligned_alloc(16, 4 * 1024 * 1024);
+  if (!mem2) {
+    terminal_fgcolor(CGA_COLOR_LIGHT_RED);
+    printf("16MB allocation failed\n");
+    kmem_page_debug();
+    terminal_default_color();
+  }
+  if (mem2)
+    free(mem2);
+  if (mem)
+    free(mem);
 
   unsigned char dmp1[256], dmp2[256];
   kmem_page_dump(dmp1, 256);
