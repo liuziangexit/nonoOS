@@ -13,16 +13,16 @@
 |页式内存分配|OK|memory|
 |malloc|OK|memory|
 |虚拟内存|WORKING|memory|
-|task(进程/线程)|WORKING|-|
-|上下文切换|WORKING|-|
-|task调度|WORKING|-|
-|系统调用|WORKING|-|
+|task(进程/线程)|WORKING|master|
+|上下文切换|OK|task|
+|task调度|WORKING|master|
+|系统调用|WORKING|master|
+|同步原语|PENDING|-|
 |硬盘接口|PENDING|-|
 |换页|PENDING|-|
-|同步原语|PENDING|-|
 |SMP支持|PENDING|-|
 |图形界面|PENDING |-|
-|POSIX Socket接口|PENDING|-|
+|TCP/IP|PENDING|-|
 
 <h2>编译并运行！</h2>
 前置需求:
