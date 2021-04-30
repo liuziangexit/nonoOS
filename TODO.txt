@@ -13,22 +13,22 @@ OK-实现记录物理-虚拟内存对应关系的一种数据结构
 OK-vma
 ok-4k小页映射
 OK-加载用户程序到内存
-WORKING-跑第一行用户态代码，然后返回
-WORKING-用户空间malloc
-WORKING-用户进程/线程
-WORKING-用户进程地址空间
--vma相邻合并
--实现系统调用
+OK-跑第一行用户态代码，然后返回
+OK-用户进程/线程
+OK-用户进程地址空间
+-vma相邻合并以及code review(显然还有很多bug)
+-实现同步原语，并且给现有的某些代码加锁（包括如果关了中断，这个中断会丢失吗？如果处理中断的时候又有中断，会怎么样？）
+-实现简单调度算法
+-实现基本的系统调用包括 getpid exit sleep yield lock unlock wait notify printf scanf
 -实现用户的malloc，包括1)页式内存分配2)页内内存分配
--实现用户版libno
--实现按时间片的简单调度算法
--运行ASCII RayTracing
+-看看libno里有没有需要单独实现用户态版本的函数
+-运行 ASCII RayTracing
 -文件系统
 -给slab写一个buddy那样的测试用例
--安全问题1)内核线程栈溢出的处理 2)用户进程有没有可能访问到内核栈或代码
-实现页面swap
+-安全问题1)内核线程栈溢出的处理 2)s用户进程有没有可能访问到内核栈或代码
+-实现页面swap
+
 实现stdarg（1.看下gcc默认是什么参数传递规范，然后用汇编啥的去实现）
-实现同步原语
 GUI
 多核心支持
 加一个脚本文件来存tool prefix
