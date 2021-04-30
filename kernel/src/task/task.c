@@ -309,6 +309,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   }
   //存放程序映像的虚拟内存
   new_task->program = aligned_alloc(0, _4M);
+  memset(new_task->program, 0, 4096 * 1024);
   if (!new_task->program) {
     task_destory((struct ktask *)new_task);
     return 0;
@@ -336,14 +337,19 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   // virtual_memory_clone(new_task->base.group->vm, kernel_pd);
   memcpy(new_task->base.group->vm->page_directory, kernel_pd, 4096);
   // 把new_task->program映射到128MB的地方
-  ret = virtual_memory_map(new_task->base.group->vm, 0x8000000, _4M,
-                           (uintptr_t)new_task->program, PTE_P | PTE_U);
+  // ret = virtual_memory_map(new_task->base.group->vm, 0x8000000, _4M,
+  //                       V2P  (uintptr_t)new_task->program, PTE_P | PTE_U);
+  pd_map(new_task->base.group->vm->page_directory, 0x8000000,
+         V2P((uintptr_t)new_task->program), 1, PTE_P | PTE_U | PTE_PS);
   assert(ret);
   //  map用户栈（的结尾）到3GB-128M的地方
   // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
-  ret = virtual_memory_map(new_task->base.group->vm, 0xB8000000,
-                           _4K * TASK_STACK_SIZE, V2P(new_task->ustack),
-                           PTE_P | PTE_W | PTE_U);
+  // ret = virtual_memory_map(new_task->base.group->vm, 0xB8000000,
+  //                          _4K * TASK_STACK_SIZE, V2P(new_task->ustack),
+  //                          PTE_P | PTE_W | PTE_U);
+  pd_map(new_task->base.group->vm->page_directory,
+         0xB8000000 - _4K * TASK_STACK_SIZE, V2P(new_task->ustack), 1,
+         PTE_P | PTE_W | PTE_U | PTE_PS);
   assert(ret);
 
   //设置上下文和内核栈
@@ -351,13 +357,15 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   new_task->base.regs.eip = (uint32_t)(uintptr_t)user_task_entry;
   new_task->base.regs.ebp = 0;
   uintptr_t kstack_top = new_task->base.kstack + _4K * TASK_STACK_SIZE;
-  new_task->base.regs.esp = kstack_top - sizeof(void *) * 3;
-  //参数
-  *(void **)(new_task->base.regs.esp + 8) = (uintptr_t)elf_header->e_entry;
-  //用户栈
-  *(void **)(new_task->base.regs.esp + 4) = new_task->ustack;
+  new_task->base.regs.esp = kstack_top - sizeof(void *) * 4;
   //用户代码入口
-  *(void **)(new_task->base.regs.esp) = (uintptr_t)9710;
+  *(void **)(new_task->base.regs.esp + 12) = (uintptr_t)elf_header->e_entry;
+  //用户栈
+  *(void **)(new_task->base.regs.esp + 8) = 0xB8000000;
+  // argc
+  *(void **)(new_task->base.regs.esp + 4) = (uintptr_t)9710;
+  // argv
+  *(void **)(new_task->base.regs.esp) = (uintptr_t)0;
 
   list_add(&tasks, &new_task->base.global_head);
   return new_task->base.id;
@@ -453,8 +461,11 @@ void task_switch(pid_t pid) {
               false);
     }
     lcr3(cr3.val);
-    //FIXME 读不了那个页
+    // FIXME 读不了那个页
     uint32_t look = *(uint32_t *)0x8000000;
+    for (uint32_t *p = 0xB8000000 - _4M; p < 0xB8000000; p++) {
+      *p = 0xffffffff;
+    }
 
     // 2.如果是切到用户，那么要切换tss栈
     if (!next->group->is_kernel) {

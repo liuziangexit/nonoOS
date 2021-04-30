@@ -52,7 +52,26 @@ struct gprs {
   uint32_t reg_edx;
   uint32_t reg_ecx;
   uint32_t reg_eax;
-};
+} __attribute__((packed));
+
+struct trapframe_kernel {
+  struct gprs tf_gprs;
+  uint16_t tf_gs;
+  uint16_t tf_padding0;
+  uint16_t tf_fs;
+  uint16_t tf_padding1;
+  uint16_t tf_es;
+  uint16_t tf_padding2;
+  uint16_t tf_ds;
+  uint16_t tf_padding3;
+  uint32_t tf_trapno;
+  /* below here are pushed by x86 hardware */
+  uint32_t tf_err;
+  uintptr_t tf_eip;
+  uint16_t tf_cs;
+  uint16_t tf_padding4;
+  uint32_t tf_eflags;
+} __attribute__((packed));
 
 struct trapframe {
   struct gprs tf_gprs;

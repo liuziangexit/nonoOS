@@ -10,24 +10,27 @@ CVERSION=-std=gnu11
 INCLUDE=-I../libno/include
 LDFLAGS=-DLIBNO_USER -O0 -L../libno/user_build -lno
 
-PROG_OBJS=\
+PROG_EXE=\
 hello_world/hello.exe
 
 .PHONY: all clean crt
-.SUFFIXES: .o .c .S
+.SUFFIXES: .o .c .S .exe
 
-all: crt $(PROG_OBJS)
+all: crt entry.o $(PROG_EXE)
 
 crt:
 	cd ../kernel; make crt
 
 %.exe: %.o
 	$(CC) -T user.ld -o $@ $(CFLAGS) \
-	../kernel/crt/crti.o ../kernel/crt/crtbegin.o \
+	entry.o \
+	$< \
 	-nostdlib -L../libno/user_build -lno -static-libgcc -lgcc \
-	../kernel/crt/crtend.o ../kernel/crt/crtn.o
 
 %.o: %.c
+	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
+
+%.o: %.S
 	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
 
 clean:

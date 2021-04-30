@@ -9,7 +9,7 @@
 
 /*
 本文件主要包含用户进程虚拟地址空间管理
-TODO 合并邻近的VMA
+TODO 合并邻近的VMA，小页表全部存的是物理地址，支持大小页混合的情况
 */
 
 int vma_compare(const void *a, const void *b) {
@@ -135,7 +135,7 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
         uint32_t value;
       } punning;
       punning.value = 0;
-      pde_ref(&punning.pde, (uintptr_t)pt, flags);
+      pde_ref(&punning.pde, V2P((uintptr_t)pt), flags);
       *pde = punning.value;
     } else {
       assert(((*pde) & PTE_PS) == 0);
@@ -144,7 +144,7 @@ bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
       assert((uint16_t)((*pde) & 0x1F) == flags);
     }
     //确定页表没问题了，现在开始改页表
-    uint32_t *pt = (uint32_t *)(((uint32_t)*pde) & ~0xFFF);
+    uint32_t *pt = (uint32_t *)P2V((((uint32_t)*pde) & ~0xFFF));
     union {
       struct PTE pte;
       uint32_t value;
@@ -240,7 +240,7 @@ bool virtual_memory_free(struct virtual_memory *vm, void *p) {
     return false;
   }
   void *ptr = (void *)(pt[pt_idx] & ~0xFFF);
-  if (!kmem_free(ptr)) {
+  if (!kmem_free(P2V(ptr))) {
     return false;
   }
   virtual_memory_unmap(vm, vma_start);

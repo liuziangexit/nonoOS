@@ -11,6 +11,8 @@ SECTIONS {
 	*/
 	. = 0x8000000;
 
+	ENTRY(main)
+
 	.text : {
 		*(.text .stub .text.* .gnu.linkonce.t.*)
 	}

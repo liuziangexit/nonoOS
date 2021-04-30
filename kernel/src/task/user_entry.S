@@ -3,16 +3,13 @@
 user_task_entry:
     #参数
     popl %eax
-    #用户栈
     popl %ebx
-    #用户代码入口
+    #用户栈
     popl %ecx
+    #用户代码入口
+    popl %edx
     #转到用户栈
-    movl 0x0, %ebp
-    movl %ebx, %esp
-    #TODO 切CS/DS/ES之类的寄存器
-    #调用户main
-    pushl %eax
-    call *%ecx
-    #退出（要中断走系统调用吧?）
-    call task_exit
+    movl %ecx, %esp
+    #调用户entry
+    call 0x8000000
+    #用户entry会通过系统调用task_exit来退出

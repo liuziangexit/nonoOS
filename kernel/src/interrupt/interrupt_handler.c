@@ -9,6 +9,7 @@
 #include <panic.h>
 #include <stdio.h>
 #include <string.h>
+#include <syscall.h>
 #include <tty.h>
 #include <x86.h>
 
@@ -34,6 +35,7 @@ void idt_init(void) {
   //用户态转内核态的中断的特权级改为最低
   SETGATE(idt[T_SWITCH_KERNEL], 0, SEG_KCODE, __idt_vectors[T_SWITCH_KERNEL],
           DPL_USER);
+  SETGATE(idt[T_SYSCALL], 0, SEG_KCODE, __idt_vectors[T_SYSCALL], DPL_USER);
 
   // load the IDT
   lidt(&idt_pd);
@@ -103,12 +105,12 @@ void interrupt_handler(struct trapframe *tf) {
     kbd_isr();
     break;
   case T_SYSCALL:
-    syscall(tf);
+    syscall_dispatch(tf);
     break;
   case T_SWITCH_USER:
     if (tf->tf_cs != USER_CS) {
       //将tf的内容拷贝到switchk2u，然后把寄存器们都改成用户权限
-      switchk2u = *tf;
+      *(struct trapframe_kernel *)&switchk2u = *(struct trapframe_kernel *)tf;
       switchk2u.tf_cs = USER_CS;
       switchk2u.tf_ds = switchk2u.tf_es = USER_DS;
       switchk2u.tf_ss = USER_DS;
