@@ -334,22 +334,22 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   bool ret;
   extern uint32_t kernel_pd[];
   // FIXME 要用VM clone去做，并且要实现相邻VMA合并
-  // virtual_memory_clone(new_task->base.group->vm, kernel_pd);
-  memcpy(new_task->base.group->vm->page_directory, kernel_pd, 4096);
+  virtual_memory_clone(new_task->base.group->vm, kernel_pd);
+  //  memcpy(new_task->base.group->vm->page_directory, kernel_pd, 4096);
   // 把new_task->program映射到128MB的地方
-  // ret = virtual_memory_map(new_task->base.group->vm, 0x8000000, _4M,
-  //                       V2P  (uintptr_t)new_task->program, PTE_P | PTE_U);
-  pd_map(new_task->base.group->vm->page_directory, 0x8000000,
-         V2P((uintptr_t)new_task->program), 1, PTE_P | PTE_U | PTE_PS);
+  ret = virtual_memory_map(new_task->base.group->vm, 0x8000000, _4M,
+                           V2P((uintptr_t)new_task->program), PTE_P | PTE_U);
+  // pd_map(new_task->base.group->vm->page_directory, 0x8000000,
+  //        V2P((uintptr_t)new_task->program), 1, PTE_P | PTE_U | PTE_PS);
   assert(ret);
   //  map用户栈（的结尾）到3GB-128M的地方
   // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
-  // ret = virtual_memory_map(new_task->base.group->vm, 0xB8000000,
-  //                          _4K * TASK_STACK_SIZE, V2P(new_task->ustack),
-  //                          PTE_P | PTE_W | PTE_U);
-  pd_map(new_task->base.group->vm->page_directory,
-         0xB8000000 - _4K * TASK_STACK_SIZE, V2P(new_task->ustack), 1,
-         PTE_P | PTE_W | PTE_U | PTE_PS);
+  ret = virtual_memory_map(
+      new_task->base.group->vm, 0xB8000000 - _4K * TASK_STACK_SIZE,
+      _4K * TASK_STACK_SIZE, V2P(new_task->ustack), PTE_P | PTE_W | PTE_U);
+  // pd_map(new_task->base.group->vm->page_directory,
+  //        0xB8000000 - _4K * TASK_STACK_SIZE, V2P(new_task->ustack), 1,
+  //        PTE_P | PTE_W | PTE_U | PTE_PS);
   assert(ret);
 
   //设置上下文和内核栈

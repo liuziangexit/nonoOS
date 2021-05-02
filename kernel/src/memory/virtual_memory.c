@@ -10,6 +10,8 @@
 /*
 本文件主要包含用户进程虚拟地址空间管理
 TODO 合并邻近的VMA，小页表全部存的是物理地址，支持大小页混合的情况
+-合并VMA
+-合并页表为4M大页
 */
 
 int vma_compare(const void *a, const void *b) {
@@ -41,10 +43,11 @@ void virtual_memory_clone(struct virtual_memory *vm,
   assert(((uintptr_t)page_directory) % _4K == 0);
   for (uint32_t pd_idx = 0; pd_idx < 1024; pd_idx++) {
     if (page_directory[pd_idx] & PTE_P) {
-      uintptr_t ps_page_frame =
-          (uintptr_t)(page_directory[pd_idx] & 0xFFC00000);
+      //对于每个PDE
       if (page_directory[pd_idx] & PTE_PS) {
         // 4M页
+        uintptr_t ps_page_frame =
+            (uintptr_t)(page_directory[pd_idx] & 0xFFC00000);
         bool ret = virtual_memory_map(vm, pd_idx * _4M, _4M, ps_page_frame,
                                       page_directory[pd_idx] & 7);
         assert(ret);
@@ -52,9 +55,9 @@ void virtual_memory_clone(struct virtual_memory *vm,
         // 4K页
         uint32_t *pt = (uint32_t *)(page_directory[pd_idx] & ~0xFFF);
         for (uint32_t pt_idx = 0; pt_idx < 1024; pt_idx++) {
-          if ((pt[pt_idx] & PTE_P) == 0) {
+          if (pt[pt_idx] & PTE_P) {
             uintptr_t page_frame = (uintptr_t)(pt[pt_idx] & ~0xFFF);
-            bool ret = virtual_memory_map(vm, pt_idx * _4K + ps_page_frame, _4K,
+            bool ret = virtual_memory_map(vm, pt_idx * _4K + pd_idx * _4M, _4K,
                                           page_frame, pt[pt_idx] & 7);
             assert(ret);
           }
@@ -186,7 +189,6 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   key.vma_start = real_begin;
   struct virtual_memory_area *nearest = avl_tree_nearest(&vm->vma_tree, &key);
   if (nearest) {
-    // struct virtual_memory_area *prev = 0, *next = 0;
     //确定空闲内存起始
     if (nearest->vma_start <= real_begin) {
       if (nearest->vma_start + nearest->vma_size > real_begin) {
