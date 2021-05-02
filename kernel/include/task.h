@@ -66,8 +66,9 @@ typedef struct ktask ktask_t;
 //用户线程
 struct utask {
   ktask_t base;
-  uintptr_t ustack; //用户栈
-  void *program;    //程序映像拷贝
+  uintptr_t pustack; //用户栈
+  uintptr_t vustack; //用户栈的虚拟地址
+  void *program;     //程序映像拷贝
 };
 typedef struct utask utask_t;
 

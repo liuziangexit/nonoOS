@@ -37,11 +37,6 @@ static task_group_t *task_group_create(bool is_kernel) {
   list_init(&group->tasks);
   group->task_cnt = 0;
   group->is_kernel = is_kernel;
-  if (is_kernel) {
-    group->vm = 0;
-  } else {
-    group->vm = virtual_memory_create();
-  }
   return group;
 }
 
@@ -98,6 +93,21 @@ static pid_t gen_pid() {
   return result;
 }
 
+static void task_destory(ktask_t *t) {
+  assert(t);
+  kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
+  task_group_remove(t->group, t);
+  if (!t->group->is_kernel) {
+    utask_t *ut = (utask_t *)t;
+    kmem_page_free(ut->pustack, TASK_STACK_SIZE);
+    free(ut->program);
+  }
+#ifndef NDEBUG
+  printf("task_destory: destroy task %s\n", t->name);
+#endif
+  free(t);
+}
+
 static ktask_t *task_create_impl(const char *name, bool kernel,
                                  task_group_t *group) {
   if (current && kernel && !current->group->is_kernel) {
@@ -148,6 +158,13 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     return 0;
   }
 
+  //内核栈
+  new_task->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
+  if (!new_task->kstack) {
+    task_destory(new_task);
+    return 0;
+  }
+
   list_init(&new_task->global_head);
   list_init(&new_task->group_head);
   new_task->state = CREATED;
@@ -163,24 +180,6 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
 
 void kernel_task_entry();
 void user_task_entry();
-
-// FIXME 好多东西没free呢
-static void task_destory(ktask_t *t) {
-  assert(t);
-  bool kernel = t->group->is_kernel;
-  if (t->kstack) {
-    kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
-  }
-  task_group_remove(t->group, t);
-  if (!kernel) {
-    utask_t *ut = (utask_t *)t;
-    //...
-  }
-#ifndef NDEBUG
-  printf("task_destory: destroy task %s\n", t->name);
-#endif
-  free(t);
-}
 
 // FIXME 只要有一个switchto就够了，只要发现from是null，就不保存上下文
 //保存上下文再切换
@@ -283,73 +282,76 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   if (!(((program != 0) || (group != 0)) && ((program != 0) != (group != 0)))) {
     return 0;
   }
+  // mdzz
+  bool is_first = program ? true : false;
+
+  //只有is_first时才能检测程序入口
+  assert((entry == DETECT_ENTRY) == is_first);
 
   utask_t *new_task = (utask_t *)task_create_impl(name, false, group);
   if (!new_task) {
     return 0;
   }
   group = new_task->base.group;
-  //内核栈
-  new_task->base.kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
-  if (!new_task->base.kstack) {
-    task_destory((struct ktask *)new_task);
-    return 0;
-  }
   //用户栈
-  new_task->ustack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
-  if (!new_task->ustack) {
+  new_task->pustack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
+  if (!new_task->pustack) {
     task_destory((struct ktask *)new_task);
     return 0;
-  }
-  //设置这个新group的虚拟内存
-  group->vm = virtual_memory_create();
-  if (!group->vm) {
-    task_destory((struct ktask *)new_task);
-    return 0;
-  }
-  //存放程序映像的虚拟内存
-  new_task->program = aligned_alloc(0, _4M);
-  memset(new_task->program, 0, 4096 * 1024);
-  if (!new_task->program) {
-    task_destory((struct ktask *)new_task);
-    return 0;
-  }
-  //读elf
-  struct elfhdr *elf_header = program;
-  if (elf_header->e_magic != ELF_MAGIC) {
-    task_destory((struct ktask *)new_task);
-    return 0;
-  }
-  struct proghdr *program_header, *ph_end;
-  // load each program segment (ignores ph flags)
-  program_header =
-      (struct proghdr *)((uintptr_t)elf_header + elf_header->e_phoff);
-  ph_end = program_header + elf_header->e_phnum;
-  for (; program_header < ph_end; program_header++) {
-    // readseg(ph->p_va & 0xFFFFFF, ph->p_memsz, ph->p_offset);
-    memcpy(new_task->program + (program_header->p_va - 0x8000000),
-           program + program_header->p_offset, program_header->p_filesz);
   }
 
-  bool ret;
-  extern uint32_t kernel_pd[];
-  // FIXME 要用VM clone去做，并且要实现相邻VMA合并
-  virtual_memory_clone(new_task->base.group->vm, kernel_pd);
-  //  memcpy(new_task->base.group->vm->page_directory, kernel_pd, 4096);
-  // 把new_task->program映射到128MB的地方
-  ret = virtual_memory_map(new_task->base.group->vm, 0x8000000, _4M,
-                           V2P((uintptr_t)new_task->program), PTE_P | PTE_U);
-  // pd_map(new_task->base.group->vm->page_directory, 0x8000000,
-  //        V2P((uintptr_t)new_task->program), 1, PTE_P | PTE_U | PTE_PS);
-  assert(ret);
-  //  map用户栈（的结尾）到3GB-128M的地方
-  // TODO 因为每个线程都有自己的栈，所以之后这里要用umalloc去做，这需要实现vma
-  ret = virtual_memory_map(
-      new_task->base.group->vm, 0xB8000000 - _4K * TASK_STACK_SIZE,
-      _4K * TASK_STACK_SIZE, V2P(new_task->ustack), PTE_P | PTE_W | PTE_U);
-  // pd_map(new_task->base.group->vm->page_directory,
-  //        0xB8000000 - _4K * TASK_STACK_SIZE, V2P(new_task->ustack), 1,
-  //        PTE_P | PTE_W | PTE_U | PTE_PS);
+  //如果这是进程中首个线程，需要设置这个进程的虚拟内存
+  if (is_first) {
+    //设置这个新group的虚拟内存
+    group->vm = virtual_memory_create();
+    if (!group->vm) {
+      task_destory((struct ktask *)new_task);
+      return 0;
+    }
+    //存放程序映像的虚拟内存
+    new_task->program = aligned_alloc(0, _4M);
+    memset(new_task->program, 0, 4096 * 1024);
+    if (!new_task->program) {
+      task_destory((struct ktask *)new_task);
+      return 0;
+    }
+    //读elf
+    struct elfhdr *elf_header = program;
+    if (elf_header->e_magic != ELF_MAGIC) {
+      task_destory((struct ktask *)new_task);
+      return 0;
+    }
+    struct proghdr *program_header, *ph_end;
+    // load each program segment (ignores ph flags)
+    program_header =
+        (struct proghdr *)((uintptr_t)elf_header + elf_header->e_phoff);
+    ph_end = program_header + elf_header->e_phnum;
+    for (; program_header < ph_end; program_header++) {
+      memcpy(new_task->program + (program_header->p_va - 0x8000000),
+             program + program_header->p_offset, program_header->p_filesz);
+    }
+
+    bool ret;
+    extern uint32_t kernel_pd[];
+    // 复制内核页表
+    virtual_memory_clone(new_task->base.group->vm, kernel_pd);
+    // 把new_task->program映射到128MB的地方
+    ret = virtual_memory_map(new_task->base.group->vm, 0x8000000, _4M,
+                             V2P((uintptr_t)new_task->program), PTE_P | PTE_U);
+    assert(ret);
+    if (entry == DETECT_ENTRY) {
+      entry = (uintptr_t)elf_header->e_entry;
+    }
+  }
+  //在虚拟内存中的3G-512MB到3GB之间找一个地方放栈
+  int ret;
+  new_task->vustack =
+      virtual_memory_find_fit(new_task->base.group->vm, _4K * TASK_STACK_SIZE,
+                              2560 * 1024 * 1024, 3072 * 1024 * 1024);
+  assert(new_task->vustack);
+  ret = virtual_memory_map(new_task->base.group->vm, new_task->vustack,
+                           _4K * TASK_STACK_SIZE, V2P(new_task->pustack),
+                           PTE_P | PTE_W | PTE_U);
   assert(ret);
 
   //设置上下文和内核栈
@@ -359,9 +361,10 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   uintptr_t kstack_top = new_task->base.kstack + _4K * TASK_STACK_SIZE;
   new_task->base.regs.esp = kstack_top - sizeof(void *) * 4;
   //用户代码入口
-  *(void **)(new_task->base.regs.esp + 12) = (uintptr_t)elf_header->e_entry;
+  *(void **)(new_task->base.regs.esp + 12) = entry;
   //用户栈
-  *(void **)(new_task->base.regs.esp + 8) = 0xB8000000;
+  *(void **)(new_task->base.regs.esp + 8) =
+      new_task->vustack + _4K * TASK_STACK_SIZE;
   // argc
   *(void **)(new_task->base.regs.esp + 4) = (uintptr_t)9710;
   // argv
@@ -377,12 +380,6 @@ pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name) {
   ktask_t *new_task = task_create_impl(name, true, schd->group);
   if (!new_task)
     return 0;
-
-  new_task->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
-  if (!new_task->kstack) {
-    task_destory(new_task);
-    return 0;
-  }
 
   //设置上下文和内核栈
   memset(&new_task->regs, 0, sizeof(struct registers));
@@ -461,11 +458,10 @@ void task_switch(pid_t pid) {
               false);
     }
     lcr3(cr3.val);
-    // FIXME 读不了那个页
-    uint32_t look = *(uint32_t *)0x8000000;
-    for (uint32_t *p = 0xB8000000 - _4M; p < 0xB8000000; p++) {
-      *p = 0xffffffff;
-    }
+    
+    // 试试读
+    // volatile uint32_t look = *(volatile uint32_t *)0x8000000;
+    // look = *(volatile uint32_t *)((utask_t *)next)->vustack;
 
     // 2.如果是切到用户，那么要切换tss栈
     if (!next->group->is_kernel) {
