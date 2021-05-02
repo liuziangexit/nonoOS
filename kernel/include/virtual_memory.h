@@ -3,15 +3,11 @@
 #include <avlmini.h>
 #include <stdbool.h>
 
-// struct virtual_memory;
-
 // 表示一段虚拟内存
 struct virtual_memory_area {
   struct avl_node avl_node;
-  // struct virtual_memory *vm;
   uintptr_t vma_start;
   uint32_t vma_size; // in bytes
-  // uint16_t vma_flag;
 };
 
 struct virtual_memory {

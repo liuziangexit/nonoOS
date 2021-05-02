@@ -2,9 +2,11 @@
 #include "syscall.h"
 #include <stdarg.h>
 #include <stdint.h>
-#define T_SYSCALL 122 //系统调用
+
+#define T_SYSCALL 122 //系统调用中断号
 #define MAX_ARGS 5
-int syscall(int num, ...) {
+
+int32_t syscall(int num, ...) {
   va_list ap;
   va_start(ap, num);
   uint32_t a[MAX_ARGS];
