@@ -1,6 +1,9 @@
+#include <stdio.h>
+
+#ifndef LIBNO_USER
+
 #include <kbd.h>
 #include <ring_buffer.h>
-#include <stdio.h>
 #include <tty.h>
 
 char *gets(char *str) {
@@ -15,3 +18,11 @@ int getchar() {
     return EOF;
   return c;
 }
+
+#else
+
+char *gets(char *str) { return NULL; }
+
+int getchar() { return EOF; }
+
+#endif

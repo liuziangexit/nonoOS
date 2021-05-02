@@ -1,5 +1,6 @@
 #ifndef __LIBNO_SYSCALL_H__
 #define __LIBNO_SYSCALL_H__
+#include "stdint.h"
 
 // void SYSCALL_EXIT(err)
 #define SYSCALL_EXIT 0
@@ -20,7 +21,7 @@
 #define SYSCALL_SCANF 5
 
 #ifdef LIBNO_USER
-int32_t syscall(int num, ...);
+int32_t syscall(int call, int cnt, ...);
 #endif
 
 #endif

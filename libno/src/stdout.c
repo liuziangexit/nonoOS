@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef LIBNO_USER
 #include <tty.h>
 
 int putchar(int ic) {
@@ -164,3 +166,18 @@ int printf(const char *restrict format, ...) {
 }
 
 int puts(const char *string) { return printf("%s\n", string); }
+
+#else
+
+#include <syscall.h>
+
+int putchar(int ic) {
+  printf("%c", ic);
+  return ic;
+}
+
+int printf(const char *restrict format, ...) { return 0; }
+
+int puts(const char *string) { return printf("%s\n", string); }
+
+#endif

@@ -2,15 +2,14 @@
 //#include <task.h>
 #include <compiler_helper.h>
 #include <stdint.h>
-#include <syscall.h>
+#include <stdlib.h>
 
 int main(int argc, char **argv) {
-  uint32_t look = argc;
-  look = argv;
+  void *mem = malloc(10);
+  free(mem);
 
-  // UNUSED(argc);
-  // UNUSED(argv);
-  // int ret = syscall(99, 1, 2, 3, 4, 5);
+  UNUSED(argc);
+  UNUSED(argv);
   // printf("hello world from user process %d\n", task_current());
   return 0;
 }

@@ -99,7 +99,7 @@ static void task_destory(ktask_t *t) {
   task_group_remove(t->group, t);
   if (!t->group->is_kernel) {
     utask_t *ut = (utask_t *)t;
-    kmem_page_free(ut->pustack, TASK_STACK_SIZE);
+    kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
     free(ut->program);
   }
 #ifndef NDEBUG
@@ -345,9 +345,9 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   }
   //在虚拟内存中的3G-512MB到3GB之间找一个地方放栈
   int ret;
-  new_task->vustack =
-      virtual_memory_find_fit(new_task->base.group->vm, _4K * TASK_STACK_SIZE,
-                              2560 * 1024 * 1024, 3072 * 1024 * 1024);
+  new_task->vustack = virtual_memory_find_fit(
+      new_task->base.group->vm, _4K * TASK_STACK_SIZE,
+      (uintptr_t)2560 * 1024 * 1024, (uintptr_t)3072 * 1024 * 1024);
   assert(new_task->vustack);
   ret = virtual_memory_map(new_task->base.group->vm, new_task->vustack,
                            _4K * TASK_STACK_SIZE, V2P(new_task->pustack),
@@ -361,12 +361,12 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   uintptr_t kstack_top = new_task->base.kstack + _4K * TASK_STACK_SIZE;
   new_task->base.regs.esp = kstack_top - sizeof(void *) * 4;
   //用户代码入口
-  *(void **)(new_task->base.regs.esp + 12) = entry;
+  *(uintptr_t *)(new_task->base.regs.esp + 12) = entry;
   //用户栈
-  *(void **)(new_task->base.regs.esp + 8) =
+  *(uintptr_t *)(new_task->base.regs.esp + 8) =
       new_task->vustack + _4K * TASK_STACK_SIZE;
   // argc
-  *(void **)(new_task->base.regs.esp + 4) = (uintptr_t)9710;
+  *(uintptr_t *)(new_task->base.regs.esp + 4) = (uintptr_t)9710;
   // argv
   *(void **)(new_task->base.regs.esp) = (uintptr_t)0;
 
@@ -458,7 +458,7 @@ void task_switch(pid_t pid) {
               false);
     }
     lcr3(cr3.val);
-    
+
     // 试试读
     // volatile uint32_t look = *(volatile uint32_t *)0x8000000;
     // look = *(volatile uint32_t *)((utask_t *)next)->vustack;
