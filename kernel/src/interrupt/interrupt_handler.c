@@ -101,6 +101,15 @@ static struct trapframe switchk2u, *switchu2k;
 /* trap_dispatch - dispatch based on what type of trap occurred */
 void interrupt_handler(struct trapframe *tf) {
   switch (tf->tf_trapno) {
+  case 124: {
+    if (tf->tf_gprs.reg_eax == 3) {
+      printf("ssk return!\n");
+    } else {
+      printf("ssk %d in\n", tf->tf_gprs.reg_eax);
+      asm("movl %0, %%eax; int $124" ::"r"(tf->tf_gprs.reg_eax + 1) : "eax");
+      printf("ssk %d out\n", tf->tf_gprs.reg_eax);
+    }
+  } break;
   case IRQ_OFFSET + IRQ_KBD:
     kbd_isr();
     break;

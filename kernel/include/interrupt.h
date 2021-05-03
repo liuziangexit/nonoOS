@@ -42,6 +42,8 @@
 #define T_SWITCH_USER 121   //内核切到用户
 #define T_SYSCALL 122       //系统调用
 
+#define T_SSK 124       //ssk
+
 /* pushal储存的General-purpose registers */
 struct gprs {
   uint32_t reg_edi;

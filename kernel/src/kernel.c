@@ -92,7 +92,7 @@ void kmain() {
     extern uint32_t kernel_pd[];
     // page_directory_debug(kernel_pd);
   }
-  //TODO 切到内核任务时TSS设为0
+  // TODO 切到内核任务时TSS设为0
   task_init();
 
   uint32_t esp, ebp, new_esp, new_ebp;
@@ -134,7 +134,7 @@ void ktask0() {
     *(uint32_t *)ebp = 0;
     *(uint32_t *)(ebp + 4) = 0;
   }
-  task_test();
+  //task_test();
   // // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
   putchar(1);
@@ -167,6 +167,10 @@ void ktask0() {
   // //        (uint32_t)_binary____program_hello_world_hello_exe_size);
 
   printf("nonoOS:$ ");
+
+  printf("nest interrupt test begin! ssk!\n");
+  asm("movl $0, %%eax; int $124" ::: "eax");
+  printf("nest interrupt test end!!!\n");
 
   // // TODO 考虑一下嵌套中断
   sti();
