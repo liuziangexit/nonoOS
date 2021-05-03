@@ -21,7 +21,7 @@
 #define SYSCALL_SCANF 5
 
 #ifdef LIBNO_USER
-int32_t syscall(int call, int cnt, ...);
+uint32_t syscall(int call, int cnt, ...);
 #endif
 
 #endif

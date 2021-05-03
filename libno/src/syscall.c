@@ -7,7 +7,7 @@
 #define T_SYSCALL 122 //系统调用中断号
 #define MAX_ARGS 5
 
-int32_t syscall(int call, int cnt, ...) {
+uint32_t syscall(int call, int cnt, ...) {
   va_list ap;
   va_start(ap, cnt);
   uint32_t a[MAX_ARGS] = {0};
@@ -16,8 +16,8 @@ int32_t syscall(int call, int cnt, ...) {
   }
   va_end(ap);
 
-  int ret;
-  asm volatile("int %1;"
+  uint32_t ret;
+  asm volatile("int %1;nop;nop;nop"
                : "=a"(ret)
                : "i"(T_SYSCALL), "a"(call), "d"(a[0]), "c"(a[1]), "b"(a[2]),
                  "D"(a[3]), "S"(a[4])
