@@ -12,7 +12,8 @@ enum memory_order {
   SEQ_CST = 8 // ACQUIRE + RELEASE + 全局唯一顺序(Single Total Order)
 };
 
-// x86 实现
+// x86实现
+// 理论上单核的x86系统里，除了编译器fence是必要的以外，其他都不需要实现
 __always_inline static inline void memory_barrier(enum memory_order order) {
   if (order == RELAXED) {
     return;
@@ -28,19 +29,12 @@ __always_inline static inline void memory_barrier(enum memory_order order) {
     return;
   }
   if (order == RELEASE) {
-    /*
-    RW/W
-    用一个RW/RW的mfence屏障来实现
-    */
     asm volatile("mfence" ::: "memory");
     return;
   }
   if (order == ACQUIRE) {
-    /*
-    R/RW
-    用一个R/RW的lfence屏障来实现
-    */
-    asm volatile("lfence" ::: "memory");
+    //x86本身已经对R/RW保证了
+    asm volatile("" ::: "memory");
     return;
   }
   if (order == SEQ_CST) {
