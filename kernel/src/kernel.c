@@ -92,7 +92,7 @@ void kmain() {
     extern uint32_t kernel_pd[];
     // page_directory_debug(kernel_pd);
   }
-  //TODO 切到内核任务时TSS设为0
+
   task_init();
 
   uint32_t esp, ebp, new_esp, new_ebp;

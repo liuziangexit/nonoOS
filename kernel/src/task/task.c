@@ -254,6 +254,7 @@ void task_init() {
   assert(init->kstack);
   list_add(&tasks, &init->global_head);
   current = init;
+  load_esp0(0);
 }
 
 void task_schd() {
