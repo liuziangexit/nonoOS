@@ -56,9 +56,9 @@ static inline __always_inline void lidt(struct pseudodesc *pd) {
   asm volatile("lidt (%0)" ::"r"(pd));
 }
 
-static inline __always_inline void sti(void) { asm volatile("sti"); }
+static inline __always_inline void sti(void) { asm volatile("sti" ::: "cc"); }
 
-static inline __always_inline void cli(void) { asm volatile("cli"); }
+static inline __always_inline void cli(void) { asm volatile("cli" ::: "cc"); }
 
 static inline __always_inline void ltr(uint16_t sel) {
   asm volatile("ltr %0" ::"r"(sel));

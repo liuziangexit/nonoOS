@@ -33,7 +33,7 @@ __always_inline static inline void memory_barrier(enum memory_order order) {
     return;
   }
   if (order == ACQUIRE) {
-    //x86本身已经对R/RW保证了
+    // x86本身已经对R/RW保证了
     asm volatile("" ::: "memory");
     return;
   }
@@ -49,5 +49,5 @@ __always_inline static inline void memory_barrier(enum memory_order order) {
     asm volatile("mfence" ::: "memory");
     return;
   }
-  painc("unknown memory_order");
+  panic("unknown memory_order");
 }
