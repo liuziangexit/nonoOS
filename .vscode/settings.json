@@ -58,6 +58,8 @@
         "system_error": "c",
         "type_traits": "c",
         "utility": "c",
-        "debug.h": "c"
+        "debug.h": "c",
+        "complex": "cpp",
+        "atomic": "c"
     }
 }
