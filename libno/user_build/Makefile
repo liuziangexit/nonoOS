@@ -15,6 +15,7 @@ OBJS=\
 ../src/stdout.o\
 ../src/stdin.o\
 ../src/string.o\
+../src/spinlock.o\
 ../src/ring_buffer.o\
 ../src/abort_exit.o\
 ../src/itoa.o\
