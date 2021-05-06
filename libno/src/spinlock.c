@@ -1,10 +1,21 @@
 #include <assert.h>
 #include <atomic.h>
 #include <spinlock.h>
+#ifndef NDEBUG
+#include <mmu.h>
+#include <sync.h>
+#include <x86.h>
+#endif
+
+#ifndef LIBNO_USER
 
 void spin_init(spinlock_t *l) { l->val = 0; }
 
 void spin_lock(spinlock_t *l) {
+#ifndef NDEBUG
+  //一般情况下spin的时候不应该开中断
+  assert(reflags() & FL_IF == 0);
+#endif
   uint32_t expected = 0;
   while (!atomic_compare_exchange(&l->val, &expected, 1)) {
     expected = 0;
@@ -24,3 +35,5 @@ void spin_unlock(spinlock_t *l) {
   assert(1 == atomic_exchange(&l->val, 0));
 #endif
 }
+
+#endif

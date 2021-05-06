@@ -60,6 +60,16 @@ static inline __always_inline void sti(void) { asm volatile("sti" ::: "cc"); }
 
 static inline __always_inline void cli(void) { asm volatile("cli" ::: "cc"); }
 
+static __always_inline uint32_t reflags() {
+  uint32_t eflags;
+  asm("pushfl; popl %0" : "=r"(eflags));
+  return eflags;
+}
+
+static __always_inline void weflags(uint32_t eflags) {
+  asm("pushl %0; popfl" ::"r"(eflags) : "cc");
+}
+
 static inline __always_inline void ltr(uint16_t sel) {
   asm volatile("ltr %0" ::"r"(sel));
 }
@@ -89,7 +99,7 @@ static __always_inline void lcr0(uintptr_t cr0) {
   asm volatile("mov %0, %%cr0" ::"r"(cr0) : "memory");
 }
 
-static __always_inline uintptr_t rcr0(void) {
+static __always_inline uintptr_t rcr0() {
   uintptr_t val;
   asm volatile("mov %%cr0, %0" : "=r"(val)::"memory");
   return val;

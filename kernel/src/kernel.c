@@ -155,7 +155,6 @@ void ktask0() {
   bare_hashmap_test();
   kmem_cache_test();
   atomic_test();
-
   printf("\n\n");
   print_kernel_size();
   printf("\n");
@@ -169,10 +168,10 @@ void ktask0() {
   // //        (uintptr_t)_binary____program_hello_world_hello_exe_start,
   // //        (uint32_t)_binary____program_hello_world_hello_exe_size);
 
-  printf("nonoOS:$ ");
-
   clock_init();
   sti();
+
+  printf("nonoOS:$ ");
 
   // task_schd();
 

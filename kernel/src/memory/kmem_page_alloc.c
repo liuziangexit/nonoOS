@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <sync.h>
 #include <tty.h>
 #include <x86.h>
 
@@ -222,13 +223,20 @@ static void combine(uint32_t exp, void *single) {
 }
 
 void *kmem_page_alloc(size_t cnt) {
+  uint32_t save;
+  enter_critical_region(&save);
   cnt = next_pow2(cnt);
-  return split(log2(cnt));
+  void *ret = split(log2(cnt));
+  leave_critical_region(&save);
+  return ret;
 }
 
 void kmem_page_free(void *p, size_t cnt) {
+  uint32_t save;
+  enter_critical_region(&save);
   cnt = next_pow2(cnt);
   combine(log2(cnt), p);
+  leave_critical_region(&save);
 }
 
 static bool write_dump(uint32_t *write_pos, void *dst, uint32_t dst_len,

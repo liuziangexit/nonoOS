@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sync.h>
 #include <task.h>
 #include <virtual_memory.h>
 #include <x86.h>
