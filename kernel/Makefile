@@ -30,6 +30,7 @@ src/memory/page_directory_debug.o\
 src/interrupt/interrupt_handler.o\
 src/interrupt/idtvector.o\
 src/interrupt/interrupt_entry.o\
+src/interrupt/clock.o\
 src/debug/reg_info.o\
 src/debug/kernel_size.o\
 src/debug/print_e820.o\

@@ -5,6 +5,7 @@
 #include "../test/task.h"
 #include <../test/atomic_test.h>
 #include <cga.h>
+#include <clock.h>
 #include <debug.h>
 #include <defs.h>
 #include <gdt.h>
@@ -135,7 +136,7 @@ void ktask0() {
     *(uint32_t *)ebp = 0;
     *(uint32_t *)(ebp + 4) = 0;
   }
-  task_test();
+  // task_test();
   // // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
   putchar(1);
@@ -170,6 +171,7 @@ void ktask0() {
 
   printf("nonoOS:$ ");
 
+  clock_init();
   sti();
 
   // task_schd();

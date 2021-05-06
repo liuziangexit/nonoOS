@@ -1,6 +1,7 @@
 #include "../../include/syscall.h"
 #include <assert.h>
 #include <cga.h>
+#include <clock.h>
 #include <defs.h>
 #include <interrupt.h>
 #include <kbd.h>
@@ -104,6 +105,12 @@ void interrupt_handler(struct trapframe *tf) {
   case IRQ_OFFSET + IRQ_KBD:
     kbd_isr();
     break;
+  case IRQ_OFFSET + IRQ_TIMER: {
+    uint64_t ticks = clock_count_tick();
+    if (ticks % TICK_PER_SECOND == 0) {
+      printf("%ll ", ticks / TICK_PER_SECOND);
+    }
+  } break;
   case T_SYSCALL:
     syscall_dispatch(tf);
     break;
