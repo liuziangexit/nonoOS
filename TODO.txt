@@ -20,7 +20,7 @@ OK-syscall返回值
 OK-中断可以嵌套吗(可以)
 OK-是不是没有清中断掩码？(应该是CPU做了)
 OK-实现memory fence
--实现atomic int
+OK-实现atomic int
 -实现spinlock
 -实现mutex
 -实现信号量
