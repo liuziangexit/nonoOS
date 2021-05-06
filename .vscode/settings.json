@@ -60,6 +60,7 @@
         "utility": "c",
         "debug.h": "c",
         "complex": "cpp",
-        "atomic": "c"
+        "atomic": "c",
+        "cstdio": "c"
     }
 }
