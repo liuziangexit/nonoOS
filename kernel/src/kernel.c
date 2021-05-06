@@ -136,7 +136,7 @@ void ktask0() {
     *(uint32_t *)ebp = 0;
     *(uint32_t *)(ebp + 4) = 0;
   }
-  // task_test();
+  task_test();
   // // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
   putchar(1);
