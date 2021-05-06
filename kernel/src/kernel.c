@@ -3,6 +3,7 @@
 #include "../test/kmem_page.h"
 #include "../test/ring_buffer.h"
 #include "../test/task.h"
+#include <../test/atomic_test.h>
 #include <cga.h>
 #include <debug.h>
 #include <defs.h>
@@ -152,6 +153,7 @@ void ktask0() {
   kmem_page_test();
   bare_hashmap_test();
   kmem_cache_test();
+  atomic_test();
 
   printf("\n\n");
   print_kernel_size();

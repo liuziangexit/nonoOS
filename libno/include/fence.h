@@ -1,3 +1,5 @@
+#ifndef __LIBNO_FENCE_H__
+#define __LIBNO_FENCE_H__
 #include <defs.h>
 #include <panic.h>
 
@@ -48,3 +50,5 @@ __always_inline static void memory_barrier(enum memory_order order) {
   }
   panic("unknown memory_order");
 }
+
+#endif
