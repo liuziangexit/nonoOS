@@ -170,7 +170,6 @@ void ktask0() {
 
   printf("nonoOS:$ ");
 
-  // // TODO 考虑一下嵌套中断
   sti();
 
   // task_schd();
