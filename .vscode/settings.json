@@ -61,6 +61,7 @@
         "debug.h": "c",
         "complex": "cpp",
         "atomic": "c",
-        "cstdio": "c"
+        "cstdio": "c",
+        "sync.h": "c"
     }
 }
