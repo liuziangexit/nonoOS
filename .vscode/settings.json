@@ -62,6 +62,7 @@
         "complex": "cpp",
         "atomic": "c",
         "cstdio": "c",
-        "sync.h": "c"
+        "sync.h": "c",
+        "stdarg.h": "c"
     }
 }
