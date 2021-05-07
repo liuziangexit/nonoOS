@@ -32,7 +32,7 @@ void task_args_add(struct task_args *dst, const char *str) {
   struct task_arg *holder = (struct task_arg *)malloc(sizeof(struct task_arg));
   assert(holder);
   holder->strlen = strlen(str);
-  holder->data = (const char *)malloc(holder->strlen + 1);
+  holder->data = (char *)malloc(holder->strlen + 1);
   assert(holder->data);
   memcpy(holder->data, str, holder->strlen);
   holder->data[holder->strlen] = '\0';
@@ -375,6 +375,8 @@ pid_t task_current() {
 pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                        task_group_t *group, uintptr_t entry,
                        struct task_args *args) {
+  // FIXME 根据program_size去看底下elf处理时候有没有越界
+  UNUSED(program_size);
   if (!(((program != 0) || (group != 0)) && ((program != 0) != (group != 0)))) {
     return 0;
   }
@@ -461,10 +463,11 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   //用户栈
   *(uintptr_t *)(new_task->base.regs.esp + 8) =
       new_task->vustack + _4K * TASK_STACK_SIZE;
+  // TODO 等到实现了用户的业内内存分配，这里就要换成真的参数了
   // argc
   *(uintptr_t *)(new_task->base.regs.esp + 4) = (uintptr_t)9710;
   // argv
-  *(void **)(new_task->base.regs.esp) = (uintptr_t)0;
+  *(void **)(new_task->base.regs.esp) = (void *)9999;
 
   add_task((ktask_t *)new_task);
   return new_task->base.id;

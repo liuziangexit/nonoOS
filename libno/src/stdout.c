@@ -1,3 +1,4 @@
+#include <compiler_helper.h>
 #include <ctype.h>
 #include <limits.h>
 #include <stdarg.h>
@@ -176,7 +177,11 @@ int putchar(int ic) {
   return ic;
 }
 
-int printf(const char *restrict format, ...) { return 0; }
+// TODO 实现
+int printf(const char *restrict format, ...) {
+  UNUSED(format);
+  return 0;
+}
 
 int puts(const char *string) { return printf("%s\n", string); }
 

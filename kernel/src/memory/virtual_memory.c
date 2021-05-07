@@ -77,7 +77,7 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
     if (entry & PTE_P && (entry & PTE_PS) == 0) {
       //移除flags，得到页表地址
       uintptr_t page_table = entry & ~(uint32_t)0xFFF;
-      kmem_page_free(P2V(page_table), 1);
+      kmem_page_free((void *)P2V(page_table), 1);
     }
   }
   kmem_page_free(vm->page_directory, 1);

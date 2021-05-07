@@ -1,3 +1,4 @@
+#include <compiler_helper.h>
 #include <stdio.h>
 
 #ifndef LIBNO_USER
@@ -21,7 +22,11 @@ int getchar() {
 
 #else
 
-char *gets(char *str) { return NULL; }
+// TODO implement
+char *gets(char *str) {
+  UNUSED(str);
+  return NULL;
+}
 
 int getchar() { return EOF; }
 

@@ -76,7 +76,7 @@ void task_test() {
   printf("task1: switched back second time, cool!\n");
   task_display();
 
-  //utask_test();
+  utask_test();
 
   task_clean();
 
