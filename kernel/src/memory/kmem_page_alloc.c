@@ -225,7 +225,9 @@ static void combine(uint32_t exp, void *single) {
 void *kmem_page_alloc(size_t cnt) {
   SMART_CRITICAL_REGION
   cnt = next_pow2(cnt);
-  return split(log2(cnt));
+  void *p = split(log2(cnt));
+  memset(p, 0, cnt * 4096);
+  return p;
 }
 
 void kmem_page_free(void *p, size_t cnt) {

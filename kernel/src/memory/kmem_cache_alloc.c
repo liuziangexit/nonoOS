@@ -241,6 +241,7 @@ void *kmem_cache_alloc(size_t alignment, size_t size) {
     list_del(&alloc_from->li);
     list_add(&cache->slabs_partial, &alloc_from->li);
   }
+  memset(object, 0, next_pow2(size));
   return object;
 }
 
@@ -253,13 +254,6 @@ static void slab_free(struct slab *s, void *p) {
     assert(p < ((void *)s->mem) + 4096 && p >= ((void *)s->mem));
   }
 
-  // debug时候把回收的内存清空
-  // TODO
-  // 出于进程之间隔离的考虑，要不要总是把这片内存清空？看看其他的os是怎么做的
-  // 不过就算要清空，我估计也不是在这里，因为这个slab的分配算法是在内核里用的
-#ifndef NDEBUG
-  memset(p, 0, s->cache->obj_size);
-#endif
   //修改计数
   assert(s->inuse != 0);
   s->inuse--;
