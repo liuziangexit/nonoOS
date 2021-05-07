@@ -76,8 +76,8 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
     //如果一个PDE presented，并且不是大页，那肯定就是引用了一个PT
     if (entry & PTE_P && (entry & PTE_PS) == 0) {
       //移除flags，得到页表地址
-      void *page_table = (void *)(entry & ~(uint32_t)0xFFF);
-      kmem_page_free(page_table, 1);
+      uintptr_t page_table = entry & ~(uint32_t)0xFFF;
+      kmem_page_free(P2V(page_table), 1);
     }
   }
   kmem_page_free(vm->page_directory, 1);
