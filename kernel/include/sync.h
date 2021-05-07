@@ -3,6 +3,7 @@
 
 void disable_interrupt();
 void enable_interrupt();
+void make_sure_int_disabled();
 
 //如果当前已经启用中断，关闭中断
 void enter_critical_region(uint32_t *save);

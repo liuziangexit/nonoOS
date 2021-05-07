@@ -13,8 +13,7 @@ void spin_init(spinlock_t *l) { l->val = 0; }
 
 void spin_lock(spinlock_t *l) {
 #ifndef NDEBUG
-  //一般情况下spin的时候不应该开中断
-  assert(reflags() & FL_IF == 0);
+  make_sure_int_disabled();
 #endif
   uint32_t expected = 0;
   while (!atomic_compare_exchange(&l->val, &expected, 1)) {

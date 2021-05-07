@@ -4,6 +4,11 @@
 
 void disable_interrupt() { cli(); }
 void enable_interrupt() { sti(); }
+void make_sure_int_disabled() {
+  if ((reflags() & FL_IF) != 0) {
+    panic("make_sure_int_disabled failed");
+  }
+}
 
 //如果当前已经启用中断，关闭中断
 void enter_critical_region(uint32_t *save) {
