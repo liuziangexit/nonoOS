@@ -217,8 +217,7 @@ void *kmem_cache_alloc(size_t alignment, size_t size) {
   struct cache *cache = (cache_cache + (exp - 3));
   assert(cache->obj_size >= size);
 
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
 
   //在对象池里的“已部分使用的slab”中分配
   struct slab *alloc_from = 0;
@@ -231,7 +230,6 @@ void *kmem_cache_alloc(size_t alignment, size_t size) {
       //需要增加一个slab
       if (!cache_add_slabs(cache, 1)) {
         //如果增加失败（分配不到这么多连续物理页），那么真的失败了
-        leave_critical_region(&save);
         return 0;
       }
       //如果增加成功，再在“未使用的slab”中寻找可用的slab
@@ -243,7 +241,6 @@ void *kmem_cache_alloc(size_t alignment, size_t size) {
     list_del(&alloc_from->li);
     list_add(&cache->slabs_partial, &alloc_from->li);
   }
-  leave_critical_region(&save);
   return object;
 }
 
@@ -278,16 +275,13 @@ static void slab_free(struct slab *s, void *p) {
 //模块接口，归还内存
 bool kmem_cache_free(void *p) {
   assert(p);
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   //找到p所属的slab
   uint32_t s = bare_del(cache_hashmap, cache_hashmap_pgcnt, (uint32_t)p);
   if (!s) {
-    leave_critical_region(&save);
     return false;
   }
   //将p归还到slab中
   slab_free((struct slab *)s, p);
-  leave_critical_region(&save);
   return true;
 }

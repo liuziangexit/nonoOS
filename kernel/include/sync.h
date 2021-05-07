@@ -9,3 +9,8 @@ void make_sure_int_disabled();
 void enter_critical_region(uint32_t *save);
 //如果此前关闭了中断，开启中断
 void leave_critical_region(uint32_t *save);
+
+#define SMART_CRITICAL_REGION                                                  \
+  uint32_t __smart_critical_region__                                           \
+      __attribute__((cleanup(leave_critical_region)));                         \
+  enter_critical_region(&__smart_critical_region__);

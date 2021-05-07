@@ -30,12 +30,10 @@ static const char whitespace = ' ';
 
 //清屏
 static void viewport_clear() {
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   for (uint16_t i = 0; i < CRT_SIZE; i++) {
     cga_write(i, bg, fg, &whitespace, 1);
   }
-  leave_critical_region(&save);
 }
 
 //看看一个位置在不在viewport里
@@ -51,15 +49,13 @@ static bool in_viewport(uint16_t pos) {
 
 //更新光标位置到写位置，如果写位置不在viewport里，则不显示光标
 static void viewport_update_cursor() {
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   uint32_t write_pos = ob_wpos;
   if (in_viewport(write_pos)) {
     cga_move_cursor(write_pos - viewport);
   } else {
     cga_hide_cursor();
   }
-  leave_critical_region(&save);
 }
 
 //刷新viewport
@@ -102,8 +98,7 @@ static void ob_cut() {
 }
 
 void terminal_putchar(char c) {
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   uint32_t write_pos = ob_wpos;
   if (c == '\n') {
     //写进buffer
@@ -146,16 +141,13 @@ void terminal_putchar(char c) {
       terminal_viewport_bottom();
     }
   }
-  leave_critical_region(&save);
 }
 
 void terminal_write(const char *data, size_t size) {
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   for (uint32_t i = 0; i < size; i++) {
     terminal_putchar(data[i]);
   }
-  leave_critical_region(&save);
 }
 
 void terminal_write_string(const char *s) { terminal_write(s, strlen(s)); }
@@ -178,8 +170,7 @@ struct ring_buffer *terminal_input_buffer() {
 //返回0成功，返回-1失败表示没有找到行结尾，返回正数表示缓冲区过小，返回值是所需的缓冲区大小
 //返回值末尾给了\0标记结束
 int terminal_read_line(char *dst, int len) {
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   //首先看看距离第一个\n有多远
   int max = ring_buffer_readable(&input_buffer);
   int n = 0;
@@ -190,79 +181,63 @@ int terminal_read_line(char *dst, int len) {
   }
 
   if (n == max) {
-    leave_critical_region(&save);
     return -1;
   }
   if (n > len) {
-    leave_critical_region(&save);
     return n;
   }
 
   ring_buffer_read(&input_buffer, dst, n - 1);
   dst[n] = 0;
-  leave_critical_region(&save);
   return 0;
 }
 
 // viewport向上移动一行
 void terminal_viewport_up() {
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   uint32_t written = ob_wpos;
   if (written < CRT_SIZE || viewport == 0) {
-    leave_critical_region(&save);
     return;
   }
   viewport -= CRT_COLS;
   viewport_update();
-  leave_critical_region(&save);
 }
 
 // viewport向下移动一行
 void terminal_viewport_down() {
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   uint32_t written = ob_wpos;
   if (written < CRT_SIZE) {
-    leave_critical_region(&save);
     return;
   }
   uint32_t new_vp = viewport + CRT_COLS;
   if (new_vp > written) {
-    leave_critical_region(&save);
     return;
   }
   viewport = new_vp;
   viewport_update();
-  leave_critical_region(&save);
 }
 
 // viewport移动到最顶部
 void terminal_viewport_top() {
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   uint32_t written = ob_wpos;
   if (written < CRT_SIZE) {
-    leave_critical_region(&save);
     return;
   }
   viewport = 0;
   viewport_update();
-  leave_critical_region(&save);
 }
 
 // viewport移动到最底部
 void terminal_viewport_bottom() {
-  uint32_t save;
-  enter_critical_region(&save);
+  SMART_CRITICAL_REGION
   uint32_t written = ob_wpos;
   if (written < CRT_SIZE) {
-    leave_critical_region(&save);
     return;
   }
   viewport = written - CRT_SIZE;
   viewport = viewport - viewport % CRT_COLS;
   viewport += CRT_COLS;
   viewport_update();
-  leave_critical_region(&save);
 }
