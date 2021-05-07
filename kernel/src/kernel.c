@@ -173,10 +173,8 @@ void ktask0() {
 
   printf("nonoOS:$ ");
 
-  // task_schd();
+  task_schd();
 
-  while (1) {
-    hlt();
-  }
+  panic("task_schd returned?");
   __builtin_unreachable();
 }

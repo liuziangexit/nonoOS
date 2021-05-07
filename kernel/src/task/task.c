@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <avlmini.h>
 #include <compiler_helper.h>
 #include <elf.h>
 #include <gdt.h>
@@ -15,21 +16,26 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
-/*
-TODO
-需要再看一下函数里出错return时有没有内存泄漏的问题
-*/
-
-/*
-TODO
-这里改用红黑树
-*/
-static list_entry_t tasks;
-static list_entry_t dead_tasks;
+// 所有的task
+static struct avl_tree tasks;
+// 当前运行的task
 static ktask_t *current;
-// FIXME atomic
+// id序列
 static pid_t id_seq;
 
+static void add_task(ktask_t *new_task) {
+  make_sure_int_disabled();
+  void *prev = avl_tree_add(&tasks, new_task);
+  assert(prev == 0);
+}
+
+static int compare_task(const void *a, const void *b) {
+  const ktask_t *ta = a;
+  const ktask_t *tb = b;
+  return ta->id - tb->id;
+}
+
+//创建组
 static task_group_t *task_group_create(bool is_kernel) {
   task_group_t *group = malloc(sizeof(task_group_t));
   if (!group) {
@@ -41,6 +47,7 @@ static task_group_t *task_group_create(bool is_kernel) {
   return group;
 }
 
+//向组中添加
 static void task_group_add(task_group_t *g, ktask_t *t) {
   assert(g);
   list_add(&g->tasks, &t->group_head);
@@ -48,6 +55,7 @@ static void task_group_add(task_group_t *g, ktask_t *t) {
   t->group = g;
 }
 
+//析构组
 static void task_group_destroy(task_group_t *g) {
   if (g->vm) {
     virtual_memory_destroy(g->vm);
@@ -55,7 +63,9 @@ static void task_group_destroy(task_group_t *g) {
   free(g);
 }
 
-static void task_group_remove(task_group_t *g, ktask_t *t) {
+//从组中移除
+static void task_group_remove(ktask_t *t) {
+  struct task_group *g = t->group;
   assert(g);
   if (g->task_cnt == 1) {
     task_group_destroy(g);
@@ -65,39 +75,33 @@ static void task_group_remove(task_group_t *g, ktask_t *t) {
   }
 }
 
-//因为ktask里面那个group
-// head不是第一个成员，所以需要加减一下指针才能得到ktask的地址
-inline static ktask_t *task_group_list_retrieve(list_entry_t *head) {
-  return (ktask_t *)(head - 1);
+// 从组链表node获得对象
+inline static ktask_t *task_group_head_retrieve(list_entry_t *head) {
+  return (ktask_t *)(((void *)head) - sizeof(struct avl_node));
 }
 
+// 生成ID
 static pid_t gen_pid() {
-  //生成pid
-  /* FIXME
-   1.当系统中存在的进程数量达到2^32-1时（正在创建第2^32个进程时），这会无限循环
-   2.当以特别快的速度创建和销毁进程时，比如说线程1在此处创建了任务1，但是还未将任务1
-  加入进程列表时，另一个线程快速地用光了所有剩下的id，以至于id_seq从1重新开始，
-  这个时候就是一个racing了
-
-  对于第一个问题，下面已经作出了处理，但是可以看出还不够充分，需要对下面的代码加锁才是真正正确的
-  对于第二个问题，加一个锁就可以解决
-
-  所以这个地方目前只需要加锁就完事了，等锁做好了记得来改
-  */
+  make_sure_int_disabled();
   pid_t result;
   const pid_t begins = id_seq;
   do {
     result = ++id_seq;
-    if (result == begins)
+    if (result == begins) {
       panic("running out of pid");
+    }
+    if (result == 0) {
+      continue;
+    }
   } while (task_find(result));
   return result;
 }
 
+//析构task
 static void task_destory(ktask_t *t) {
   assert(t);
   kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
-  task_group_remove(t->group, t);
+  task_group_remove(t);
   if (!t->group->is_kernel) {
     utask_t *ut = (utask_t *)t;
     kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
@@ -111,6 +115,7 @@ static void task_destory(ktask_t *t) {
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
                                  task_group_t *group) {
+  make_sure_int_disabled();
   if (current && kernel && !current->group->is_kernel) {
     return 0; //只有supervisor才能创造一个supervisor
   }
@@ -166,49 +171,51 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     return 0;
   }
 
-  list_init(&new_task->global_head);
   list_init(&new_task->group_head);
   new_task->state = CREATED;
   new_task->parent = current;
   new_task->name = name;
+  //生成id
   new_task->id = gen_pid();
-
   //加入group
   task_group_add(group, new_task);
-
   return new_task;
 }
 
 void kernel_task_entry();
 void user_task_entry();
 
-// FIXME 只要有一个switchto就够了，只要发现from是null，就不保存上下文
-//保存上下文再切换
-void switch_to(void *from, void *to);
-//直接切换，不保存上下文（exit时用）
-void switch_to2(void *to);
+// 切换寄存器
+// save指示是否要保存
+void switch_to(bool save, void *from, void *to);
 
-// FIXME 不应该线性搜索
+//搜索task
 ktask_t *task_find(pid_t pid) {
-  for (list_entry_t *p = list_next(&tasks); p != &tasks; p = list_next(p)) {
-    if (((ktask_t *)p)->id == pid) {
-      return (ktask_t *)p;
-    }
-  }
-  return 0;
+  SMART_CRITICAL_REGION
+  ktask_t key;
+  key.id = pid;
+  void *ret = avl_tree_find(&tasks, &key);
+  return ret;
 }
 
+//显示系统中所有task
 void task_display() {
+  SMART_CRITICAL_REGION
   printf("\n\nTask Display   Current: %s", current->name);
   printf("\n*******************************************************************"
          "******\n");
-  for (list_entry_t *p = list_next(&tasks); p != &tasks; p = list_next(p)) {
-    ktask_t *t = (ktask_t *)p;
-    printf("State:%s  ID:%d  Supervisor:%s  Group:0x%08llx  Name:%s\n",
-           task_state_str(t->state), (int)t->id,
-           t->group->is_kernel ? "T" : "F",
-           (int64_t)(uint64_t)(uintptr_t)t->group, t->name);
-  }
+  ktask_t key;
+  key.id = 0;
+  ktask_t *p = avl_tree_nearest(&tasks, &key);
+  do {
+    if (p) {
+      printf("State:%s  ID:%d  Supervisor:%s  Group:0x%08llx  Name:%s\n",
+             task_state_str(p->state), (int)p->id,
+             p->group->is_kernel ? "T" : "F",
+             (int64_t)(uint64_t)(uintptr_t)p->group, p->name);
+      p = avl_tree_next(&tasks, p);
+    }
+  } while (p != 0);
   printf("*********************************************************************"
          "****\n\n");
 }
@@ -222,51 +229,79 @@ const char *task_state_str(enum task_state s) {
   case RUNNING:
     return "RUNNING";
   case EXITED:
-    return "EXITED";
+    return "EXITED ";
   default:
     panic("zhu ni zhong qiu jie kuai le!");
   }
   __builtin_unreachable();
 }
 
-//这个由idle线程执行，每次idle被调度的时候，都要执行这个函数
-//要限制这个的执行权限
-void task_clean() {
-  if (!list_empty(&dead_tasks)) {
-    for (list_entry_t *p = list_next(&dead_tasks); p != &dead_tasks;) {
-      list_entry_t *next = list_next(p);
-      task_destory((ktask_t *)p);
-      p = next;
-    }
-    list_init(&dead_tasks);
-  }
-}
-
+//初始化任务系统
 void task_init() {
-  list_init(&tasks);
-  list_init(&dead_tasks);
+  avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
   //将当前的上下文设置为第一个任务
-  ktask_t *init = task_create_impl("scheduler", true, 0);
+  ktask_t *init = task_create_impl("idle", true, 0);
   if (!init) {
-    panic("creating task init failed");
+    panic("creating task idle failed");
   }
   init->state = RUNNING;
   init->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   assert(init->kstack);
-  list_add(&tasks, &init->global_head);
+  add_task(init);
   current = init;
   load_esp0(0);
 }
 
+void task_clean() {
+  SMART_CRITICAL_REGION
+  ktask_t key;
+  key.id = 0;
+  ktask_t *p = avl_tree_nearest(&tasks, &key);
+  if (p) {
+    do {
+      if (p->state == EXITED) {
+        ktask_t *n = avl_tree_next(&tasks, p);
+        avl_tree_remove(&tasks, p);
+        task_destory(p);
+        p = n;
+        continue;
+      }
+      p = avl_tree_next(&tasks, p);
+    } while (p != 0);
+  }
+}
+
+// idle专用的调度函数，如果有其他task需要执行，那么执行。否则hlt
 void task_schd() {
   while (true) {
+    disable_interrupt();
+    ktask_t key;
+    key.id = 0;
+    ktask_t *p = avl_tree_nearest(&tasks, &key);
+    if (p) {
+      do {
+        if (p != current) {
+          task_switch(p);
+          if (p->state == EXITED) {
+            ktask_t *n = avl_tree_next(&tasks, p);
+            avl_tree_remove(&tasks, p);
+            task_destory(p);
+            p = n;
+            continue;
+          }
+        }
+        p = avl_tree_next(&tasks, p);
+      } while (p != 0);
+    }
+    enable_interrupt();
     hlt();
   }
   __builtin_unreachable();
 }
 
-//当前进程
+// 当前进程
 pid_t task_current() {
+  SMART_CRITICAL_REGION
   if (!current) {
     return 0;
   } else {
@@ -274,10 +309,9 @@ pid_t task_current() {
   }
 }
 
-//对kernel接口
-//创建user task
+// 创建user task
 // entry是开始执行的虚拟地址，arg是指向函数参数的虚拟地址
-//若program为0，则program_size将被忽略。program和group之间有且只有一个为非0，这意味着只有创建进程时才能指定program
+// 若program为0，则program_size将被忽略。program和group之间有且只有一个为非0，这意味着只有创建进程时才能指定program
 pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                        task_group_t *group, uintptr_t entry, int arg_count,
                        ...) {
@@ -290,6 +324,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   //只有is_first时才能检测程序入口
   assert((entry == DETECT_ENTRY) == is_first);
 
+  SMART_CRITICAL_REGION
   utask_t *new_task = (utask_t *)task_create_impl(name, false, group);
   if (!new_task) {
     return 0;
@@ -301,7 +336,6 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     task_destory((struct ktask *)new_task);
     return 0;
   }
-
   //如果这是进程中首个线程，需要设置这个进程的虚拟内存
   if (is_first) {
     //设置这个新group的虚拟内存
@@ -372,12 +406,14 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   // argv
   *(void **)(new_task->base.regs.esp) = (uintptr_t)0;
 
-  list_add(&tasks, &new_task->base.global_head);
+  add_task((ktask_t *)new_task);
   return new_task->base.id;
 }
 
 //创建内核线程
 pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name) {
+  SMART_CRITICAL_REGION
+
   ktask_t *schd = task_find(1);
   ktask_t *new_task = task_create_impl(name, true, schd->group);
   if (!new_task)
@@ -391,7 +427,7 @@ pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name) {
   *(void **)(new_task->regs.esp + 4) = arg;
   *(void **)(new_task->regs.esp) = (void *)func;
 
-  list_add(&tasks, &new_task->global_head);
+  add_task(new_task);
   return new_task->id;
 }
 
@@ -411,38 +447,28 @@ void task_sleep(uint64_t millisecond) {
 }
 
 //退出当前进程
-// aka exit()
 void task_exit() {
-  //把current设置为EXITED并且加入到dead_tasks链表中，之后schd线程会对它调用destory的
-  current->state = EXITED;
-  list_del(&current->global_head);
-  list_init(&current->global_head);
-  list_add(&dead_tasks, &current->global_head);
-  //找到schd task，它的pid是1
+  disable_interrupt();
+  //找到idle task，它的pid是1
   ktask_t *schd = task_find(1);
-  assert(schd);
+  //把current设置为EXITED
+  current->state = EXITED;
   //切换到schd
-  schd->state = RUNNING;
-  current = schd;
-  switch_to2(&schd->regs);
+  task_switch(schd);
 }
 
 //切换到另一个task
-// TODO 这个是不是应该限制只有内核态才能用？
-void task_switch(pid_t pid) {
+void task_switch(ktask_t *next) {
+  make_sure_int_disabled();
   assert(current);
+  assert(next);
+  if (next == current) {
+    panic("task_switch");
+  }
   extern uint32_t kernel_pd[];
-  if (current->id == pid) {
-    // FIXME 不应该panic
-    panic("task_switch: switch to self is prohibited");
+  if (current->state != EXITED) {
+    current->state = YIELDED;
   }
-
-  ktask_t *next = task_find(pid);
-  if (next == 0) {
-    // FIXME 不应该panic
-    panic("task_switch: pid not found");
-  }
-  current->state = YIELDED;
   if (!current->group->is_kernel || !next->group->is_kernel) {
     //不是内核到内核的切换
     // 1. 切换页表
@@ -465,14 +491,16 @@ void task_switch(pid_t pid) {
     // volatile uint32_t look = *(volatile uint32_t *)0x8000000;
     // look = *(volatile uint32_t *)((utask_t *)next)->vustack;
 
-    // 2.如果是切到用户，那么要切换tss栈
+    // 2.切换tss栈
     if (!next->group->is_kernel) {
       load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
+    } else {
+      load_esp0(0);
     }
   }
   next->state = RUNNING;
   ktask_t *prev = current;
   current = next;
   // 切换寄存器，包括eip、esp和ebp
-  switch_to(&prev->regs, &next->regs);
+  switch_to(prev->state != EXITED, &prev->regs, &next->regs);
 }

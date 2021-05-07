@@ -36,7 +36,6 @@ src/debug/kernel_size.o\
 src/debug/print_e820.o\
 src/task/task.o\
 src/task/switch_to.o\
-src/task/switch_to2.o\
 src/task/entry.o\
 src/task/user_entry.o\
 src/syscall/syscall.o\

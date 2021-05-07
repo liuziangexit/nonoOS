@@ -44,7 +44,7 @@ struct registers {
 
 //内核task
 struct ktask {
-  list_entry_t global_head;
+  struct avl_node global_head;
   list_entry_t group_head;
   task_group_t *group;
   enum task_state state;
@@ -126,6 +126,6 @@ void task_exit();
 
 //对kernel接口
 //切换到另一个task
-void task_switch(pid_t);
+void task_switch(ktask_t *);
 
 #endif
