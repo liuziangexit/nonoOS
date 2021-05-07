@@ -2,6 +2,7 @@
 #include "../../../libno/include/syscall.h"
 #include "debug.h"
 #include <stdio.h>
+#include <task.h>
 #include <x86.h>
 
 void syscall_return(struct trapframe *tf, uint32_t ret) {
@@ -16,12 +17,7 @@ void syscall_dispatch(struct trapframe *tf) {
 
   switch (no) {
   case SYSCALL_EXIT: {
-    printf("exit() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
-           arg[3], arg[4]);
-    printf("\n\n");
-    print_cur_status();
-    printf("\n\nhlt()");
-    hlt();
+    task_exit();
   } break;
   case SYSCALL_ALLOC: {
     printf("aligned_alloc() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1],
