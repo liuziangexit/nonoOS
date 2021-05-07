@@ -24,10 +24,10 @@ OK-实现atomic int
 OK-实现spinlock
 OK-给现有的某些代码加锁（包括如果关了中断，这个中断会丢失吗？(不会)如果处理中断的时候又有中断，会怎么样？(会像递归调用函数那样)）
 OK-实现timer
--完整实现task接口，包括传参、线程创建、线程调度（包括K和U之间）、线程退出
+OK-完整实现task接口，线程创建、线程调度（包括K和U之间）、线程退出
+-实现简单调度算法
 -实现mutex
 -实现信号量
--实现简单调度算法
 -实现系统调用 getpid exit sleep yield
 -实现系统调用 lock unlock wait notify
 -实现系统调用 printf
