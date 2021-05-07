@@ -23,6 +23,50 @@ static ktask_t *current;
 // id序列
 static pid_t id_seq;
 
+void task_args_init(struct task_args *dst) {
+  dst->cnt = 0;
+  list_init(&dst->args);
+}
+
+void task_args_add(struct task_args *dst, const char *str) {
+  struct task_arg *holder = (struct task_arg *)malloc(sizeof(struct task_arg));
+  assert(holder);
+  holder->strlen = strlen(str);
+  holder->data = (const char *)malloc(holder->strlen + 1);
+  assert(holder->data);
+  memcpy(holder->data, str, holder->strlen);
+  holder->data[holder->strlen] = '\0';
+  list_add_before(&dst->args, &holder->head);
+  dst->cnt++;
+}
+
+void task_args_pack(struct task_args *dst) {
+  assert(dst->packed == 0);
+  dst->packed = malloc(sizeof(char *) * dst->cnt);
+  uint32_t i = 0;
+  for (list_entry_t *p = list_next(&dst->args); p != &dst->args;
+       p = list_next(p)) {
+    struct task_arg *arg = (struct task_arg *)p;
+    dst->packed[i++] = arg->data;
+  }
+}
+
+static void task_args_destroy(struct task_args *dst) {
+  uint32_t verify = 0;
+  for (list_entry_t *p = list_next(&dst->args); p != &dst->args;) {
+    verify++;
+    struct task_arg *arg = (struct task_arg *)p;
+    free(arg->data);
+    void *current = p;
+    p = list_next(p);
+    free(current);
+  }
+  list_init(&dst->args);
+  free((void *)dst->packed);
+  assert(verify == dst->cnt);
+  dst->cnt = 0;
+}
+
 static void add_task(ktask_t *new_task) {
   make_sure_int_disabled();
   void *prev = avl_tree_add(&tasks, new_task);
@@ -100,6 +144,9 @@ static pid_t gen_pid() {
 //析构task
 static void task_destory(ktask_t *t) {
   assert(t);
+  if (t->args) {
+    task_args_destroy(t->args);
+  }
   kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
   task_group_remove(t);
   if (!t->group->is_kernel) {
@@ -114,7 +161,7 @@ static void task_destory(ktask_t *t) {
 }
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
-                                 task_group_t *group) {
+                                 task_group_t *group, struct task_args *args) {
   make_sure_int_disabled();
   if (current && kernel && !current->group->is_kernel) {
     return 0; //只有supervisor才能创造一个supervisor
@@ -179,6 +226,12 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   new_task->id = gen_pid();
   //加入group
   task_group_add(group, new_task);
+  if (args) {
+    task_args_pack(args);
+    new_task->args = args;
+  } else {
+    new_task->args = 0;
+  }
   return new_task;
 }
 
@@ -240,7 +293,7 @@ const char *task_state_str(enum task_state s) {
 void task_init() {
   avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
   //将当前的上下文设置为第一个任务
-  ktask_t *init = task_create_impl("idle", true, 0);
+  ktask_t *init = task_create_impl("idle", true, 0, 0);
   if (!init) {
     panic("creating task idle failed");
   }
@@ -275,7 +328,7 @@ void task_clean() {
 // FIXME 这个是有问题的，因为task运行中可能会修改avl树
 void task_schd() {
   while (true) {
-    printf("task_schd: reschdule\n");
+    // printf("task_schd: reschdule\n");
     disable_interrupt();
     ktask_t key;
     key.id = 0;
@@ -283,23 +336,23 @@ void task_schd() {
     if (p) {
       do {
         if (p != current) {
-          printf("task_schd: switch to %s\n", p->name);
+          // printf("task_schd: switch to %s\n", p->name);
           task_switch(p);
           disable_interrupt();
           if (p->state == EXITED) {
-            printf("task_schd: task %s quited\n", p->name);
+            // printf("task_schd: task %s quited\n", p->name);
             ktask_t *n = avl_tree_next(&tasks, p);
             avl_tree_remove(&tasks, p);
             task_destory(p);
             p = n;
             continue;
           }
-          printf("task_schd: task %s yielded\n", p->name);
+          // printf("task_schd: task %s yielded\n", p->name);
         }
         p = avl_tree_next(&tasks, p);
       } while (p != 0);
     }
-    printf("task_schd: hlt\n");
+    // printf("task_schd: hlt\n");
     enable_interrupt();
     hlt();
   }
@@ -320,8 +373,8 @@ pid_t task_current() {
 // entry是开始执行的虚拟地址，arg是指向函数参数的虚拟地址
 // 若program为0，则program_size将被忽略。program和group之间有且只有一个为非0，这意味着只有创建进程时才能指定program
 pid_t task_create_user(void *program, uint32_t program_size, const char *name,
-                       task_group_t *group, uintptr_t entry, int arg_count,
-                       ...) {
+                       task_group_t *group, uintptr_t entry,
+                       struct task_args *args) {
   if (!(((program != 0) || (group != 0)) && ((program != 0) != (group != 0)))) {
     return 0;
   }
@@ -332,7 +385,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   assert((entry == DETECT_ENTRY) == is_first);
 
   SMART_CRITICAL_REGION
-  utask_t *new_task = (utask_t *)task_create_impl(name, false, group);
+  utask_t *new_task = (utask_t *)task_create_impl(name, false, group, args);
   if (!new_task) {
     return 0;
   }
@@ -418,11 +471,11 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
 }
 
 //创建内核线程
-pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name) {
+pid_t task_create_kernel(void (*func)(int, char **), const char *name,
+                         struct task_args *args) {
   SMART_CRITICAL_REGION
-
   ktask_t *schd = task_find(1);
-  ktask_t *new_task = task_create_impl(name, true, schd->group);
+  ktask_t *new_task = task_create_impl(name, true, schd->group, args);
   if (!new_task)
     return 0;
 
@@ -430,8 +483,9 @@ pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name) {
   memset(&new_task->regs, 0, sizeof(struct registers));
   new_task->regs.eip = (uint32_t)(uintptr_t)kernel_task_entry;
   new_task->regs.ebp = new_task->kstack + _4K * TASK_STACK_SIZE;
-  new_task->regs.esp = new_task->regs.ebp - 2 * sizeof(void *);
-  *(void **)(new_task->regs.esp + 4) = arg;
+  new_task->regs.esp = new_task->regs.ebp - 3 * sizeof(void *);
+  *(void **)(new_task->regs.esp + 8) = (void *)args->packed; // argv
+  *(void **)(new_task->regs.esp + 4) = (void *)args->cnt;    // argc
   *(void **)(new_task->regs.esp) = (void *)func;
 
   add_task(new_task);

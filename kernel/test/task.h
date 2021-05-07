@@ -11,12 +11,17 @@
 #undef NDEBUG
 #endif
 
-void task2(void *arg) {
-  printf("task2: i cant believe im alive! argument is %d\n", (intptr_t)arg);
+void task2(int argc, char **argv) {
+  printf("task2: i cant believe im alive!\n");
+  printf("argc: %d\n", argc);
+  for (int i = 0; i < argc; i++) {
+    printf("%s ", argv[i]);
+  }
+  printf("\n");
   task_display();
   printf("task2: switching back...\n");
   disable_interrupt();
-  task_switch((ktask_t *)arg);
+  task_switch(task_find(1));
   printf("task2: i cant believe im still alive!\n");
   task_display();
   printf("task2: exiting\n");
@@ -32,10 +37,15 @@ void utask_test() {
   extern char _binary____program_hello_world_hello_exe_start[],
       _binary____program_hello_world_hello_exe_size[];
 
+  struct task_args *args = (struct task_args *)malloc(sizeof(struct task_args));
+  task_args_init(args);
+  task_args_add(args, "1");
+  task_args_add(args, "2");
+  task_args_add(args, "3");
   pid_t upid =
       task_create_user(_binary____program_hello_world_hello_exe_start,
                        (uintptr_t)_binary____program_hello_world_hello_exe_size,
-                       "user", 0, DETECT_ENTRY, 0);
+                       "user", 0, DETECT_ENTRY, args);
   printf("switch to user process...\n");
   disable_interrupt();
   task_switch(task_find(upid));
@@ -45,8 +55,12 @@ void utask_test() {
 void task_test() {
   printf("running task_test\n");
   printf("task1: creating task2\n");
-  pid_t t2 =
-      task_create_kernel(task2, (void *)task_find(task_current()), "test");
+  struct task_args *args = (struct task_args *)malloc(sizeof(struct task_args));
+  task_args_init(args);
+  task_args_add(args, "11");
+  task_args_add(args, "22");
+  task_args_add(args, "33");
+  pid_t t2 = task_create_kernel(task2, "test", args);
   assert(t2);
   pid_t t1 = task_current();
   assert(t1);
@@ -62,7 +76,7 @@ void task_test() {
   printf("task1: switched back second time, cool!\n");
   task_display();
 
-  utask_test();
+  //utask_test();
 
   task_clean();
 

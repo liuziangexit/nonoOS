@@ -31,6 +31,21 @@ struct task_group {
 };
 typedef struct task_group task_group_t;
 
+struct task_args {
+  uint32_t cnt;
+  const char **packed;
+  list_entry_t args;
+};
+struct task_arg {
+  list_entry_t head;
+  uint32_t strlen;
+  char *data;
+};
+
+void task_args_init(struct task_args *dst);
+
+void task_args_add(struct task_args *dst, const char *str);
+
 struct registers {
   uint32_t eip;
   uint32_t esp;
@@ -50,9 +65,10 @@ struct ktask {
   enum task_state state;
   pid_t id;
   const char *name;
-  struct ktask *parent;  //父进程
-  uintptr_t kstack;      //内核栈
-  struct registers regs; //寄存器
+  struct ktask *parent;   //父进程
+  uintptr_t kstack;       //内核栈
+  struct registers regs;  //寄存器
+  struct task_args *args; //命令行参数
 };
 typedef struct ktask ktask_t;
 
@@ -96,15 +112,16 @@ void task_schd();
 pid_t task_current();
 
 //对kernel接口
-//创建kernel task
-pid_t task_create_kernel(void (*func)(void *), void *arg, const char *name);
+//创建内核线程
+pid_t task_create_kernel(void (*func)(int, char **), const char *name,
+                         struct task_args *args);
 
 //对kernel接口
 //创建user task
 #define DETECT_ENTRY 0xC0000000
 pid_t task_create_user(void *program, uint32_t program_size, const char *name,
-                       task_group_t *group, uintptr_t entry, int arg_count,
-                       ...);
+                       task_group_t *group, uintptr_t entry,
+                       struct task_args *args);
 
 //对kernel接口
 //对task接口
