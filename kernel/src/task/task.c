@@ -272,8 +272,10 @@ void task_clean() {
 }
 
 // idle专用的调度函数，如果有其他task需要执行，那么执行。否则hlt
+// FIXME 这个是有问题的，因为task运行中可能会修改avl树
 void task_schd() {
   while (true) {
+    printf("task_schd: reschdule\n");
     disable_interrupt();
     ktask_t key;
     key.id = 0;
@@ -281,18 +283,23 @@ void task_schd() {
     if (p) {
       do {
         if (p != current) {
+          printf("task_schd: switch to %s\n", p->name);
           task_switch(p);
+          disable_interrupt();
           if (p->state == EXITED) {
+            printf("task_schd: task %s quited\n", p->name);
             ktask_t *n = avl_tree_next(&tasks, p);
             avl_tree_remove(&tasks, p);
             task_destory(p);
             p = n;
             continue;
           }
+          printf("task_schd: task %s yielded\n", p->name);
         }
         p = avl_tree_next(&tasks, p);
       } while (p != 0);
     }
+    printf("task_schd: hlt\n");
     enable_interrupt();
     hlt();
   }

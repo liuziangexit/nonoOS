@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <syscall.h>
+#include <task.h>
 #include <tty.h>
 #include <x86.h>
 
@@ -99,6 +100,15 @@ static inline void print_pgfault(struct trapframe *tf) {
 
 static struct trapframe switchk2u, *switchu2k;
 
+void clock_handler() {
+  // TODO 应该直接切到下一个进程，只有没有进程可以运行的时候才回到调度器
+  if (task_current() != 1) {
+    //切到调度器
+    ktask_t *schd = task_find(1);
+    task_switch(schd);
+  }
+}
+
 /* trap_dispatch - dispatch based on what type of trap occurred */
 void interrupt_handler(struct trapframe *tf) {
   switch (tf->tf_trapno) {
@@ -108,8 +118,9 @@ void interrupt_handler(struct trapframe *tf) {
   case IRQ_OFFSET + IRQ_TIMER: {
     uint64_t ticks = clock_count_tick();
     if (ticks % TICK_PER_SECOND == 0) {
-      printf("%ll ", ticks / TICK_PER_SECOND);
+      // printf("%ll ", ticks / TICK_PER_SECOND);
     }
+    clock_handler();
   } break;
   case T_SYSCALL:
     syscall_dispatch(tf);
