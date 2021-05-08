@@ -248,21 +248,3 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   assert(real_begin % 4096 == 0 && real_end - real_begin >= vma_size);
   return real_begin;
 }
-
-bool virtual_memory_free(struct virtual_memory *vm, void *p) {
-  uintptr_t vma_start = (uintptr_t)p;
-  uint32_t pd_idx = vma_start / _4M, pt_idx = 0x3FF & (vma_start >> 12);
-  if ((vm->page_directory[pd_idx] & PTE_P) == 0) {
-    return false;
-  }
-  uint32_t *pt = (uint32_t *)(vm->page_directory[pd_idx] & ~0xFFF);
-  if ((pt[pt_idx] & PTE_P) == 0) {
-    return false;
-  }
-  void *ptr = (void *)(pt[pt_idx] & ~0xFFF);
-  if (!kmem_free(P2V(ptr))) {
-    return false;
-  }
-  virtual_memory_unmap(vm, vma_start);
-  return true;
-}

@@ -36,6 +36,5 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t vma_start);
 // 返回0表示找不到
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   uintptr_t begin, uintptr_t end);
-bool virtual_memory_free(struct virtual_memory *vm, void *);
 
 #endif
