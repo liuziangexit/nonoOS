@@ -407,12 +407,12 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
       return 0;
     }
     //存放程序映像的虚拟内存
-    new_task->program = aligned_alloc(0, _4M);
-    memset(new_task->program, 0, 4096 * 1024);
+    new_task->program = aligned_alloc(0, ROUNDUP(program_size, _4K));
     if (!new_task->program) {
       task_destory((struct ktask *)new_task);
       return 0;
     }
+    memset(new_task->program, 0, ROUNDUP(program_size, _4K));
     //读elf
     struct elfhdr *elf_header = program;
     if (elf_header->e_magic != ELF_MAGIC) {
@@ -425,31 +425,38 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
         (struct proghdr *)((uintptr_t)elf_header + elf_header->e_phoff);
     ph_end = program_header + elf_header->e_phnum;
     for (; program_header < ph_end; program_header++) {
+      // FIXME 检查越界
       memcpy(new_task->program + (program_header->p_va - 0x8000000),
              program + program_header->p_offset, program_header->p_filesz);
     }
 
-    bool ret;
     extern uint32_t kernel_pd[];
     // 复制内核页表
     virtual_memory_clone(new_task->base.group->vm, kernel_pd);
     // 把new_task->program映射到128MB的地方
-    ret = virtual_memory_map(new_task->base.group->vm, 0x8000000, _4M,
-                             V2P((uintptr_t)new_task->program), PTE_P | PTE_U);
+    struct virtual_memory_area *vma =
+        virtual_memory_alloc(new_task->base.group->vm, 0x8000000,
+                             ROUNDUP(program_size, _4K), PTE_P | PTE_U);
+    assert(vma);
+    bool ret = virtual_memory_map(new_task->base.group->vm, vma, 0x8000000,
+                                  ROUNDUP(program_size, _4K),
+                                  V2P((uintptr_t)new_task->program));
     assert(ret);
     if (entry == DETECT_ENTRY) {
       entry = (uintptr_t)elf_header->e_entry;
     }
   }
   //在虚拟内存中的3G-512MB到3GB之间找一个地方放栈
-  int ret;
   new_task->vustack = virtual_memory_find_fit(
       new_task->base.group->vm, _4K * TASK_STACK_SIZE,
       (uintptr_t)2560 * 1024 * 1024, (uintptr_t)3072 * 1024 * 1024);
   assert(new_task->vustack);
-  ret = virtual_memory_map(new_task->base.group->vm, new_task->vustack,
-                           _4K * TASK_STACK_SIZE, V2P(new_task->pustack),
-                           PTE_P | PTE_W | PTE_U);
+  struct virtual_memory_area *vma =
+      virtual_memory_alloc(new_task->base.group->vm, new_task->vustack,
+                           _4K * TASK_STACK_SIZE, PTE_P | PTE_W | PTE_U);
+  assert(vma);
+  int ret = virtual_memory_map(new_task->base.group->vm, vma, new_task->vustack,
+                               _4K * TASK_STACK_SIZE, V2P(new_task->pustack));
   assert(ret);
 
   //设置上下文和内核栈
