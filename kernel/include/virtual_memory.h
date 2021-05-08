@@ -8,9 +8,9 @@ enum virtual_memory_area_type { KERNEL, CODE, STACK, MALLOC };
 // 表示一段虚拟内存
 struct virtual_memory_area {
   struct avl_node avl_node;
-  uintptr_t vma_start;
-  uint32_t vma_size; // in bytes
-  uint16_t flags;    //页表里的flags
+  uintptr_t start; // 虚拟内存起点
+  uint32_t size;   // 虚拟内存大小(字节)
+  uint16_t flags;  // 页表里的flags
   enum virtual_memory_area_type type;
 };
 

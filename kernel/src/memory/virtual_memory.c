@@ -17,7 +17,7 @@ TODO 合并邻近的VMA，小页表全部存的是物理地址，支持大小页
 int vma_compare(const void *a, const void *b) {
   const struct virtual_memory_area *ta = (const struct virtual_memory_area *)a;
   const struct virtual_memory_area *tb = (const struct virtual_memory_area *)b;
-  return ta->vma_start - tb->vma_start;
+  return ta->start - tb->start;
 }
 
 //初始化一个虚拟地址空间结构
@@ -100,22 +100,22 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
 struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
                                                    uint32_t mem) {
   struct virtual_memory_area vma;
-  vma.vma_start = mem;
+  vma.start = mem;
   struct virtual_memory_area *nearest =
       (struct virtual_memory_area *)avl_tree_nearest(&vm->vma_tree, &vma);
-  if (nearest->vma_start <= mem) {
+  if (nearest->start <= mem) {
     //如果最近的在之前，那么可以直接判断mem在不在其中
-    if (nearest->vma_start + nearest->vma_size > mem)
+    if (nearest->start + nearest->size > mem)
       return nearest;
   } else {
-    // nearest->vma_start > mem 情况
+    // nearest->start > mem 情况
     // 如果最近的在之后，那么我们要找到它的前一个
     struct virtual_memory_area *prev =
         (struct virtual_memory_area *)avl_tree_prev(&vm->vma_tree, nearest);
     // nearest的前一个要不然为0，要不然在mem之前
-    assert(prev == 0 || prev->vma_start <= mem);
+    assert(prev == 0 || prev->start <= mem);
     // 判断mem在不在前一个之中
-    if (prev != 0 && prev->vma_start + prev->vma_size > mem) {
+    if (prev != 0 && prev->start + prev->size > mem) {
       return prev;
     }
   }
@@ -130,36 +130,36 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   uintptr_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDUP(end, _4K);
   assert(real_end - real_begin >= vma_size);
   struct virtual_memory_area key;
-  key.vma_start = real_begin;
+  key.start = real_begin;
   struct virtual_memory_area *nearest = avl_tree_nearest(&vm->vma_tree, &key);
   if (nearest) {
     //确定空闲内存起始
-    if (nearest->vma_start <= real_begin) {
-      if (nearest->vma_start + nearest->vma_size > real_begin) {
-        real_begin = nearest->vma_start + nearest->vma_size;
+    if (nearest->start <= real_begin) {
+      if (nearest->start + nearest->size > real_begin) {
+        real_begin = nearest->start + nearest->size;
         if (real_end - real_begin < vma_size) {
           //新映射的空间至少前半部分被占用了，并且剩下的部分不够大了
           return 0;
         }
       }
       nearest = avl_tree_next(&vm->vma_tree, nearest);
-      if (nearest->vma_start < real_begin) {
+      if (nearest->start < real_begin) {
         //说明没有比nearest大的key了
         nearest = 0;
       }
     }
     if (nearest) {
-      assert(nearest->vma_start >= real_begin);
-      if (nearest->vma_start == real_begin) {
-        //这种情况只有可能是从上面的nearest->vma_start <= real_begin里面出来的
+      assert(nearest->start >= real_begin);
+      if (nearest->start == real_begin) {
+        //这种情况只有可能是从上面的nearest->start <= real_begin里面出来的
         //这意味着新映射的空间完全被占用满了
         return 0;
       }
-      if (nearest->vma_start > real_begin) {
+      if (nearest->start > real_begin) {
         //现在我们来看后半部分有没有被占用，如果有，剩下的空间够不够大
-        if (nearest->vma_start < real_end) {
+        if (nearest->start < real_end) {
           //后半部分被占用了
-          real_end = nearest->vma_start;
+          real_end = nearest->start;
         }
         //看看够不够大呢
         if (real_end - real_begin < vma_size) {
@@ -186,13 +186,17 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
                                               vma_start + vma_size));
   //确认没有重叠，开始新增了
 
-  //如果vma_start紧接着一个vma，并且flags与那个vma的flags相同，那么直接拓展那个vma
+  //如果vma_start紧接着一个vma，并且flags、type与那个vma相同，那么直接拓展那个vma
+  struct virtual_memory_area *prev = 0;
+  {
+  }
+  // if(prev&&prev->vma_start)
   struct virtual_memory_area *vma = malloc(sizeof(struct virtual_memory_area));
   if (!vma) {
     return 0;
   }
-  vma->vma_start = vma_start;
-  vma->vma_size = vma_size;
+  vma->start = vma_start;
+  vma->size = vma_size;
   vma->flags = flags;
   vma->type = type;
   if (avl_tree_add(&vm->vma_tree, vma)) {
@@ -226,10 +230,9 @@ bool virtual_memory_map(struct virtual_memory *vm,
     assert(vma);
   }
   // 确保va在vma中
-  assert(virtual_addr >= vma->vma_start &&
-         virtual_addr < vma->vma_start + vma->vma_size);
+  assert(virtual_addr >= vma->start && virtual_addr < vma->start + vma->size);
   // 确保virtual_addr+size没有越界
-  assert(virtual_addr + size <= vma->vma_start + vma->vma_size);
+  assert(virtual_addr + size <= vma->start + vma->size);
   // 逐个在页目录里map
   // 在这个函数中，PTE和PDE的这些flags必须是同样的，也就是说参数flags不仅
   // 是新的PTE的flags，也必须和已有的PDE flags不冲突
