@@ -3,12 +3,15 @@
 #include <avlmini.h>
 #include <stdbool.h>
 
+enum virtual_memory_area_type { KERNEL, CODE, STACK, MALLOC };
+
 // 表示一段虚拟内存
 struct virtual_memory_area {
   struct avl_node avl_node;
   uintptr_t vma_start;
   uint32_t vma_size; // in bytes
   uint16_t flags;    //页表里的flags
+  enum virtual_memory_area_type type;
 };
 
 struct virtual_memory {
@@ -21,7 +24,8 @@ struct virtual_memory {
 struct virtual_memory *virtual_memory_create();
 //从一个已有的页目录里建立vma
 void virtual_memory_clone(struct virtual_memory *vm,
-                          const uint32_t *page_directory);
+                          const uint32_t *page_directory,
+                          enum virtual_memory_area_type type);
 // 销毁一个虚拟地址空间结构
 void virtual_memory_destroy(struct virtual_memory *vm);
 // 寻找对应的vma，如果没有返回0
@@ -35,10 +39,10 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
 // 分配对齐到4k的虚拟内存，但没有对应的物理内存
 // 如果vma_start紧接着一个已存在的vma，那么将不会创建新的vma，而是拓展已存在的vma
 // 如果成功，返回vma。否则返回0
-struct virtual_memory_area *virtual_memory_alloc(struct virtual_memory *vm,
-                                                 uintptr_t vma_start,
-                                                 uintptr_t vma_size,
-                                                 uint16_t flags);
+struct virtual_memory_area *
+virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
+                     uintptr_t vma_size, uint16_t flags,
+                     enum virtual_memory_area_type type);
 // 删除一个vma
 void virtual_memory_free(struct virtual_memory *vm,
                          struct virtual_memory_area *vma);

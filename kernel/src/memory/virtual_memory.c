@@ -39,7 +39,8 @@ struct virtual_memory *virtual_memory_create() {
 
 //从一个已有的页目录里建立vma
 void virtual_memory_clone(struct virtual_memory *vm,
-                          const uint32_t *page_directory) {
+                          const uint32_t *page_directory,
+                          enum virtual_memory_area_type type) {
   assert(((uintptr_t)page_directory) % _4K == 0);
   for (uint32_t pd_idx = 0; pd_idx < 1024; pd_idx++) {
     if (page_directory[pd_idx] & PTE_P) {
@@ -49,7 +50,7 @@ void virtual_memory_clone(struct virtual_memory *vm,
         uintptr_t ps_page_frame =
             (uintptr_t)(page_directory[pd_idx] & 0xFFC00000);
         struct virtual_memory_area *vma = virtual_memory_alloc(
-            vm, pd_idx * _4M, _4M, page_directory[pd_idx] & 7);
+            vm, pd_idx * _4M, _4M, page_directory[pd_idx] & 7, type);
         assert(vma);
         bool ret =
             virtual_memory_map(vm, vma, pd_idx * _4M, _4M, ps_page_frame);
@@ -61,7 +62,7 @@ void virtual_memory_clone(struct virtual_memory *vm,
           if (pt[pt_idx] & PTE_P) {
             uintptr_t page_frame = (uintptr_t)(pt[pt_idx] & ~0xFFF);
             struct virtual_memory_area *vma = virtual_memory_alloc(
-                vm, pt_idx * _4K + pd_idx * _4M, _4K, pt[pt_idx] & 7);
+                vm, pt_idx * _4K + pd_idx * _4M, _4K, pt[pt_idx] & 7, type);
             assert(vma);
             bool ret = virtual_memory_map(vm, vma, pt_idx * _4K + pd_idx * _4M,
                                           _4K, page_frame);
@@ -174,10 +175,10 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   return real_begin;
 }
 
-struct virtual_memory_area *virtual_memory_alloc(struct virtual_memory *vm,
-                                                 uintptr_t vma_start,
-                                                 uintptr_t vma_size,
-                                                 uint16_t flags) {
+struct virtual_memory_area *
+virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
+                     uintptr_t vma_size, uint16_t flags,
+                     enum virtual_memory_area_type type) {
   //我们只允许US、RW和P
   assert(flags >> 3 == 0);
   //确定一下有没有重叠
@@ -193,6 +194,7 @@ struct virtual_memory_area *virtual_memory_alloc(struct virtual_memory *vm,
   vma->vma_start = vma_start;
   vma->vma_size = vma_size;
   vma->flags = flags;
+  vma->type = type;
   if (avl_tree_add(&vm->vma_tree, vma)) {
     // never!
     abort();

@@ -432,11 +432,11 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
 
     extern uint32_t kernel_pd[];
     // 复制内核页表
-    virtual_memory_clone(new_task->base.group->vm, kernel_pd);
+    virtual_memory_clone(new_task->base.group->vm, kernel_pd, KERNEL);
     // 把new_task->program映射到128MB的地方
     struct virtual_memory_area *vma =
         virtual_memory_alloc(new_task->base.group->vm, 0x8000000,
-                             ROUNDUP(program_size, _4K), PTE_P | PTE_U);
+                             ROUNDUP(program_size, _4K), PTE_P | PTE_U, CODE);
     assert(vma);
     bool ret = virtual_memory_map(new_task->base.group->vm, vma, 0x8000000,
                                   ROUNDUP(program_size, _4K),
@@ -453,7 +453,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   assert(new_task->vustack);
   struct virtual_memory_area *vma =
       virtual_memory_alloc(new_task->base.group->vm, new_task->vustack,
-                           _4K * TASK_STACK_SIZE, PTE_P | PTE_W | PTE_U);
+                           _4K * TASK_STACK_SIZE, PTE_P | PTE_W | PTE_U, STACK);
   assert(vma);
   int ret = virtual_memory_map(new_task->base.group->vm, vma, new_task->vustack,
                                _4K * TASK_STACK_SIZE, V2P(new_task->pustack));
