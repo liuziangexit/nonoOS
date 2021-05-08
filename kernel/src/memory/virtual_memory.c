@@ -88,13 +88,31 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
   free(vm);
 }
 
-//寻找对应的vma，如果没有返回0
+// 寻找对应的vma，如果没有返回0
+// TODO 此函数未测试
 struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
-                                                   uint32_t vma_start) {
-  assert(vma_start % 4096 == 0);
+                                                   uint32_t mem) {
   struct virtual_memory_area vma;
-  vma.vma_start = vma_start;
-  return (struct virtual_memory_area *)avl_tree_find(&vm->vma_tree, &vma);
+  vma.vma_start = mem;
+  struct virtual_memory_area *nearest =
+      (struct virtual_memory_area *)avl_tree_nearest(&vm->vma_tree, &vma);
+  if (nearest->vma_start <= mem) {
+    //如果最近的在之前，那么可以直接判断mem在不在其中
+    if (nearest->vma_start + nearest->vma_size > mem)
+      return nearest;
+  } else {
+    // nearest->vma_start > mem 情况
+    // 如果最近的在之后，那么我们要找到它的前一个
+    struct virtual_memory_area *prev =
+        (struct virtual_memory_area *)avl_tree_prev(&vm->vma_tree, nearest);
+    // nearest的前一个要不然为0，要不然在mem之前
+    assert(prev == 0 || prev->vma_start <= mem);
+    // 判断mem在不在前一个之中
+    if (prev != 0 && prev->vma_start + prev->vma_size > mem) {
+      return prev;
+    }
+  }
+  return 0;
 }
 
 //在一个虚拟地址空间结构中进行以4k为边界映射

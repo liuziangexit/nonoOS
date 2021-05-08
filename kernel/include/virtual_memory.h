@@ -24,9 +24,8 @@ void virtual_memory_clone(struct virtual_memory *vm,
 // 销毁一个虚拟地址空间结构
 void virtual_memory_destroy(struct virtual_memory *vm);
 // 寻找对应的vma，如果没有返回0
-// TODO这个不应该是vma_start而应该是任何内存地址，就能找到对应的vma
 struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
-                                                   uint32_t vma_start);
+                                                   uint32_t mem);
 // 在一个虚拟地址空间结构中进行以4k为边界映射
 // 返回false如果指定的虚拟地址已经有映射了
 bool virtual_memory_map(struct virtual_memory *vm, uintptr_t vma_start,
