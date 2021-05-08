@@ -186,24 +186,37 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
                                               vma_start + vma_size));
   //确认没有重叠，开始新增了
 
-  //如果vma_start紧接着一个vma，并且flags、type与那个vma相同，那么直接拓展那个vma
   struct virtual_memory_area *prev = 0;
   {
   }
-  // if(prev&&prev->vma_start)
-  struct virtual_memory_area *vma = malloc(sizeof(struct virtual_memory_area));
-  if (!vma) {
-    return 0;
+  if (
+      // 如果有前一个vma
+      prev
+      // 并且前一个vma结尾正好是现在要加的vma_start
+      && prev->start + prev->size == vma_start
+      // 并且前一个vma的flags、type还与现在要加的vma相同
+      && prev->flags == flags && prev->type == type) {
+    // 那么直接拓展那个vma
+    // ...
+  } else {
+    //新增一个vma
+    struct virtual_memory_area *vma =
+        malloc(sizeof(struct virtual_memory_area));
+    if (!vma) {
+      return 0;
+    }
+    vma->start = vma_start;
+    vma->size = vma_size;
+    vma->flags = flags;
+    vma->type = type;
+    if (avl_tree_add(&vm->vma_tree, vma)) {
+      // never!
+      abort();
+    }
+    return vma;
   }
-  vma->start = vma_start;
-  vma->size = vma_size;
-  vma->flags = flags;
-  vma->type = type;
-  if (avl_tree_add(&vm->vma_tree, vma)) {
-    // never!
-    abort();
-  }
-  return vma;
+  abort();
+  __builtin_unreachable();
 }
 
 void virtual_memory_free(struct virtual_memory *vm,
