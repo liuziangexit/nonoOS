@@ -26,12 +26,12 @@ enum cga_color {
   CGA_COLOR_WHITE = 15
 };
 
+void cga_enable_indirect_mem();
 void cga_init();
 void cga_move_cursor(uint16_t pos);
 uint16_t cga_get_cursor();
 void cga_hide_cursor();
 void cga_write(uint16_t pos, enum cga_color bg, enum cga_color fg,
                const char *src, uint16_t size);
-uint16_t *cga_buf();
 
 #endif

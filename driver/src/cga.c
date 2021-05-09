@@ -1,5 +1,8 @@
 #include <cga.h>
 #include <defs.h>
+#include <memlayout.h>
+#include <panic.h>
+#include <stdbool.h>
 #include <x86.h>
 
 #define MONO_BASE 0x3B4
@@ -8,8 +11,17 @@
 #define CGA_BUF 0xB8000
 
 static uint16_t *crt_buf;
+static bool indirect_mem = false;
 // http://cpctech.cpc-live.com/docs/mc6845/mc6845.htm
 static uint16_t addr_6845;
+
+void cga_enable_indirect_mem() {
+  if (indirect_mem) {
+    panic("cga_enable_indirect_mem");
+  }
+  crt_buf = (uint16_t *)P2V((uintptr_t)crt_buf);
+  indirect_mem = true;
+}
 
 void cga_init() {
   volatile uint16_t *cp = (uint16_t *)CGA_BUF;
@@ -57,5 +69,3 @@ void cga_write(uint16_t pos, enum cga_color bg, enum cga_color fg,
     crt_buf[pos + (uint16_t)(intptr_t)(w - src)] = cga_entry(*w, fg, bg);
   }
 }
-
-uint16_t *cga_buf() { return crt_buf; }

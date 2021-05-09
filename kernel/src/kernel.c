@@ -102,21 +102,25 @@ void kmain() {
   uint32_t used_stack, current_stack_frame_size;
   extern uint32_t kernel_pd[];
   _Alignas(4096) uint32_t temp_pd[1024];
-  //将现在用的栈切换成这个内核任务的栈
+  // 将现在用的栈切换成这个内核任务的栈
   resp(&esp);
   rebp(&ebp);
   used_stack = stack_top - esp;
   current_stack_frame_size = ebp - esp;
-  struct ktask *init = task_find(0);
+  struct ktask *init = task_find(1);
   new_esp = init->kstack + (TASK_STACK_SIZE * 4096 - used_stack);
   new_ebp = new_esp + current_stack_frame_size;
 
   memcpy((void *)new_esp, (void *)esp, used_stack);
-  //然后unmap清空原来的内核栈，这样如果还有代码访问那个地方，就会被暴露出来
+  // 然后unmap清空原来的内核栈，这样如果还有代码访问那个地方，就会被暴露出来
   memcpy(temp_pd, kernel_pd, _4K);
   lcr3(pd_lookup(kernel_pd, (uintptr_t)temp_pd));
   kernel_pd[1023] = 0;
-  //在任务栈上调ktask0
+  // 取消0-4M的映射，要访问0-4M，请访问3G - 3G+4M
+  kernel_pd[0] = 0;
+  // cga需要去高地址访问他的buffer了
+  cga_enable_indirect_mem();
+  // 在任务栈上调ktask0
   asm volatile("movl %0, %%ebp;movl %1, %%esp;call ktask0;"
                :
                : "r"(new_ebp), "r"(new_esp)
