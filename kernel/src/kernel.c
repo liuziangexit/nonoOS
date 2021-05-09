@@ -107,8 +107,7 @@ void kmain() {
   rebp(&ebp);
   used_stack = stack_top - esp;
   current_stack_frame_size = ebp - esp;
-  // FIXME find 0也能找到?
-  struct ktask *init = task_find(1);
+  struct ktask *init = task_find(0);
   new_esp = init->kstack + (TASK_STACK_SIZE * 4096 - used_stack);
   new_ebp = new_esp + current_stack_frame_size;
 
