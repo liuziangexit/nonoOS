@@ -27,7 +27,6 @@ src/memory/kmem_init.o\
 src/memory/bare_hashmap.o\
 src/memory/virtual_memory.o\
 src/memory/page_directory_debug.o\
-src/memory/user_malloc.o\
 src/interrupt/interrupt_handler.o\
 src/interrupt/idtvector.o\
 src/interrupt/interrupt_entry.o\

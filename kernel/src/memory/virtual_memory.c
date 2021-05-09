@@ -2,6 +2,7 @@
 #include <memlayout.h>
 #include <memory_manager.h>
 #include <mmu.h>
+#include <panic.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,6 +35,8 @@ struct virtual_memory *virtual_memory_create() {
   memset(vm->page_directory, 0, _4K);
   avl_tree_init(&vm->vma_tree, vma_compare, sizeof(struct virtual_memory_area),
                 0);
+  list_init(&vm->full);
+  list_init(&vm->partial);
   return vm;
 }
 
@@ -126,7 +129,7 @@ struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
 //返回0表示找不到
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   uintptr_t begin, uintptr_t end) {
-  assert(end - begin >= _4K && vma_size % _4K == 0);
+  assert(end - begin >= vma_size && vma_size >= _4K && vma_size % _4K == 0);
   uintptr_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDUP(end, _4K);
   assert(real_end - real_begin >= vma_size);
   struct virtual_memory_area key;
@@ -175,6 +178,14 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   return real_begin;
 }
 
+static struct umalloc_free_area *new_free_area() {
+  struct umalloc_free_area *p = malloc(sizeof(struct umalloc_free_area));
+  memset(p, 0, sizeof(struct umalloc_free_area));
+  return p;
+}
+
+// static void delete_free_area(struct umalloc_free_area *ufa) { free(ufa); }
+
 struct virtual_memory_area *
 virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
                      uintptr_t vma_size, uint16_t flags,
@@ -182,12 +193,23 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
   //我们只允许US、RW和P
   assert(flags >> 3 == 0);
   //确定一下有没有重叠
-  assert(vma_start == virtual_memory_find_fit(vm, vma_size, vma_start,
-                                              vma_start + vma_size));
+  if (vma_start !=
+      virtual_memory_find_fit(vm, vma_size, vma_start, vma_start + vma_size)) {
+    panic("vma_start != virtual_memory_find_fit");
+  }
   //确认没有重叠，开始新增了
-
+  //首先获得vma_start之前最近的vma，叫他prev
   struct virtual_memory_area *prev = 0;
   {
+    struct virtual_memory_area key;
+    key.start = vma_start;
+    prev = avl_tree_nearest(&vm->vma_tree, &key);
+    if (prev) {
+      assert(prev->start != vma_start);
+      if (prev->start > vma_start) {
+        prev = avl_tree_prev(&vm->vma_tree, prev);
+      }
+    }
   }
   if (
       // 如果有前一个vma
@@ -196,8 +218,11 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
       && prev->start + prev->size == vma_start
       // 并且前一个vma的flags、type还与现在要加的vma相同
       && prev->flags == flags && prev->type == type) {
-    // 那么直接拓展那个vma
-    // ...
+    // 那么直接拓展那个vma(根据设计，不应该拓展MALLOC类型的vma)
+    assert(prev->type != MALLOC);
+    // 变大小
+    prev->size += vma_size;
+    return prev;
   } else {
     //新增一个vma
     struct virtual_memory_area *vma =
@@ -205,13 +230,23 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
     if (!vma) {
       return 0;
     }
+    memset(vma, 0, sizeof(struct virtual_memory_area));
     vma->start = vma_start;
     vma->size = vma_size;
     vma->flags = flags;
     vma->type = type;
+    if (type == MALLOC) {
+      //注意！此时既不在partial也不在full
+      list_init(&vma->list_node);
+      //增加freearea
+      struct umalloc_free_area *fa = new_free_area();
+      fa->addr = vma_start;
+      fa->len = vma_size;
+      list_add(&vma->free_area, (list_entry_t *)fa);
+      vma->max_free_area_len = vma_size;
+    }
     if (avl_tree_add(&vm->vma_tree, vma)) {
-      // never!
-      abort();
+      abort(); // never!
     }
     return vma;
   }
@@ -228,6 +263,16 @@ void virtual_memory_free(struct virtual_memory *vm,
       (struct virtual_memory_area *)avl_tree_find(&vm->vma_tree, vma);
   assert(verify == vma);
 #endif
+  if (vma->type == MALLOC) {
+    // 删除对应的物理内存也是umalloc_free做
+    // 移除list_node的职责是umalloc_free来做，并且在做完之后就要list_init来标记
+    if (!list_empty(&vma->list_node)) {
+      abort();
+    }
+    // 销毁free_area
+    // TODO遍历free_area链表，然后每个都delete_free_area（这函数现在还没有）
+  }
+  //从vma树中移除
   avl_tree_remove(&vm->vma_tree, vma);
   free(vma);
 }
@@ -257,7 +302,8 @@ bool virtual_memory_map(struct virtual_memory *vm,
     if (((*pde) & PTE_P) == 0) {
       // PDE是空的，分配一个页表
       uint32_t *pt = kmem_page_alloc(1);
-      // FIXME 这里失败的时候，应该要回收本次函数调用已分配的结构，并且返回false
+      // FIXME
+      // 这里失败的时候，应该要回收本次函数调用已分配的结构，并且返回false
       assert(pt);
       memset(pt, 0, _4K);
       union {
@@ -299,3 +345,9 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
     pt[pt_idx] = 0;
   }
 }
+
+// uintptr_t umalloc(uint32_t alignment, uint32_t size) {}
+
+// void umalloc_pgfault(struct virtual_memory_area *vma, uintptr_t addr) {}
+
+// void ufree(uintptr_t addr) {}
