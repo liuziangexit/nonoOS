@@ -146,7 +146,7 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
         }
       }
       nearest = avl_tree_next(&vm->vma_tree, nearest);
-      if (nearest->start < real_begin) {
+      if (nearest == 0 || nearest->start < real_begin) {
         //说明没有比nearest大的key了
         nearest = 0;
       }
