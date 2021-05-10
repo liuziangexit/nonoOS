@@ -197,8 +197,9 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
       virtual_memory_find_fit(vm, vma_size, vma_start, vma_start + vma_size)) {
     panic("vma_start != virtual_memory_find_fit");
   }
-  //确认没有重叠，开始新增了
-  //首先获得vma_start之前最近的vma，叫他prev
+  // 确认没有重叠，开始新增了
+  // 首先获得vma_start之前最近的vma，叫他prev
+  // TODO 看看这个操作是不是应该封装成函数，还经常用
   struct virtual_memory_area *prev = 0;
   {
     struct virtual_memory_area key;
