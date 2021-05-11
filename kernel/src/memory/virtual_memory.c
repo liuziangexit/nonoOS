@@ -130,6 +130,7 @@ struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
 // 在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
 // 返回0表示找不到
 // 这是对齐到4K的
+// FIXME 这函数有问题，需要重写
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   uintptr_t begin, uintptr_t end) {
   assert(end - begin >= vma_size && vma_size >= _4K && vma_size % _4K == 0);
@@ -139,26 +140,29 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   key.start = real_begin;
   struct virtual_memory_area *nearest = avl_tree_nearest(&vm->vma_tree, &key);
   if (nearest) {
-    //确定空闲内存起始
+    // 确定空闲内存起始
     if (nearest->start <= real_begin) {
+      // nearest是上一个
       if (nearest->start + nearest->size > real_begin) {
         real_begin = nearest->start + nearest->size;
         if (real_end - real_begin < vma_size) {
-          //新映射的空间至少前半部分被占用了，并且剩下的部分不够大了
+          // 新映射的空间至少前半部分被占用了，并且剩下的部分不够大了
           return 0;
         }
       }
       nearest = avl_tree_next(&vm->vma_tree, nearest);
-      if (nearest == 0 || nearest->start < real_begin) {
-        //说明没有比nearest大的key了
+      assert(nearest == 0 || nearest->start >= real_begin);
+      if (nearest == 0) {
+        // 说明没有比nearest大的key了
         nearest = 0;
       }
     }
+    // nearest是下一个
     if (nearest) {
       assert(nearest->start >= real_begin);
       if (nearest->start == real_begin) {
-        //这种情况只有可能是从上面的nearest->start <= real_begin里面出来的
-        //这意味着新映射的空间完全被占用满了
+        // 这种情况只有可能是从上面的if(nearest->start <= real_begin)里面出来的
+        // 这意味着新映射的空间完全被占用满了
         return 0;
       }
       if (nearest->start > real_begin) {
@@ -178,6 +182,8 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   }
   //不太放心，再确认下
   assert(real_begin % 4096 == 0 && real_end - real_begin >= vma_size);
+  assert(real_begin >= begin && real_begin < end && real_end > begin &&
+         real_end <= end);
   return real_begin;
 }
 
@@ -340,6 +346,8 @@ void virtual_memory_check() {
 
 // 如果你有virtual_memory_area::list_node的指针，用这函数去取得那个vma
 static inline struct virtual_memory_area *entry2vma(list_entry_t *e) {
+  //还没测试
+  abort();
   return (struct virtual_memory_area *)(((uintptr_t)e) - 28);
 }
 
@@ -415,6 +423,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
         list_init(p);
         // TODO 实现一个有序插入链表的函数，在这里用它把p插入到vma->freearea
         abort();
+        list_add(&vma->free_area, p);
       } else {
         // free_area->len == actual_size
         // 整个freearea都被用掉了，直接删除freearea结构
@@ -430,6 +439,13 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
           assert(vma->max_free_area_len != 0);
         }
       }
+      if (list_empty(&vma->free_area)) {
+        // 如果freearea用完了，把vma移动到full链表里
+        list_del(&vma->list_node);
+        // 这个listadd必须是有序的
+        abort();
+        list_add(&vm->full, &vma->list_node);
+      }
       // TODO 这里要用某种方式记录addr对应的size
       return addr;
     }
@@ -438,9 +454,23 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
   __builtin_unreachable();
 }
 
-// // malloc的vma缺页时候，把一整个vma都映射上物理内存
-// void umalloc_pgfault(struct virtual_memory_area *vma, uintptr_t addr) {
-// }
+// malloc的vma缺页时候，把一整个vma都映射上物理内存
+void umalloc_pgfault(struct virtual_memory *vm,
+                     struct virtual_memory_area *vma) {
+  assert(vma->type == MALLOC);
+  assert(vma->size >= 4096 && vma->size % 4096 == 0);
+  void *physical = kmem_page_alloc(vma->size / 4096);
+  if (physical == 0) {
+    // 1.swap  2.如果不能swap，让进程崩溃
+    abort();
+  }
+  bool ret =
+      virtual_memory_map(vm, vma, vma->start, vma->size, (uintptr_t)physical);
+  if (!ret) {
+    abort();
+  }
+}
 
-// // 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
+// //
+// 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
 // void ufree(struct virtual_memory *vm, uintptr_t addr) {}

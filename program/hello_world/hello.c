@@ -5,7 +5,8 @@
 #include <stdlib.h>
 
 int main(int argc, char **argv) {
-  // void *mem = malloc(10);
+  // uint32_t *mem = malloc(4);
+  // *mem = 9710;
   // free(mem);
 
   UNUSED(argc);

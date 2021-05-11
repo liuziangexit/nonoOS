@@ -85,7 +85,8 @@ struct umalloc_free_area {
 };
 
 uintptr_t umalloc(struct virtual_memory *vm, uint32_t size);
-void umalloc_pgfault(struct virtual_memory_area *vma, uintptr_t addr);
+void umalloc_pgfault(struct virtual_memory *vm,
+                     struct virtual_memory_area *vma);
 void ufree(struct virtual_memory *vm, uintptr_t addr);
 
 #endif

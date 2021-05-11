@@ -16,6 +16,8 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
+uint32_t task_inited;
+
 // 所有的task
 static struct avl_tree tasks;
 // 当前运行的task
@@ -303,6 +305,7 @@ void task_init() {
   add_task(init);
   current = init;
   load_esp0(0);
+  task_inited = TASK_INITED_MAGIC;
 }
 
 void task_clean() {

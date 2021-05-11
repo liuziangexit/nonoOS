@@ -3,6 +3,7 @@
 #include "debug.h"
 #include <stdio.h>
 #include <task.h>
+#include <virtual_memory.h>
 #include <x86.h>
 
 void syscall_return(struct trapframe *tf, uint32_t ret) {
@@ -17,12 +18,18 @@ void syscall_dispatch(struct trapframe *tf) {
 
   switch (no) {
   case SYSCALL_EXIT: {
+    // printf("exit() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
+    //        arg[3], arg[4]);
     task_exit();
   } break;
   case SYSCALL_ALLOC: {
     printf("aligned_alloc() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1],
            arg[2], arg[3], arg[4]);
-    syscall_return(tf, 9710);
+    ktask_t *task = task_find(task_current());
+    assert(task && !task->group->is_kernel);
+    // arg[0]也就是alignment不需要用到，因为umalloc直接是平台最大对齐的
+    uintptr_t vaddr = umalloc(task->group->vm, arg[1]);
+    syscall_return(tf, vaddr);
   } break;
   case SYSCALL_FREE: {
     printf("free() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],

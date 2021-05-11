@@ -21,9 +21,8 @@ void free(void *p) {
 
 //用户态实现
 #include <syscall.h>
-void *malloc(size_t size) { return (void *)syscall(SYSCALL_ALLOC, 2, 0, size); }
+void *malloc(size_t size) { return (void *)syscall(SYSCALL_ALLOC, 2, 1, size); }
 void *aligned_alloc(size_t alignment, size_t size) {
-  assert(alignment == 0 || size % alignment == 0);
   return (void *)syscall(SYSCALL_ALLOC, 2, alignment, size);
 }
 void free(void *p) { syscall(SYSCALL_FREE, 1, p); }

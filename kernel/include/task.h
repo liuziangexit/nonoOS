@@ -20,6 +20,9 @@
 //用户栈的虚拟地址(3GB - 512MB)
 #define USER_STACK_BEGIN 0xA0000000
 
+#define TASK_INITED_MAGIC 9863479
+extern uint32_t task_inited;
+
 enum task_state {
   CREATED, //已创建
   YIELDED, //被调走

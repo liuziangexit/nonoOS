@@ -30,11 +30,15 @@ OK-exit
 OK-想个办法访问地址0时候报错
 OK-vma相邻合并
 
--考虑一下switch_to里面没有储存eax有没有问题？
--画一下内核内存布局
+-重写有问题的virtual_memory_find_fit
+-测试umalloc_pgfault
+-实现ufree
 
 -实现用户的malloc的页内内存分配
 -实现用户程序传参数
+
+-考虑一下switch_to里面没有储存eax有没有问题？
+-画一下内核内存布局
 
 -task返回值
 -实现简单调度算法

@@ -13,6 +13,7 @@
 #include <syscall.h>
 #include <task.h>
 #include <tty.h>
+#include <virtual_memory.h>
 #include <x86.h>
 
 /* *
@@ -192,6 +193,18 @@ void interrupt_handler(struct trapframe *tf) {
     panic(trapname(T_GPFLT));
   } break;
   case T_PGFLT: {
+    uintptr_t addr = rcr2();
+    if (task_inited == TASK_INITED_MAGIC) {
+      ktask_t *task = task_find(task_current());
+      if (!task->group->is_kernel) {
+        struct virtual_memory_area *vma =
+            virtual_memory_get_vma(task->group->vm, addr);
+        if (vma && vma->type == MALLOC) {
+          umalloc_pgfault(task->group->vm, vma);
+          break;
+        }
+      }
+    }
     print_pgfault(tf);
     panic(trapname(T_PGFLT));
   } break;
