@@ -181,14 +181,6 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   return real_begin;
 }
 
-static struct umalloc_free_area *new_free_area() {
-  struct umalloc_free_area *p = malloc(sizeof(struct umalloc_free_area));
-  memset(p, 0, sizeof(struct umalloc_free_area));
-  return p;
-}
-
-// static void delete_free_area(struct umalloc_free_area *ufa) { free(ufa); }
-
 struct virtual_memory_area *
 virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
                      uintptr_t vma_size, uint16_t flags,
@@ -351,6 +343,14 @@ static inline struct virtual_memory_area *entry2vma(list_entry_t *e) {
   return (struct virtual_memory_area *)(((uintptr_t)e) - 28);
 }
 
+static struct umalloc_free_area *new_free_area() {
+  struct umalloc_free_area *p = malloc(sizeof(struct umalloc_free_area));
+  memset(p, 0, sizeof(struct umalloc_free_area));
+  return p;
+}
+
+static void delete_free_area(struct umalloc_free_area *ufa) { free(ufa); }
+
 /*
 1)首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到(3)
 2)创建ROUND(size, 4K)这么大的vma，然后设置好free_area
@@ -361,7 +361,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
   struct virtual_memory_area *vma = 0;
   // 1.首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到3
   for (list_entry_t *p = list_next(&vm->partial); p != &vm->partial;
-       p = list_next(&vm->partial)) {
+       p = list_next(p)) {
     struct virtual_memory_area *pvma = entry2vma(p);
     if (pvma->max_free_area_len >= size) {
       vma = pvma;
@@ -398,11 +398,49 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
   这里看起来是first-fit，但同时也是best-fit，因为vma里的freearea是从小到大排序的
   注意确保分配出去的内存总是对齐到MAX_ALIGNMENT
   */
-  list_del(&vma->list_node);
+  for (list_entry_t *p = list_next(&vma->free_area); p != &vma->free_area;
+       p = list_next(p)) {
+    struct umalloc_free_area *free_area = (struct umalloc_free_area *)p;
+    uint32_t actual_size = ROUNDUP(size, 32);
+    if (free_area->len >= actual_size) {
+      //如果这个freearea够大
+      uint32_t free_area_len = free_area->len;
+      uintptr_t addr = free_area->addr;
+      assert(addr % MAX_ALIGNMENT == 0);
+      list_del(p);
+      if (free_area->len > actual_size) {
+        // freearea分配完之后还有剩余的空间，我们修改完freearea的size后还把它重新加到list里
+        free_area->len -= actual_size;
+        free_area->addr += actual_size;
+        list_init(p);
+        // TODO 实现一个有序插入链表的函数，在这里用它把p插入到vma->freearea
+        abort();
+      } else {
+        // free_area->len == actual_size
+        // 整个freearea都被用掉了，直接删除freearea结构
+        delete_free_area(free_area);
+      }
+      if (free_area_len == vma->max_free_area_len) {
+        // 如果这次用的freearea正好是最大的那个，更新max_free_area_len
+        if (list_empty(&vma->free_area)) {
+          vma->max_free_area_len = 0;
+        } else {
+          vma->max_free_area_len =
+              ((struct umalloc_free_area *)vma->free_area.prev)->len;
+          assert(vma->max_free_area_len != 0);
+        }
+      }
+      // TODO 这里要用某种方式记录addr对应的size
+      return addr;
+    }
+  }
+  abort();
+  __builtin_unreachable();
 }
 
-// malloc的vma缺页时候，把一整个vma都映射上物理内存
-void umalloc_pgfault(struct virtual_memory_area *vma, uintptr_t addr) {}
+// // malloc的vma缺页时候，把一整个vma都映射上物理内存
+// void umalloc_pgfault(struct virtual_memory_area *vma, uintptr_t addr) {
+// }
 
-// 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
-void ufree(struct virtual_memory *vm, uintptr_t addr) {}
+// // 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
+// void ufree(struct virtual_memory *vm, uintptr_t addr) {}
