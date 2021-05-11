@@ -5,10 +5,10 @@
 #include <memory_manager.h>
 #include <stdlib.h>
 
-void *malloc(size_t size) { return kmem_alloc(0, size); }
+void *malloc(size_t size) { return kmem_alloc(1, size); }
 
 void *aligned_alloc(size_t alignment, size_t size) {
-  assert(alignment == 0 || size % alignment == 0);
+  assert(size % alignment == 0);
   return kmem_alloc(alignment, size);
 }
 

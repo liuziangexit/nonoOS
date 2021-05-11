@@ -407,7 +407,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
       return 0;
     }
     //存放程序映像的虚拟内存
-    new_task->program = aligned_alloc(0, ROUNDUP(program_size, _4K));
+    new_task->program = aligned_alloc(1, ROUNDUP(program_size, _4K));
     if (!new_task->program) {
       task_destory((struct ktask *)new_task);
       return 0;

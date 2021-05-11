@@ -76,6 +76,7 @@ static void free_slab_struct(struct slab *s) {
 static bool cache_add_slabs(struct cache *c, size_t slab_cnt) {
   for (size_t i = 0; i < slab_cnt; i++) {
     struct slab *s = 0;
+    // slab的内部布局
     if (log2(c->obj_size) < 7) {
       //小对象
       const size_t slab_pgcnt = slab_cnt;
@@ -147,7 +148,7 @@ void kmem_cache_init() {
 #endif
 }
 
-//在slab链表里找到合适的slab然后分配一个对象
+// 在slab链表里找到合适的slab然后分配一个对象
 static void *find_free_slab(list_entry_t *head, uint32_t alignment,
                             struct slab **slab) {
   list_entry_t *it = list_next(head);
@@ -156,19 +157,14 @@ static void *find_free_slab(list_entry_t *head, uint32_t alignment,
     if (s->cache->obj_num > s->inuse) {
       assert(!list_empty(&s->free_li));
       void *ret = 0;
-      if (alignment == 0) {
-        //没有额外的对齐要求
-        ret = list_next(&s->free_li);
-      } else {
-        //寻找符合额外对齐要求的对象
-        list_entry_t *it = list_next(&s->free_li);
-        while (it != &s->free_li) {
-          if (((uintptr_t)it) % alignment == 0) {
-            ret = it;
-            break;
-          }
-          it = list_next(it);
+      //寻找符合额外对齐要求的对象
+      list_entry_t *it = list_next(&s->free_li);
+      while (it != &s->free_li) {
+        if (((uintptr_t)it) % alignment == 0) {
+          ret = it;
+          break;
         }
+        it = list_next(it);
       }
       if (ret) {
         //找到对象了
@@ -197,16 +193,12 @@ static void *find_free_slab(list_entry_t *head, uint32_t alignment,
 }
 
 // 模块接口，分配对齐到alignment，size大小的内存
-// alignment参数指定要求的对齐值，此值必须在[1,32]之间，并且必须是2的幂
-// alignment为0表示没有额外对齐要求，将使用默认对齐规则，也就是对齐到大于等于size的最小的2的幂
+// alignment参数指定要求的对齐值，此值必须在[1,32]之间，并且必须是2的幂。
+// 无论alignment是多少，至少也会对齐到大于等于size的最小的2的幂（由slab的内部布局决定，在本文件中搜索"slab的内部布局"可以找到相关代码段）
 void *kmem_cache_alloc(size_t alignment, size_t size) {
-  //处理alignment参数
-  if (alignment == 1)
-    alignment = 0;
-  if (alignment != 0) {
-    //指定对齐
-    assert(is_pow2(alignment) && alignment <= MAX_ALIGNMENT);
-  }
+  //指定对齐
+  assert(alignment != 0);
+  assert(is_pow2(alignment) && alignment <= MAX_ALIGNMENT);
   //处理size参数，寻找合适的对象池(cache)
   size_t exp = log2(next_pow2(size));
   if (exp < 3)

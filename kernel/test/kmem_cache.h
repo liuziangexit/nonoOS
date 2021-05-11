@@ -14,9 +14,9 @@
 void kmem_cache_test() {
   printf("running kmem_cache_test\n");
 
-  void *mem = kmem_cache_alloc(0, 1898);
+  void *mem = kmem_cache_alloc(1, 1898);
   assert(mem);
-  void *mem2 = kmem_cache_alloc(0, 1998);
+  void *mem2 = kmem_cache_alloc(1, 1998);
   assert(mem2);
   kmem_cache_free(mem2);
   kmem_cache_free(mem);
