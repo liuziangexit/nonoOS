@@ -125,8 +125,9 @@ struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
   return 0;
 }
 
-//在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
-//返回0表示找不到
+// 在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
+// 返回0表示找不到
+// 这是对齐到4K的
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   uintptr_t begin, uintptr_t end) {
   assert(end - begin >= vma_size && vma_size >= _4K && vma_size % _4K == 0);
@@ -338,18 +339,46 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
 }
 
 void virtual_memory_check() {
-  if (sizeof(struct umalloc_free_area) != 16) {
-    panic("sizeof(umalloc_free_area) != 16");
+  if (sizeof(struct umalloc_free_area) < MAX_ALIGNMENT) {
+    panic("sizeof(umalloc_free_area) < MAX_ALIGNMENT");
   }
+}
+
+// 如果你有virtual_memory_area::list_node的指针，用这函数去取得那个vma
+static inline struct virtual_memory_area *entry2vma(list_entry_t *e) {
+  return (struct virtual_memory_area *)(((uintptr_t)e) - 28);
 }
 
 /*
 1)首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到(3)
 2)创建ROUND(size, 4K)这么大的vma，然后设置好free_area
 3)通过vma里freearea(从小到大排序)，first-fit(因为排序了，也是best-fit)分配一个合适的虚拟地址返回，同时在内部记录此地址对应的分配长度
+注意确保分配出去的内存总是对齐到MAX_ALIGNMENT
 */
 uintptr_t umalloc(struct virtual_memory *vm, uint32_t alignment,
                   uint32_t size) {
+  assert(alignment > 0 && alignment <= MAX_ALIGNMENT);
+  struct virtual_memory_area *vma = 0;
+  // 1.首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到3
+  for (list_entry_t *p = list_next(&vm->partial); p != &vm->partial;
+       p = list_next(&vm->partial)) {
+    struct virtual_memory_area *pvma = entry2vma(p);
+    if (pvma->max_free_area_len >= size) {
+      vma = pvma;
+      break;
+    }
+  }
+  if (vma == 0) {
+    // 2.没有找到合适的vma，那么我们创建一个新的vma
+    virtual_memory_find_fit virtual_memory_alloc(vm, _start, _size, _flags,
+                                                 _type);
+  }
+
+  /*
+  3.从vma中分配一个freearea出来
+  这里看起来是first-fit，但同时也是best-fit，因为vma里的freearea是从小到大排序的
+  注意确保分配出去的内存总是对齐到MAX_ALIGNMENT
+  */
 
   // if (type == MALLOC) {
   //   //注意！此时既不在partial也不在full

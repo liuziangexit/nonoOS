@@ -24,11 +24,12 @@ struct virtual_memory_area {
 };
 
 struct virtual_memory {
-  //所有vma
+  // 所有vma
   struct avl_tree vma_tree;
-  //部分使用的malloc类型vma
+  // 部分使用的malloc类型vma
+  // 按照max_free_area_len从小到大排序
   list_entry_t partial;
-  //全部使用的malloc类型vma
+  // 全部使用的malloc类型vma
   list_entry_t full;
   // uint32_t vma_cnt;
   uint32_t *page_directory;
