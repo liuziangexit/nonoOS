@@ -236,16 +236,6 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
     vma->size = vma_size;
     vma->flags = flags;
     vma->type = type;
-    if (type == MALLOC) {
-      //注意！此时既不在partial也不在full
-      list_init(&vma->list_node);
-      //增加freearea
-      struct umalloc_free_area *fa = new_free_area();
-      fa->addr = vma_start;
-      fa->len = vma_size;
-      list_add(&vma->free_area, (list_entry_t *)fa);
-      vma->max_free_area_len = vma_size;
-    }
     if (avl_tree_add(&vm->vma_tree, vma)) {
       abort(); // never!
     }
@@ -347,8 +337,34 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
   }
 }
 
-// uintptr_t umalloc(uint32_t alignment, uint32_t size) {}
+void virtual_memory_check() {
+  if (sizeof(struct umalloc_free_area) != 16) {
+    panic("sizeof(umalloc_free_area) != 16");
+  }
+}
 
-// void umalloc_pgfault(struct virtual_memory_area *vma, uintptr_t addr) {}
+/*
+1)首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到(3)
+2)创建ROUND(size, 4K)这么大的vma，然后设置好free_area
+3)通过vma里freearea(从小到大排序)，first-fit(因为排序了，也是best-fit)分配一个合适的虚拟地址返回，同时在内部记录此地址对应的分配长度
+*/
+uintptr_t umalloc(struct virtual_memory *vm, uint32_t alignment,
+                  uint32_t size) {
 
-// void ufree(uintptr_t addr) {}
+  // if (type == MALLOC) {
+  //   //注意！此时既不在partial也不在full
+  //   list_init(&vma->list_node);
+  //   //增加freearea
+  //   struct umalloc_free_area *fa = new_free_area();
+  //   fa->addr = vma_start;
+  //   fa->len = vma_size;
+  //   list_add(&vma->free_area, (list_entry_t *)fa);
+  //   vma->max_free_area_len = vma_size;
+  // }
+}
+
+// malloc的vma缺页时候，把一整个vma都映射上物理内存
+void umalloc_pgfault(struct virtual_memory_area *vma, uintptr_t addr) {}
+
+// 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
+void ufree(struct virtual_memory *vm, uintptr_t addr) {}

@@ -20,6 +20,7 @@
 #include <string.h>
 #include <task.h>
 #include <tty.h>
+#include <virtual_memory.h>
 #include <x86.h>
 
 //用来测试程序映像很大的时候会怎么样
@@ -89,6 +90,7 @@ void kmain() {
   kmem_page_debug();
   kmem_alloc_init();
   kmem_cache_init();
+  virtual_memory_check();
   printf("\n");
   {
     extern uint32_t kernel_pd[];

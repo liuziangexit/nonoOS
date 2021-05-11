@@ -4,6 +4,9 @@
 #include <list.h>
 #include <stdbool.h>
 
+// 首次使用前，对vm系统做一些检查
+void virtual_memory_check();
+
 enum virtual_memory_area_type { KERNEL, CODE, STACK, MALLOC };
 
 // 表示一段虚拟内存
@@ -73,21 +76,6 @@ bool virtual_memory_map(struct virtual_memory *vm,
 void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
                           uint32_t size);
 
-/*
-为了实现用户malloc，我们需要实现三个函数
-
-malloc(size)
-1)首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到(3)
-2)创建ROUND(size, 4K)这么大的vma，然后设置好free_area
-3)通过vma里freearea(从小到大排序)，first-fit(因为排序了，也是best-fit)分配一个合适的虚拟地址返回，同时在内部记录此地址对应的分配长度
-
-malloc_pgfault
-malloc的vma缺页时候，把一整个vma都映射上物理内存
-
-free(ptr)
-修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
-*/
-
 //存在物理页首部的链表头
 struct umalloc_free_area {
   list_entry_t head;
@@ -95,8 +83,8 @@ struct umalloc_free_area {
   size_t len;
 };
 
-uintptr_t umalloc(uint32_t alignment, uint32_t size);
+uintptr_t umalloc(struct virtual_memory *vm, uint32_t alignment, uint32_t size);
 void umalloc_pgfault(struct virtual_memory_area *vma, uintptr_t addr);
-void ufree(uintptr_t addr);
+void ufree(struct virtual_memory *vm, uintptr_t addr);
 
 #endif
