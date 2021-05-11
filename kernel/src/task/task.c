@@ -426,7 +426,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     ph_end = program_header + elf_header->e_phnum;
     for (; program_header < ph_end; program_header++) {
       // FIXME 检查越界
-      memcpy(new_task->program + (program_header->p_va - 0x8000000),
+      memcpy(new_task->program + (program_header->p_va - USER_CODE_BEGIN),
              program + program_header->p_offset, program_header->p_filesz);
     }
 
@@ -435,22 +435,19 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     virtual_memory_clone(new_task->base.group->vm, kernel_pd, KERNEL);
     // 把new_task->program映射到128MB的地方
     struct virtual_memory_area *vma =
-        virtual_memory_alloc(new_task->base.group->vm, 0x8000000,
+        virtual_memory_alloc(new_task->base.group->vm, USER_CODE_BEGIN,
                              ROUNDUP(program_size, _4K), PTE_P | PTE_U, CODE);
     assert(vma);
-    bool ret = virtual_memory_map(new_task->base.group->vm, vma, 0x8000000,
-                                  ROUNDUP(program_size, _4K),
+    bool ret = virtual_memory_map(new_task->base.group->vm, vma,
+                                  USER_CODE_BEGIN, ROUNDUP(program_size, _4K),
                                   V2P((uintptr_t)new_task->program));
     assert(ret);
     if (entry == DETECT_ENTRY) {
       entry = (uintptr_t)elf_header->e_entry;
     }
   }
-  //在虚拟内存中的3G-512MB到3GB之间找一个地方放栈
-  new_task->vustack = virtual_memory_find_fit(
-      new_task->base.group->vm, _4K * TASK_STACK_SIZE,
-      (uintptr_t)2560 * 1024 * 1024, (uintptr_t)3072 * 1024 * 1024);
-  assert(new_task->vustack);
+  //在虚拟内存中的3G-512MB是用户栈
+  new_task->vustack = USER_STACK_BEGIN;
   struct virtual_memory_area *vma =
       virtual_memory_alloc(new_task->base.group->vm, new_task->vustack,
                            _4K * TASK_STACK_SIZE, PTE_P | PTE_W | PTE_U, STACK);
@@ -557,10 +554,6 @@ void task_switch(ktask_t *next) {
               false);
     }
     lcr3(cr3.val);
-
-    // 试试读
-    // volatile uint32_t look = *(volatile uint32_t *)0x8000000;
-    // look = *(volatile uint32_t *)((utask_t *)next)->vustack;
 
     // 2.切换tss栈
     if (!next->group->is_kernel) {

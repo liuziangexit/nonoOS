@@ -6,8 +6,19 @@
 #include <stdint.h>
 #include <virtual_memory.h>
 
+/*
+用户程序的内存布局:
+[128MB, 128MB + program size)代码
+[128MB + program size, 3G - 512MB)malloc区
+[3G - 512MB, 3G - 512MB + STACK_SIZE)用户栈
+*/
+
 //这个指的是4k页数
 #define TASK_STACK_SIZE 1024
+//用户代码的虚拟地址
+#define USER_CODE_BEGIN 0x8000000
+//用户栈的虚拟地址(3GB - 512MB)
+#define USER_STACK_BEGIN 0xA0000000
 
 enum task_state {
   CREATED, //已创建
