@@ -339,8 +339,8 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
 }
 
 void virtual_memory_check() {
-  if (sizeof(struct umalloc_free_area) < MAX_ALIGNMENT) {
-    panic("sizeof(umalloc_free_area) < MAX_ALIGNMENT");
+  if (sizeof(struct umalloc_free_area) > MAX_ALIGNMENT) {
+    panic("sizeof(umalloc_free_area) > MAX_ALIGNMENT");
   }
 }
 
@@ -370,8 +370,8 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t alignment,
   }
   if (vma == 0) {
     // 2.没有找到合适的vma，那么我们创建一个新的vma
-    virtual_memory_find_fit virtual_memory_alloc(vm, _start, _size, _flags,
-                                                 _type);
+    // virtual_memory_find_fit();
+    // virtual_memory_alloc(vm, _start, _size, _flags, _type);
   }
 
   /*
