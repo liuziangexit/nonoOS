@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <task.h>
 #include <virtual_memory.h>
 
 /*
@@ -356,9 +357,7 @@ static inline struct virtual_memory_area *entry2vma(list_entry_t *e) {
 3)通过vma里freearea(从小到大排序)，first-fit(因为排序了，也是best-fit)分配一个合适的虚拟地址返回，同时在内部记录此地址对应的分配长度
 注意确保分配出去的内存总是对齐到MAX_ALIGNMENT
 */
-uintptr_t umalloc(struct virtual_memory *vm, uint32_t alignment,
-                  uint32_t size) {
-  assert(alignment > 0 && alignment <= MAX_ALIGNMENT);
+uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
   struct virtual_memory_area *vma = 0;
   // 1.首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到3
   for (list_entry_t *p = list_next(&vm->partial); p != &vm->partial;
@@ -371,8 +370,27 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t alignment,
   }
   if (vma == 0) {
     // 2.没有找到合适的vma，那么我们创建一个新的vma
-    // virtual_memory_find_fit();
-    // virtual_memory_alloc(vm, _start, _size, _flags, _type);
+    uint32_t vma_size = ROUNDUP(size, 4096);
+    uintptr_t vma_start = virtual_memory_find_fit(vm, vma_size, USER_CODE_BEGIN,
+                                                  USER_STACK_BEGIN);
+    if (vma_start == 0) {
+      panic("unlikely...");
+      return 0;
+    }
+    // 分配虚拟内存
+    // 注意，这里merge选了false，这是为了让每个vma粒度更小，这样更容易被释放
+    vma = virtual_memory_alloc(vm, vma_start, vma_size, PTE_U | PTE_W | PTE_P,
+                               MALLOC, false);
+    assert(vma);
+    //注意！此时既不在partial也不在full
+    list_init(&vma->list_node);
+    //增加freearea
+    struct umalloc_free_area *fa = new_free_area();
+    fa->addr = vma_start;
+    fa->len = vma_size;
+    list_init(&vma->free_area);
+    list_add(&vma->free_area, (list_entry_t *)fa);
+    vma->max_free_area_len = vma_size;
   }
 
   /*
@@ -380,17 +398,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t alignment,
   这里看起来是first-fit，但同时也是best-fit，因为vma里的freearea是从小到大排序的
   注意确保分配出去的内存总是对齐到MAX_ALIGNMENT
   */
-
-  // if (type == MALLOC) {
-  //   //注意！此时既不在partial也不在full
-  //   list_init(&vma->list_node);
-  //   //增加freearea
-  //   struct umalloc_free_area *fa = new_free_area();
-  //   fa->addr = vma_start;
-  //   fa->len = vma_size;
-  //   list_add(&vma->free_area, (list_entry_t *)fa);
-  //   vma->max_free_area_len = vma_size;
-  // }
+  list_del(&vma->list_node);
 }
 
 // malloc的vma缺页时候，把一整个vma都映射上物理内存
