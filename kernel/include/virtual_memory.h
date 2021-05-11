@@ -60,7 +60,7 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
 struct virtual_memory_area *
 virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
                      uintptr_t vma_size, uint16_t flags,
-                     enum virtual_memory_area_type type);
+                     enum virtual_memory_area_type type, bool merge);
 // 删除一个vma
 void virtual_memory_free(struct virtual_memory *vm,
                          struct virtual_memory_area *vma);
@@ -84,7 +84,7 @@ struct umalloc_free_area {
   size_t len;
 };
 
-uintptr_t umalloc(struct virtual_memory *vm, uint32_t alignment, uint32_t size);
+uintptr_t umalloc(struct virtual_memory *vm, uint32_t size);
 void umalloc_pgfault(struct virtual_memory_area *vma, uintptr_t addr);
 void ufree(struct virtual_memory *vm, uintptr_t addr);
 

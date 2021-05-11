@@ -53,7 +53,7 @@ void virtual_memory_clone(struct virtual_memory *vm,
         uintptr_t ps_page_frame =
             (uintptr_t)(page_directory[pd_idx] & 0xFFC00000);
         struct virtual_memory_area *vma = virtual_memory_alloc(
-            vm, pd_idx * _4M, _4M, page_directory[pd_idx] & 7, type);
+            vm, pd_idx * _4M, _4M, page_directory[pd_idx] & 7, type, true);
         assert(vma);
         bool ret =
             virtual_memory_map(vm, vma, pd_idx * _4M, _4M, ps_page_frame);
@@ -64,8 +64,9 @@ void virtual_memory_clone(struct virtual_memory *vm,
         for (uint32_t pt_idx = 0; pt_idx < 1024; pt_idx++) {
           if (pt[pt_idx] & PTE_P) {
             uintptr_t page_frame = (uintptr_t)(pt[pt_idx] & ~0xFFF);
-            struct virtual_memory_area *vma = virtual_memory_alloc(
-                vm, pt_idx * _4K + pd_idx * _4M, _4K, pt[pt_idx] & 7, type);
+            struct virtual_memory_area *vma =
+                virtual_memory_alloc(vm, pt_idx * _4K + pd_idx * _4M, _4K,
+                                     pt[pt_idx] & 7, type, true);
             assert(vma);
             bool ret = virtual_memory_map(vm, vma, pt_idx * _4K + pd_idx * _4M,
                                           _4K, page_frame);
@@ -190,7 +191,7 @@ static struct umalloc_free_area *new_free_area() {
 struct virtual_memory_area *
 virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
                      uintptr_t vma_size, uint16_t flags,
-                     enum virtual_memory_area_type type) {
+                     enum virtual_memory_area_type type, bool merge) {
   //我们只允许US、RW和P
   assert(flags >> 3 == 0);
   //确定一下有没有重叠
@@ -202,7 +203,7 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
   // 首先获得vma_start之前最近的vma，叫他prev
   // TODO 看看这个操作是不是应该封装成函数，还经常用
   struct virtual_memory_area *prev = 0;
-  {
+  if (merge) {
     struct virtual_memory_area key;
     key.start = vma_start;
     prev = avl_tree_nearest(&vm->vma_tree, &key);
@@ -213,9 +214,9 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
       }
     }
   }
-  if (
+  if (merge
       // 如果有前一个vma
-      prev
+      && prev
       // 并且前一个vma结尾正好是现在要加的vma_start
       && prev->start + prev->size == vma_start
       // 并且前一个vma的flags、type还与现在要加的vma相同
