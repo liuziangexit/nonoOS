@@ -19,7 +19,13 @@ TODO 合并邻近的VMA，小页表全部存的是物理地址，支持大小页
 int vma_compare(const void *a, const void *b) {
   const struct virtual_memory_area *ta = (const struct virtual_memory_area *)a;
   const struct virtual_memory_area *tb = (const struct virtual_memory_area *)b;
-  return ta->start - tb->start;
+  if (ta->start > tb->start)
+    return 1;
+  if (ta->start < tb->start)
+    return -1;
+  if (ta->start == tb->start)
+    return 0;
+  __builtin_unreachable();
 }
 
 //初始化一个虚拟地址空间结构
@@ -128,63 +134,59 @@ struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
 }
 
 // 在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
+// 其实就是first-fit
 // 返回0表示找不到
 // 这是对齐到4K的
 // FIXME 这函数有问题，需要重写
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   uintptr_t begin, uintptr_t end) {
-  assert(end - begin >= vma_size && vma_size >= _4K && vma_size % _4K == 0);
-  uintptr_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDUP(end, _4K);
-  assert(real_end - real_begin >= vma_size);
+  assert(end > begin && vma_size >= _4K && vma_size % _4K == 0);
+  uint64_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDDOWN(end, _4K);
+  if (real_end - real_begin < vma_size) {
+    return 0;
+  }
   struct virtual_memory_area key;
   key.start = real_begin;
   struct virtual_memory_area *nearest = avl_tree_nearest(&vm->vma_tree, &key);
+  struct virtual_memory_area *next = 0;
   if (nearest) {
-    // 确定空闲内存起始
-    if (nearest->start <= real_begin) {
-      // nearest是上一个
-      if (nearest->start + nearest->size > real_begin) {
-        real_begin = nearest->start + nearest->size;
-        if (real_end - real_begin < vma_size) {
-          // 新映射的空间至少前半部分被占用了，并且剩下的部分不够大了
-          return 0;
-        }
-      }
-      nearest = avl_tree_next(&vm->vma_tree, nearest);
-      assert(nearest == 0 || nearest->start >= real_begin);
-      if (nearest == 0) {
-        // 说明没有比nearest大的key了
-        nearest = 0;
-      }
+    if (nearest->start < real_begin) {
+      // nearest是前一个
+      next = avl_tree_next(&vm->vma_tree, nearest);
+    } else {
+      // nearest是后一个
+      next = nearest;
     }
-    // nearest是下一个
-    if (nearest) {
-      assert(nearest->start >= real_begin);
-      if (nearest->start == real_begin) {
-        // 这种情况只有可能是从上面的if(nearest->start <= real_begin)里面出来的
-        // 这意味着新映射的空间完全被占用满了
-        return 0;
-      }
-      if (nearest->start > real_begin) {
-        //现在我们来看后半部分有没有被占用，如果有，剩下的空间够不够大
-        if (nearest->start < real_end) {
-          //后半部分被占用了
-          real_end = nearest->start;
+    while (true) {
+      assert(!next || next->start >= real_begin);
+      if (next && next->start <= real_end) {
+        if (ROUNDDOWN(next->start, 4096) >= real_begin &&
+            ROUNDDOWN(next->start, 4096) - real_begin >= vma_size) {
+          // 这个空闲区间满足要求，返回
+          real_end = ROUNDDOWN(next->start, 4096);
+          break;
+        } else {
+          // 如果next不够大，那么我们检测下一个空闲区间
+          real_begin = next->start + next->size;
+          real_begin = ROUNDUP(real_begin, 4096);
+          next = avl_tree_next(&vm->vma_tree, next);
+          continue;
         }
-        //看看够不够大呢
-        if (real_end - real_begin < vma_size) {
-          //不够大
-          return 0;
-        }
-        //够大
+      } else {
+        // 如果没有next了，real_begin到real_end之间就可以用
+        // 当然，有可能这空间不够大，函数的最后我们会检测这情况的
+        break;
       }
     }
   }
-  //不太放心，再确认下
-  assert(real_begin % 4096 == 0 && real_end - real_begin >= vma_size);
-  assert(real_begin >= begin && real_begin < end && real_end > begin &&
-         real_end <= end);
-  return real_begin;
+
+  assert(real_begin % 4096 == 0 && real_end % 4096 == 0);
+  if (real_end - real_begin >= vma_size) {
+    assert(real_begin >= begin && real_begin < end && real_end > begin &&
+           real_end <= end);
+    return real_begin;
+  }
+  return 0;
 }
 
 struct virtual_memory_area *
@@ -233,6 +235,7 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
       return 0;
     }
     memset(vma, 0, sizeof(struct virtual_memory_area));
+    avl_node_init(&vma->avl_node);
     vma->start = vma_start;
     vma->size = vma_size;
     vma->flags = flags;
