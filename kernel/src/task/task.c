@@ -70,15 +70,24 @@ static void task_args_destroy(struct task_args *dst) {
 }
 
 static void add_task(ktask_t *new_task) {
+  avl_node_init(&new_task->global_head);
   make_sure_int_disabled();
-  void *prev = avl_tree_add(&tasks, new_task);
-  assert(prev == 0);
+  void *prev = avl_tree_add(&tasks, &new_task->global_head);
+  if (prev) {
+    abort();
+  }
 }
 
 static int compare_task(const void *a, const void *b) {
   const ktask_t *ta = a;
   const ktask_t *tb = b;
-  return ta->id - tb->id;
+  if (ta->id > tb->id)
+    return 1;
+  if (ta->id < tb->id)
+    return -1;
+  if (ta->id == tb->id)
+    return 0;
+  __builtin_unreachable();
 }
 
 //创建组
