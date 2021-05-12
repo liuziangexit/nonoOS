@@ -29,8 +29,9 @@ OK-实现用户的malloc的按页内存分配
 OK-exit
 OK-想个办法访问地址0时候报错
 OK-vma相邻合并
+OK-重写有问题的virtual_memory_find_fit
+OK-加上avl_node_init
 
--重写有问题的virtual_memory_find_fit
 -测试umalloc_pgfault
 -实现ufree
 
