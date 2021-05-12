@@ -63,6 +63,7 @@
         "atomic": "c",
         "cstdio": "c",
         "sync.h": "c",
-        "stdarg.h": "c"
+        "stdarg.h": "c",
+        "task.h": "c"
     }
 }
