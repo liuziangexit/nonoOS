@@ -31,6 +31,7 @@ OK-想个办法访问地址0时候报错
 OK-vma相邻合并
 OK-重写有问题的virtual_memory_find_fit
 OK-加上avl_node_init
+-find_fit支持设置flags
 
 -测试umalloc_pgfault
 -实现ufree

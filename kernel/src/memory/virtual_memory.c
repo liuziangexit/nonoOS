@@ -133,53 +133,51 @@ struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
   return 0;
 }
 
-// static uintptr_t vm_get_4mboundary(uintptr_t addr) {
-//   return ROUNDDOWN(addr, 4 * 1024 * 1024);
-// }
+static uintptr_t vm_get_4mboundary(uintptr_t addr) {
+  return ROUNDDOWN(addr, 4 * 1024 * 1024);
+}
 
-// // vma是否至少有一部分在boundary所指代的4m页中
-// static bool vm_same_4mpage(uintptr_t boundary,
-//                            struct virtual_memory_area *vma) {
-//   assert(boundary % _4M == 0);
-//   // 特殊情况，如果头在4m之前，尾在4m之后，那么还是返回true
-//   if (vma->start <= boundary && vma->start + vma->size >= boundary + _4M) {
-//     return true;
-//   }
-//   // 普通情况，只要头在4m里面，或者尾在4m里面，就返回true
-//   if ((vma->start >= boundary && vma->start < boundary + _4M) ||
-//       (vma->start + vma->size > boundary &&
-//        vma->start + vma->size <= boundary + _4M)) {
-//     return true;
-//   }
-//   return false;
-// }
+// vma是否至少有一部分在boundary所指代的4m页中
+static bool vm_same_4mpage(uintptr_t boundary,
+                           struct virtual_memory_area *vma) {
+  assert(boundary % _4M == 0);
+  // 特殊情况，如果头在4m之前，尾在4m之后，那么还是返回true
+  if (vma->start <= boundary && vma->start + vma->size >= boundary + _4M) {
+    return true;
+  }
+  // 普通情况，只要头在4m里面，或者尾在4m里面，就返回true
+  if ((vma->start >= boundary && vma->start < boundary + _4M) ||
+      (vma->start + vma->size > boundary &&
+       vma->start + vma->size <= boundary + _4M)) {
+    return true;
+  }
+  return false;
+}
 
-// // 比较两个pte或pde的flags
-// static bool vm_compare_flags(uint16_t a, uint16_t b) {
-//   a = a & 0x1E;
-//   b = b & 0x1E;
-//   return a == b;
-// }
+// 比较两个pte或pde的flags
+static bool vm_compare_flags(uint16_t a, uint16_t b) {
+  a = a & 0x1E;
+  b = b & 0x1E;
+  return a == b;
+}
 
-// // 检查一个位置如果使用指定的flags，是否会和已存在的大页flags冲突
-// static bool vm_check_flags(struct virtual_memory *vm, uintptr_t addr,
-//                            uint16_t flags, struct virtual_memory_area *prev,
-//                            struct virtual_memory_area *next) {
-// // 确保如果prev和next在有提供时一定是在那大页里面的
-// // 至于prev和next是否真的是距离addr最近的前一个和下一个，其实我不care
-// TEST:
-//   assert(!prev || vm_same_4mpage(vm_get_4mboundary(addr), prev));
-//   assert(!next || vm_same_4mpage(vm_get_4mboundary(addr), next));
-//   if (prev) {
-//     return vm_compare_flags(prev->flags, flags);
-//   }
-//   if (next) {
-//     return vm_compare_flags(next->flags, flags);
-//   }
-//   // 如果参数都没给，需要我们自己去找prev或next
-//   // 如果找不到这个4M页之内的vma了，说明这4M怎么搞都行，直接回true
-//   // 如果找到了，goto TEST
-// }
+// 检查一个位置如果使用指定的flags，是否会和已存在的大页flags冲突
+static bool vm_check_flags(struct virtual_memory *vm, uintptr_t addr,
+                           uint16_t flags, struct virtual_memory_area *other) {
+  if (other && vm_same_4mpage(vm_get_4mboundary(addr), other)) {
+    return vm_compare_flags(other->flags, flags);
+  }
+  // 如果参数都没给，需要我们自己去找other
+  struct virtual_memory_area key;
+  key.start = addr;
+  other = avl_tree_nearest(&vm->vma_tree, &key);
+  if (!other || !vm_same_4mpage(vm_get_4mboundary(addr), other)) {
+    // 如果找不到这个4M页之内的vma了，说明这4M怎么搞都行，直接回true
+    return true;
+  }
+  // 如果找到了并且在4M内，比较
+  return vm_compare_flags(other->flags, flags);
+}
 
 // 在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
 // 其实就是first-fit
