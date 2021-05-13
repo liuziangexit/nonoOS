@@ -152,6 +152,10 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   if (nearest) {
     if (nearest->start < real_begin) {
       // nearest是前一个
+      if (nearest->start + nearest->size > real_begin) {
+        //如果前一个覆盖了realbegin的位置，那么要把real_begin向后移到prev的结尾
+        real_begin = ROUNDUP(nearest->start + nearest->size, 4096);
+      }
       next = avl_tree_next(&vm->vma_tree, nearest);
     } else {
       // nearest是后一个
