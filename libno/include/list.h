@@ -128,6 +128,8 @@ static __always_inline void __list_del(list_entry_t *prev, list_entry_t *next) {
   next->prev = prev;
 }
 
-void list_sorted_add(list_entry_t *listelm, list_entry_t *elm);
+void list_sort_add(list_entry_t *listelm, list_entry_t *elm,
+                   int (*compare)(const list_entry_t *a,
+                                  const list_entry_t *b));
 
 #endif /* !__LIBS_LIST_H__ */

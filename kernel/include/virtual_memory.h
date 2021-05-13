@@ -9,6 +9,11 @@ void virtual_memory_check();
 
 enum virtual_memory_area_type { KERNEL, CODE, STACK, MALLOC };
 
+/*
+CAUTION!
+compare_malloc_vma
+依赖于此类型的内存布局
+*/
 // 表示一段虚拟内存
 struct virtual_memory_area {
   struct avl_node avl_node;
@@ -77,6 +82,11 @@ bool virtual_memory_map(struct virtual_memory *vm,
 void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
                           uint32_t size);
 
+/*
+CAUTION!
+compare_free_area
+依赖于此类型的内存布局
+*/
 //存在物理页首部的链表头
 struct umalloc_free_area {
   list_entry_t head;

@@ -71,6 +71,11 @@ struct registers {
   uint32_t ebp;
 };
 
+/*
+CAUTION!
+task_group_head_retrieve
+依赖于此类型的内存布局
+*/
 //内核task
 struct ktask {
   struct avl_node global_head;

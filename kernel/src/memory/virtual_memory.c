@@ -362,6 +362,29 @@ static struct umalloc_free_area *new_free_area() {
 
 static void delete_free_area(struct umalloc_free_area *ufa) { free(ufa); }
 
+static int compare_free_area(const list_entry_t *a, const list_entry_t *b) {
+  const struct umalloc_free_area *ta = (const struct umalloc_free_area *)a;
+  const struct umalloc_free_area *tb = (const struct umalloc_free_area *)b;
+  if (ta->len > tb->len)
+    return 1;
+  else if (ta->len < tb->len)
+    return -1;
+  else
+    return 0;
+}
+
+static int compare_malloc_vma(const list_entry_t *a, const list_entry_t *b) {
+  const struct virtual_memory_area *ta = ((void *)a) - 32;
+  const struct virtual_memory_area *tb = ((void *)b) - 32;
+  assert(ta->type == MALLOC && tb->type == MALLOC);
+  if (ta->max_free_area_len > tb->max_free_area_len)
+    return 1;
+  else if (ta->max_free_area_len < tb->max_free_area_len)
+    return -1;
+  else
+    return 0;
+}
+
 /*
 1)首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到(3)
 2)创建ROUND(size, 4K)这么大的vma，然后设置好free_area
@@ -424,9 +447,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
         free_area->len -= actual_size;
         free_area->addr += actual_size;
         list_init(p);
-        // TODO 实现一个有序插入链表的函数，在这里用它把p插入到vma->freearea
-        abort();
-        list_add(&vma->free_area, p);
+        list_sort_add(&vma->free_area, p, compare_free_area);
       } else {
         // free_area->len == actual_size
         // 整个freearea都被用掉了，直接删除freearea结构
@@ -444,10 +465,10 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
       }
       if (list_empty(&vma->free_area)) {
         // 如果freearea用完了，把vma移动到full链表里
+        assert(vma->max_free_area_len == 0);
         list_del(&vma->list_node);
-        // 这个listadd必须是有序的
-        abort();
-        list_add(&vm->full, &vma->list_node);
+        list_init(&vma->list_node);
+        list_sort_add(&vm->full, &vma->list_node, compare_malloc_vma);
       }
       // TODO 这里要用某种方式记录addr对应的size
       return addr;
