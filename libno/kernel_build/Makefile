@@ -22,7 +22,8 @@ OBJS=\
 ../src/ctype.o\
 ../src/round.o\
 ../src/malloc.o\
-../src/syscall.o
+../src/syscall.o\
+../src/list.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
