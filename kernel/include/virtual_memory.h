@@ -54,7 +54,8 @@ struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
 // 在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
 // 返回0表示找不到
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
-                                  uintptr_t begin, uintptr_t end);
+                                  uintptr_t begin, uintptr_t end,
+                                  uint16_t flags);
 
 // 分配对齐到4k的虚拟内存，但没有对应的物理内存
 // 如果vma_start紧接着一个已存在的vma，那么将不会创建新的vma，而是拓展已存在的vma

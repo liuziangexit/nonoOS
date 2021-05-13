@@ -133,13 +133,62 @@ struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
   return 0;
 }
 
+// static uintptr_t vm_get_4mboundary(uintptr_t addr) {
+//   return ROUNDDOWN(addr, 4 * 1024 * 1024);
+// }
+
+// // vma是否至少有一部分在boundary所指代的4m页中
+// static bool vm_same_4mpage(uintptr_t boundary,
+//                            struct virtual_memory_area *vma) {
+//   assert(boundary % _4M == 0);
+//   // 特殊情况，如果头在4m之前，尾在4m之后，那么还是返回true
+//   if (vma->start <= boundary && vma->start + vma->size >= boundary + _4M) {
+//     return true;
+//   }
+//   // 普通情况，只要头在4m里面，或者尾在4m里面，就返回true
+//   if ((vma->start >= boundary && vma->start < boundary + _4M) ||
+//       (vma->start + vma->size > boundary &&
+//        vma->start + vma->size <= boundary + _4M)) {
+//     return true;
+//   }
+//   return false;
+// }
+
+// // 比较两个pte或pde的flags
+// static bool vm_compare_flags(uint16_t a, uint16_t b) {
+//   a = a & 0x1E;
+//   b = b & 0x1E;
+//   return a == b;
+// }
+
+// // 检查一个位置如果使用指定的flags，是否会和已存在的大页flags冲突
+// static bool vm_check_flags(struct virtual_memory *vm, uintptr_t addr,
+//                            uint16_t flags, struct virtual_memory_area *prev,
+//                            struct virtual_memory_area *next) {
+// // 确保如果prev和next在有提供时一定是在那大页里面的
+// // 至于prev和next是否真的是距离addr最近的前一个和下一个，其实我不care
+// TEST:
+//   assert(!prev || vm_same_4mpage(vm_get_4mboundary(addr), prev));
+//   assert(!next || vm_same_4mpage(vm_get_4mboundary(addr), next));
+//   if (prev) {
+//     return vm_compare_flags(prev->flags, flags);
+//   }
+//   if (next) {
+//     return vm_compare_flags(next->flags, flags);
+//   }
+//   // 如果参数都没给，需要我们自己去找prev或next
+//   // 如果找不到这个4M页之内的vma了，说明这4M怎么搞都行，直接回true
+//   // 如果找到了，goto TEST
+// }
+
 // 在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
 // 其实就是first-fit
 // 返回0表示找不到
 // 这是对齐到4K的
 // FIXME 这函数有问题，需要重写
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
-                                  uintptr_t begin, uintptr_t end) {
+                                  uintptr_t begin, uintptr_t end,
+                                  uint16_t flags) {
   assert(end > begin && vma_size >= _4K && vma_size % _4K == 0);
   uint64_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDDOWN(end, _4K);
   if (real_end - real_begin < vma_size) {
@@ -200,8 +249,8 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
   //我们只允许US、RW和P
   assert(flags >> 3 == 0);
   //确定一下有没有重叠
-  if (vma_start !=
-      virtual_memory_find_fit(vm, vma_size, vma_start, vma_start + vma_size)) {
+  if (vma_start != virtual_memory_find_fit(vm, vma_size, vma_start,
+                                           vma_start + vma_size, flags)) {
     panic("vma_start != virtual_memory_find_fit");
   }
   // 确认没有重叠，开始新增了
@@ -409,8 +458,8 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
   if (vma == 0) {
     // 2.没有找到合适的vma，那么我们创建一个新的vma
     uint32_t vma_size = ROUNDUP(size, 4096);
-    uintptr_t vma_start = virtual_memory_find_fit(vm, vma_size, USER_CODE_BEGIN,
-                                                  USER_STACK_BEGIN);
+    uintptr_t vma_start = virtual_memory_find_fit(
+        vm, vma_size, USER_CODE_BEGIN, USER_STACK_BEGIN, PTE_U | PTE_W | PTE_P);
     if (vma_start == 0) {
       panic("unlikely...");
       return 0;
