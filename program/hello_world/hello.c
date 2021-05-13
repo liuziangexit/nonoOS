@@ -6,7 +6,7 @@
 
 int main(int argc, char **argv) {
   uint32_t *mem = malloc(4);
-  // *mem = 9710;
+  *mem = 9710;
   // free(mem);
 
   UNUSED(argc);
