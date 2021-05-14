@@ -32,6 +32,7 @@ OK-vma相邻合并
 OK-重写有问题的virtual_memory_find_fit
 OK-加上avl_node_init
 -find_fit支持设置flags
+-测一下第二次find_fit找出来的地方是不是正接着第一个findfit
 
 -测试umalloc_pgfault
 -实现ufree
