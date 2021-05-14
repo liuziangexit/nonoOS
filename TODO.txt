@@ -36,6 +36,7 @@ OK-测一下第二次find_fit找出来的地方是不是正接着第一个findfi
 OK-测试umalloc_pgfault
 
 -实现ufree
+-析构vm的时候回收用户malloc相关内存
 -实现用户的malloc的页内内存分配
 -实现用户程序传参数
 

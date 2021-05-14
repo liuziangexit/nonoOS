@@ -603,6 +603,12 @@ void umalloc_pgfault(struct virtual_memory *vm,
   // lcr3(rcr3());
 }
 
-// //
 // 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
-// void ufree(struct virtual_memory *vm, uintptr_t addr) {}
+void ufree(struct virtual_memory *vm, uintptr_t addr) {
+  // 1.查表得到size
+  // 2.找到对应的vma，并确认addr+size也是在这vma里的
+  // 3.遍历vma里的freearea，看有没有freearea是和这区域相邻的，如果有，直接改那freearea，否则sort
+  // add进去一个新的freearea
+  // 4.如果一整个vma都是free的，那么直接删除整个vma，释放物理内存
+  // 5.更新max_free_area_len和vma所在的链表(从full移动到partial)
+}
