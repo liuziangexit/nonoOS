@@ -7,7 +7,6 @@
 int main(int argc, char **argv) {
   volatile uint32_t *mem = malloc(4);
   *mem = 9710;
-  *mem = 0xffffffff;
   // free(mem);
 
   UNUSED(argc);

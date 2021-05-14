@@ -8,6 +8,7 @@
 #include <string.h>
 #include <task.h>
 #include <virtual_memory.h>
+#include <x86.h>
 
 /*
 本文件主要包含用户进程虚拟地址空间管理
@@ -614,11 +615,12 @@ void umalloc_pgfault(struct virtual_memory *vm,
     // 1.swap  2.如果不能swap，让进程崩溃
     abort();
   }
-  bool ret =
-      virtual_memory_map(vm, vma, vma->start, vma->size, (uintptr_t)physical);
+  bool ret = virtual_memory_map(vm, vma, vma->start, vma->size,
+                                V2P((uintptr_t)physical));
   if (!ret) {
     abort();
   }
+  // lcr3(rcr3());
 }
 
 // //
