@@ -162,24 +162,6 @@ static bool vm_compare_flags(uint16_t a, uint16_t b) {
   return a == b;
 }
 
-// 检查一个位置如果使用指定的flags，是否会和已存在的大页flags冲突
-static bool vm_check_flags(struct virtual_memory *vm, uintptr_t addr,
-                           uint16_t flags, struct virtual_memory_area *other) {
-  if (other && vm_same_4mpage(vm_get_4mboundary(addr), other)) {
-    return vm_compare_flags(other->flags, flags);
-  }
-  // 如果参数都没给，需要我们自己去找other
-  struct virtual_memory_area key;
-  key.start = addr;
-  other = avl_tree_nearest(&vm->vma_tree, &key);
-  if (!other || !vm_same_4mpage(vm_get_4mboundary(addr), other)) {
-    // 如果找不到这个4M页之内的vma了，说明这4M怎么搞都行，直接回true
-    return true;
-  }
-  // 如果找到了并且在4M内，比较
-  return vm_compare_flags(other->flags, flags);
-}
-
 // 返回begin，说明begin到begin+size是匹配flags的
 // 返回another_begin，说明another_begin+size是匹配flags的，并且another_begin在[begin,end)中
 // 返回0，说明无法匹配flags
