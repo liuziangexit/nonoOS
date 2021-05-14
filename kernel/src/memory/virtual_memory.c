@@ -179,6 +179,61 @@ static bool vm_check_flags(struct virtual_memory *vm, uintptr_t addr,
   return vm_compare_flags(other->flags, flags);
 }
 
+// 返回begin，说明begin到begin+size是匹配flags的
+// 返回another_begin，说明another_begin+size是匹配flags的，并且another_begin在[begin,end)中
+// 返回0，说明无法匹配flags
+uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
+                               const uintptr_t end, uint32_t size,
+                               uint16_t flags) {
+  assert(end > begin && end - begin >= size);
+  uintptr_t real_begin = begin;
+  struct virtual_memory_area key;
+  key.start = vm_get_4mboundary(real_begin);
+  while (key.start < end) {
+    struct virtual_memory_area *vma = avl_tree_nearest(&vm->vma_tree, &key);
+    if (!vma) {
+      // 如果没有附近的vma，那好了
+      break;
+    }
+    if (vm_same_4mpage(key.start, vma)) {
+    SAME_PAGE:
+      if (!vm_compare_flags(flags, vma->flags)) {
+        // 是同页但比不上
+        // 将begin移动到下一个4M页开头
+        real_begin = vm_get_4mboundary(real_begin + _4M);
+        if (end - real_begin < size) {
+          // 不够了
+          return 0;
+        }
+        key.start = real_begin;
+        continue;
+      } else {
+      MATCH:
+        // 是同页并且匹配
+        // 去检测下一个4M页
+        key.start += _4M;
+        continue;
+      }
+    } else {
+      // 不是同页
+      // 如果vma是此页之前，那么找到一个之后的vma，它有可能是同页
+      if (vma->start < key.start) {
+        vma = avl_tree_next(&vm->vma_tree, vma);
+        if (!vma || !vm_same_4mpage(key.start, vma)) {
+          // 然而还是没有同页的vma，说明这一页没问题啦
+          goto MATCH;
+        } else {
+          // 确实有同页vma，跑去检测吧
+          goto SAME_PAGE;
+        }
+      }
+    }
+    abort();
+    __builtin_unreachable();
+  }
+  return real_begin;
+}
+
 // 在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
 // 其实就是first-fit
 // 返回0表示找不到
