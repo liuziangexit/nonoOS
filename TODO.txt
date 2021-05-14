@@ -33,10 +33,9 @@ OK-重写有问题的virtual_memory_find_fit
 OK-加上avl_node_init
 OK-find_fit支持设置flags
 OK-测一下第二次find_fit找出来的地方是不是正接着第一个findfit
+OK-测试umalloc_pgfault
 
--测试umalloc_pgfault
 -实现ufree
-
 -实现用户的malloc的页内内存分配
 -实现用户程序传参数
 
