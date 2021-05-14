@@ -419,6 +419,7 @@ bool virtual_memory_map(struct virtual_memory *vm,
        p += _4K, physical_addr += _4K) {
     uint32_t pd_idx = p / _4M, pt_idx = 0x3FF & (p >> 12);
     uint32_t *pde = &vm->page_directory[pd_idx];
+    // 现在开始处理页表
     if (((*pde) & PTE_P) == 0) {
       // PDE是空的，分配一个页表
       uint32_t *pt = kmem_page_alloc(1);
