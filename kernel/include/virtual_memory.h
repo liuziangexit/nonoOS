@@ -12,6 +12,7 @@ enum virtual_memory_area_type { KERNEL, CODE, STACK, MALLOC };
 /*
 CAUTION!
 compare_malloc_vma
+entry2vma
 依赖于此类型的内存布局
 */
 // 表示一段虚拟内存

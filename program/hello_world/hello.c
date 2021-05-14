@@ -6,11 +6,13 @@
 
 int main(int argc, char **argv) {
   volatile uint32_t *mem = malloc(4);
-  *mem = 9710;
+  *mem = 888;
+  volatile uint32_t *mem2 = malloc(4);
+  *mem2 = 999;
   // free(mem);
 
   UNUSED(argc);
   UNUSED(argv);
   // printf("hello world from user process %d\n", task_current());
-  return *mem;
+  return *mem + *mem2;
 }

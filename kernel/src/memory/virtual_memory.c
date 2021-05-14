@@ -458,9 +458,7 @@ void virtual_memory_check() {
 
 // 如果你有virtual_memory_area::list_node的指针，用这函数去取得那个vma
 static inline struct virtual_memory_area *entry2vma(list_entry_t *e) {
-  //还没测试
-  abort();
-  return (struct virtual_memory_area *)(((uintptr_t)e) - 28);
+  return (struct virtual_memory_area *)(((uintptr_t)e) - 32);
 }
 
 static struct umalloc_free_area *new_free_area() {
@@ -525,8 +523,8 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
     vma = virtual_memory_alloc(vm, vma_start, vma_size, PTE_U | PTE_W | PTE_P,
                                MALLOC, false);
     assert(vma);
-    //注意！此时既不在partial也不在full
     list_init(&vma->list_node);
+    list_sort_add(&vm->partial, &vma->list_node, compare_malloc_vma);
     //增加freearea
     struct umalloc_free_area *fa = new_free_area();
     fa->addr = vma_start;
@@ -577,7 +575,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
         assert(vma->max_free_area_len == 0);
         list_del(&vma->list_node);
         list_init(&vma->list_node);
-        list_sort_add(&vm->full, &vma->list_node, compare_malloc_vma);
+        list_add(&vm->full, &vma->list_node);
       }
       // TODO 这里要用某种方式记录addr对应的size
       return addr;
