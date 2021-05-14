@@ -189,7 +189,7 @@ uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
   uintptr_t real_begin = begin;
   struct virtual_memory_area key;
   key.start = vm_get_4mboundary(real_begin);
-  while (key.start < end) {
+  while (true) {
     struct virtual_memory_area *vma = avl_tree_nearest(&vm->vma_tree, &key);
     if (!vma) {
       // 如果没有附近的vma，那好了
@@ -201,7 +201,7 @@ uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
         // 是同页但比不上
         // 将begin移动到下一个4M页开头
         real_begin = vm_get_4mboundary(real_begin + _4M);
-        if (end - real_begin < size) {
+        if (real_begin >= end || end - real_begin < size) {
           // 不够了
           return 0;
         }
@@ -212,12 +212,16 @@ uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
         // 是同页并且匹配
         // 去检测下一个4M页
         key.start += _4M;
+        if (key.start >= end) {
+          // 检测完啦，没问题哈
+          break;
+        }
         continue;
       }
     } else {
       // 不是同页
-      // 如果vma是此页之前，那么找到一个之后的vma，它有可能是同页
       if (vma->start < key.start) {
+        // 如果vma是此页之前，那么找到一个之后的vma，它有可能是同页
         vma = avl_tree_next(&vm->vma_tree, vma);
         if (!vma || !vm_same_4mpage(key.start, vma)) {
           // 然而还是没有同页的vma，说明这一页没问题啦
@@ -226,6 +230,9 @@ uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
           // 确实有同页vma，跑去检测吧
           goto SAME_PAGE;
         }
+      } else {
+        // 本页没有任何vma，说明这一页没问题啦
+        goto MATCH;
       }
     }
     abort();
@@ -261,10 +268,20 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   while (true) {
     assert(!next || next->start >= real_begin);
     if (next && next->start <= real_end) {
-      if (ROUNDDOWN(next->start, 4096) >= real_begin &&
-          ROUNDDOWN(next->start, 4096) - real_begin >= vma_size) {
-        // 这个空闲区间满足要求
-        real_end = ROUNDDOWN(next->start, 4096);
+      // 现在我们召开民主大会，请大家给我们的候选人投票
+      // 坏消息是，本次只有1名候选人参加选举；好消息是，你可以投反对票
+      uint64_t end_candidate = ROUNDDOWN(next->start, 4096);
+      if (end_candidate >= real_begin &&
+          end_candidate - real_begin >= vma_size) {
+        // 这个空闲区间满足长度要求，现在检测flags
+        real_begin = vm_verify_area_flags(vm, real_begin, end_candidate,
+                                          vma_size, flags);
+        if (!real_begin) {
+          // flags不匹配！
+          // 其实现在这个处理性能不好，因为此时我可以直接跳到下一个4M页，从那里开始检测，对吧
+          goto TRY_NEXT;
+        }
+        real_end = end_candidate;
         break;
       } else {
       // 如果next不够大，那么我们检测下一个空闲区间
@@ -277,6 +294,13 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
     } else {
       // 如果没有next了，real_begin到real_end之间就可以用
       // 当然，有可能这空间不够大，函数的最后我们会检测这情况的
+      // 检查flags先
+      real_begin =
+          vm_verify_area_flags(vm, real_begin, real_end, vma_size, flags);
+      if (!real_begin) {
+        // flags不匹配！
+        return 0;
+      }
       break;
     }
   }
@@ -294,9 +318,9 @@ struct virtual_memory_area *
 virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
                      uintptr_t vma_size, uint16_t flags,
                      enum virtual_memory_area_type type, bool merge) {
-  //我们只允许US、RW和P
+  // 我们只允许US、RW和P
   assert(flags >> 3 == 0);
-  //确定一下有没有重叠
+  // 确定一下有没有重叠
   if (vma_start != virtual_memory_find_fit(vm, vma_size, vma_start,
                                            vma_start + vma_size, flags)) {
     panic("vma_start != virtual_memory_find_fit");

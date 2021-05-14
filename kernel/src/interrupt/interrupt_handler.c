@@ -194,16 +194,19 @@ void interrupt_handler(struct trapframe *tf) {
   } break;
   case T_PGFLT: {
     uintptr_t addr = rcr2();
-    if (task_inited == TASK_INITED_MAGIC) {
+    if ((tf->tf_err & 1) == 0 && tf->tf_err & 4) {
+      // 是用户态异常并且是not found
+      assert(task_inited == TASK_INITED_MAGIC);
+      // 找到task
       ktask_t *task = task_find(task_current());
-      if (!task->group->is_kernel) {
-        struct virtual_memory_area *vma =
-            virtual_memory_get_vma(task->group->vm, addr);
-        if (vma && vma->type == MALLOC) {
-          umalloc_pgfault(task->group->vm, vma);
-          break;
-        }
-      }
+      assert(!task->group->is_kernel);
+      // 找到vma
+      struct virtual_memory_area *vma =
+          virtual_memory_get_vma(task->group->vm, addr);
+      assert(vma && vma->type == MALLOC);
+      // 处理MALLOC缺页
+      umalloc_pgfault(task->group->vm, vma);
+      break;
     }
     print_pgfault(tf);
     panic(trapname(T_PGFLT));
