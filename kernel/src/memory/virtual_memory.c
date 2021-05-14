@@ -249,40 +249,35 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   }
   struct virtual_memory_area key;
   key.start = real_begin;
-  struct virtual_memory_area *nearest = avl_tree_nearest(&vm->vma_tree, &key);
-  struct virtual_memory_area *next = 0;
-  if (nearest) {
-    if (nearest->start < real_begin) {
-      // nearest是前一个
-      if (nearest->start + nearest->size > real_begin) {
-        //如果前一个覆盖了realbegin的位置，那么要把real_begin向后移到prev的结尾
-        real_begin = ROUNDUP(nearest->start + nearest->size, 4096);
-      }
-      next = avl_tree_next(&vm->vma_tree, nearest);
-    } else {
-      // nearest是后一个
-      next = nearest;
+  struct virtual_memory_area *next = avl_tree_nearest(&vm->vma_tree, &key);
+  if (next && next->start < real_begin) {
+    // next是前一个
+    if (next->start + next->size > real_begin) {
+      //如果前一个覆盖了realbegin的位置，那么要把real_begin向后移到它的结尾
+      real_begin = ROUNDUP(next->start + next->size, 4096);
     }
-    while (true) {
-      assert(!next || next->start >= real_begin);
-      if (next && next->start <= real_end) {
-        if (ROUNDDOWN(next->start, 4096) >= real_begin &&
-            ROUNDDOWN(next->start, 4096) - real_begin >= vma_size) {
-          // 这个空闲区间满足要求，返回
-          real_end = ROUNDDOWN(next->start, 4096);
-          break;
-        } else {
-          // 如果next不够大，那么我们检测下一个空闲区间
-          real_begin = next->start + next->size;
-          real_begin = ROUNDUP(real_begin, 4096);
-          next = avl_tree_next(&vm->vma_tree, next);
-          continue;
-        }
-      } else {
-        // 如果没有next了，real_begin到real_end之间就可以用
-        // 当然，有可能这空间不够大，函数的最后我们会检测这情况的
+    next = avl_tree_next(&vm->vma_tree, next);
+  }
+  while (true) {
+    assert(!next || next->start >= real_begin);
+    if (next && next->start <= real_end) {
+      if (ROUNDDOWN(next->start, 4096) >= real_begin &&
+          ROUNDDOWN(next->start, 4096) - real_begin >= vma_size) {
+        // 这个空闲区间满足要求
+        real_end = ROUNDDOWN(next->start, 4096);
         break;
+      } else {
+      // 如果next不够大，那么我们检测下一个空闲区间
+      TRY_NEXT:
+        real_begin = next->start + next->size;
+        real_begin = ROUNDUP(real_begin, 4096);
+        next = avl_tree_next(&vm->vma_tree, next);
+        continue;
       }
+    } else {
+      // 如果没有next了，real_begin到real_end之间就可以用
+      // 当然，有可能这空间不够大，函数的最后我们会检测这情况的
+      break;
     }
   }
 
