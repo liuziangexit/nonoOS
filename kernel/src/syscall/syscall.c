@@ -18,8 +18,8 @@ void syscall_dispatch(struct trapframe *tf) {
 
   switch (no) {
   case SYSCALL_EXIT: {
-    // printf("exit() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
-    //        arg[3], arg[4]);
+    printf("exit() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
+           arg[3], arg[4]);
     task_exit();
   } break;
   case SYSCALL_ALLOC: {

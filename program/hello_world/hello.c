@@ -5,12 +5,13 @@
 #include <stdlib.h>
 
 int main(int argc, char **argv) {
-  uint32_t *mem = malloc(4);
+  volatile uint32_t *mem = malloc(4);
   *mem = 9710;
+  *mem = 0xffffffff;
   // free(mem);
 
   UNUSED(argc);
   UNUSED(argv);
   // printf("hello world from user process %d\n", task_current());
-  return 0;
+  return *mem;
 }
