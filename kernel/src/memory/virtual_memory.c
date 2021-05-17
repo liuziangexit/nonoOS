@@ -357,6 +357,13 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
   __builtin_unreachable();
 }
 
+static struct umalloc_free_area *new_free_area() {
+  struct umalloc_free_area *p = malloc(sizeof(struct umalloc_free_area));
+  memset(p, 0, sizeof(struct umalloc_free_area));
+  return p;
+}
+static void delete_free_area(struct umalloc_free_area *ufa) { free(ufa); }
+
 void virtual_memory_free(struct virtual_memory *vm,
                          struct virtual_memory_area *vma) {
   assert(vma);
@@ -372,8 +379,23 @@ void virtual_memory_free(struct virtual_memory *vm,
     if (!list_empty(&vma->list_node)) {
       abort();
     }
-    // 销毁free_area
-    // TODO遍历free_area链表，然后每个都delete_free_area（这函数现在还没有）
+    // 销毁free_area结构
+    for (struct umalloc_free_area *p =
+             (struct umalloc_free_area *)list_next(&vma->free_area);
+         p != (struct umalloc_free_area *)&vma->free_area;) {
+      struct umalloc_free_area *del = p;
+      p = (struct umalloc_free_area *)list_next(&p->list_head);
+      delete_free_area(del);
+    }
+    for (struct umalloc_free_area *p =
+             (struct umalloc_free_area *)avl_tree_first(
+                 &vma->allocated_free_area);
+         p != 0;) {
+      struct umalloc_free_area *del = p;
+      p = (struct umalloc_free_area *)avl_tree_next(&vma->allocated_free_area,
+                                                    p);
+      delete_free_area(del);
+    }
   }
   //从vma树中移除
   avl_tree_remove(&vm->vma_tree, vma);
@@ -461,15 +483,8 @@ static inline struct virtual_memory_area *entry2vma(list_entry_t *e) {
   return (struct virtual_memory_area *)(((uintptr_t)e) - 32);
 }
 
-static struct umalloc_free_area *new_free_area() {
-  struct umalloc_free_area *p = malloc(sizeof(struct umalloc_free_area));
-  memset(p, 0, sizeof(struct umalloc_free_area));
-  return p;
-}
-
-static void delete_free_area(struct umalloc_free_area *ufa) { free(ufa); }
-
-static int compare_free_area(const list_entry_t *a, const list_entry_t *b) {
+static int compare_free_area_by_len(const list_entry_t *a,
+                                    const list_entry_t *b) {
   const struct umalloc_free_area *ta = (const struct umalloc_free_area *)a;
   const struct umalloc_free_area *tb = (const struct umalloc_free_area *)b;
   if (ta->len > tb->len)
@@ -480,7 +495,18 @@ static int compare_free_area(const list_entry_t *a, const list_entry_t *b) {
     return 0;
 }
 
-static int compare_malloc_vma(const list_entry_t *a, const list_entry_t *b) {
+static int compare_free_area_by_addr(const void *a, const void *b) {
+  const struct umalloc_free_area *ta = (const struct umalloc_free_area *)a;
+  const struct umalloc_free_area *tb = (const struct umalloc_free_area *)b;
+  if (ta->addr > tb->addr)
+    return 1;
+  else if (ta->addr < tb->addr)
+    return -1;
+  else
+    return 0;
+}
+
+static int compare_malloc_vma(const void *a, const void *b) {
   const struct virtual_memory_area *ta = ((void *)a) - 32;
   const struct virtual_memory_area *tb = ((void *)b) - 32;
   assert(ta->type == MALLOC && tb->type == MALLOC);
@@ -524,7 +550,9 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
                                MALLOC, false);
     assert(vma);
     list_init(&vma->list_node);
-    list_sort_add(&vm->partial, &vma->list_node, compare_malloc_vma);
+    list_sort_add(&vm->partial, &vma->list_node,
+                  (int (*)(const list_entry_t *a,
+                           const list_entry_t *b))compare_malloc_vma);
     //增加freearea
     struct umalloc_free_area *fa = new_free_area();
     fa->addr = vma_start;
@@ -532,6 +560,9 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
     list_init(&vma->free_area);
     list_add(&vma->free_area, (list_entry_t *)fa);
     vma->max_free_area_len = vma_size;
+    // 设置allocated_free_area
+    avl_tree_init(&vma->allocated_free_area, compare_free_area_by_addr,
+                  sizeof(struct umalloc_free_area), 0);
   }
 
   /*
@@ -547,6 +578,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
       //如果这个freearea够大
       uint32_t free_area_len = free_area->len;
       uintptr_t addr = free_area->addr;
+      struct umalloc_free_area *record = 0;
       assert(addr % MAX_ALIGNMENT == 0);
       list_del(p);
       if (free_area->len > actual_size) {
@@ -554,11 +586,14 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
         free_area->len -= actual_size;
         free_area->addr += actual_size;
         list_init(p);
-        list_sort_add(&vma->free_area, p, compare_free_area);
+        list_sort_add(&vma->free_area, p, compare_free_area_by_len);
+        // 新建record
+        record = new_free_area();
+        assert(record);
       } else {
-        // free_area->len == actual_size
-        // 整个freearea都被用掉了，直接删除freearea结构
-        delete_free_area(free_area);
+        // 整个freearea都被用掉了，freearea结构可以用来当record
+        assert(free_area->len == actual_size);
+        record = free_area;
       }
       if (free_area_len == vma->max_free_area_len) {
         // 如果这次用的freearea正好是最大的那个，更新max_free_area_len
@@ -577,7 +612,11 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
         list_init(&vma->list_node);
         list_add(&vm->full, &vma->list_node);
       }
-      // TODO 这里要用某种方式记录addr对应的size
+      // 记录本次分配的地址和长度
+      avl_node_init(&record->avl_head);
+      record->addr = addr;
+      record->len = actual_size;
+      avl_tree_add(&vma->allocated_free_area, record);
       return addr;
     }
   }
@@ -605,10 +644,101 @@ void umalloc_pgfault(struct virtual_memory *vm,
 
 // 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
 void ufree(struct virtual_memory *vm, uintptr_t addr) {
+  struct virtual_memory_area *vma = virtual_memory_get_vma(vm, addr);
+  assert(vma);
   // 1.查表得到size
-  // 2.找到对应的vma，并确认addr+size也是在这vma里的
-  // 3.遍历vma里的freearea，看有没有freearea是和这区域相邻的，如果有，直接改那freearea，否则sort
-  // add进去一个新的freearea
-  // 4.如果一整个vma都是free的，那么直接删除整个vma，释放物理内存
-  // 5.更新max_free_area_len和vma所在的链表(从full移动到partial)
+  struct umalloc_free_area find;
+  find.addr = addr;
+  struct umalloc_free_area *corresponding =
+      avl_tree_find(&vma->allocated_free_area, &find);
+  assert(corresponding);
+  assert(corresponding->addr == addr);
+  // 确认addr+size也是在vma里的
+  assert(corresponding->addr + corresponding->len > vma->start &&
+         corresponding->addr + corresponding->len <= vma->start + vma->size);
+  avl_tree_remove(&vma->allocated_free_area, corresponding);
+  // 2.遍历vma里的freearea，看有没有freearea是和这区域相邻的，如果有，直接改那freearea，否则sortadd进去一个新的freearea
+  for (struct umalloc_free_area *p =
+           (struct umalloc_free_area *)list_next(&vma->free_area);
+       p != (struct umalloc_free_area *)&vma->free_area;
+       p = (struct umalloc_free_area *)list_next(&p->list_head)) {
+    if (p->addr + p->len == corresponding->addr) {
+      // 情况1
+      // 要释放的内存紧接着p内存之后
+      // 只需要修改p所指的freearea就好了
+      p->len += corresponding->len;
+      delete_free_area(corresponding);
+      // 检查之后
+      assert(
+          list_next(&p->list_head) &&
+                  list_next(&p->list_head) != &vma->free_area
+              ? ((struct umalloc_free_area *)list_next(&p->list_head))->addr >=
+                    p->addr + p->len
+              : true);
+      // 检查之前
+      assert(
+          list_prev(&p->list_head) &&
+                  list_prev(&p->list_head) != &vma->free_area
+              ? ((struct umalloc_free_area *)list_prev(&p->list_head))->addr <
+                    p->addr
+              : true);
+      goto FREE_AREA_RETURNED;
+    } else if (corresponding->addr + corresponding->len == p->addr) {
+      // 情况2
+      // 要释放的内存紧接着p内存之前
+      // 跟上面一样
+      p->len += corresponding->len;
+      p->addr = corresponding->addr;
+      delete_free_area(corresponding);
+      // 检查之后
+      assert(
+          list_next(&p->list_head) &&
+                  list_next(&p->list_head) != &vma->free_area
+              ? ((struct umalloc_free_area *)list_next(&p->list_head))->addr >=
+                    p->addr + p->len
+              : true);
+      // 检查之前
+      assert(
+          list_prev(&p->list_head) &&
+                  list_prev(&p->list_head) != &vma->free_area
+              ? ((struct umalloc_free_area *)list_prev(&p->list_head))->addr <
+                    p->addr
+              : true);
+      goto FREE_AREA_RETURNED;
+    }
+  }
+  // 情况3
+  // 如果for循环里没有匹配到，那我们要sortadd一个新的freearea进去
+  list_init(&corresponding->list_head);
+  list_sort_add(&vma->free_area, &corresponding->list_head,
+                compare_free_area_by_len);
+FREE_AREA_RETURNED:
+  // 3.如果一整个vma都是free的，那么直接删除整个vma，释放物理内存
+  assert(!list_empty(&vma->free_area));
+  {
+    struct umalloc_free_area *only_one =
+        (struct umalloc_free_area *)vma->free_area.next;
+    if (only_one->list_head.next != &vma->free_area) {
+      // 如果vma->free_area只有1个元素
+      if (only_one->addr == vma->start && only_one->len == vma->size) {
+        // 并且这个元素描述了整个vma区域，这说明vma已经空了
+        // 删除vma并释放物理内存！
+        list_del(&vma->list_node);
+        list_init(&vma->list_node);
+        virtual_memory_free(vm, vma);
+        return;
+      }
+    }
+  }
+  // 4.更新max_free_area_len和vma所在的链表(从full移动到partial)
+  vma->max_free_area_len =
+      ((struct umalloc_free_area *)vma->free_area.prev)->len;
+  // 如果现在vma里只有一个freearea，说明此前vma全部被用完了，那我们现在要把它从full移动到partial
+  struct umalloc_free_area *only_one =
+      (struct umalloc_free_area *)vma->free_area.next;
+  if (only_one->list_head.next != &vma->free_area) {
+    // 如果vma->free_area只有1个元素
+    list_del(&vma->list_node);
+    list_add(&vm->partial, &vma->list_node);
+  }
 }
