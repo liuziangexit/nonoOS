@@ -9,7 +9,9 @@ int main(int argc, char **argv) {
   *mem = 888;
   volatile uint32_t *mem2 = malloc(4);
   *mem2 = 999;
+  free((void *)mem);
   // free(mem);
+  free((void *)mem2);
 
   UNUSED(argc);
   UNUSED(argv);

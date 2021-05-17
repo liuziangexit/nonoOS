@@ -27,7 +27,8 @@ struct virtual_memory_area {
   list_entry_t
       free_area; // umalloc_free_area的链表，按照len从小到大排序，这样first-fit就是best-fit
   uint32_t max_free_area_len;          // 最大的freearea是多大
-  struct avl_tree allocated_free_area; //已分配的free_area信息
+  struct avl_tree allocated_free_area; // 已分配的free_area信息
+  void *physical;                      // 物理页地址
 };
 
 struct virtual_memory {
