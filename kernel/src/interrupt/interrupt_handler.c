@@ -203,10 +203,11 @@ void interrupt_handler(struct trapframe *tf) {
       // 找到vma
       struct virtual_memory_area *vma =
           virtual_memory_get_vma(task->group->vm, addr);
-      assert(vma && vma->type == MALLOC);
-      // 处理MALLOC缺页
-      umalloc_pgfault(task->group->vm, vma);
-      break;
+      if (vma && vma->type == MALLOC) {
+        // 处理MALLOC缺页
+        umalloc_pgfault(task->group->vm, vma);
+        break;
+      }
     }
     print_pgfault(tf);
     panic(trapname(T_PGFLT));

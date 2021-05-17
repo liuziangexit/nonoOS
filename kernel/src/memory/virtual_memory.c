@@ -489,7 +489,8 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
     uint32_t pd_idx = p / _4M, pt_idx = 0x3FF & (p >> 12);
     assert(vm->page_directory[pd_idx] & PTE_P);
     assert((vm->page_directory[pd_idx] & PTE_PS) == 0);
-    uint32_t *pt = (uint32_t *)(vm->page_directory[pd_idx] & ~0xFFF);
+    uint32_t *pt =
+        (uint32_t *)P2V((uintptr_t)(vm->page_directory[pd_idx] & ~0xFFF));
     pt[pt_idx] = 0;
   }
 }
@@ -662,6 +663,7 @@ void umalloc_pgfault(struct virtual_memory *vm,
     abort();
   }
   vma->physical = physical;
+  lcr3(rcr3());
 }
 
 // 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
@@ -798,8 +800,10 @@ FREE_AREA_RETURNED:
       if (only_one->addr == vma->start && only_one->len == vma->size) {
         // 并且这个元素描述了整个vma区域，这说明vma已经空了
         // 删除vma并释放物理内存！
+        virtual_memory_unmap(vm, vma->start, vma->size);
         malloc_vma_destroy(vma);
         virtual_memory_free(vm, vma);
+        lcr3(rcr3());
         return;
       }
     }
