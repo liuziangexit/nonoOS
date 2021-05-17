@@ -34,10 +34,10 @@ OK-加上avl_node_init
 OK-find_fit支持设置flags
 OK-测一下第二次find_fit找出来的地方是不是正接着第一个findfit
 OK-测试umalloc_pgfault
+OK-实现ufree
+OK-析构vm的时候回收用户malloc相关内存
+OK-实现用户的malloc的页内内存分配
 
--实现ufree
--析构vm的时候回收用户malloc相关内存
--实现用户的malloc的页内内存分配
 -实现task传参数
 -task返回值
 
@@ -54,6 +54,7 @@ OK-测试umalloc_pgfault
 -wait
 -notify
 
+-实现用户态abort，只是abort用户进程
 -实现系统调用 printf
 -实现nosh(nonoShell)
 -重新考虑输入输出，主要是如何判断输入属于哪个进程
