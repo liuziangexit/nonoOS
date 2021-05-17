@@ -38,12 +38,12 @@ OK-测试umalloc_pgfault
 -实现ufree
 -析构vm的时候回收用户malloc相关内存
 -实现用户的malloc的页内内存分配
--实现用户程序传参数
+-实现task传参数
+-task返回值
 
 -考虑一下switch_to里面没有储存eax有没有问题？
 -画一下内核内存布局
 
--task返回值
 -实现简单调度算法
 -实现mutex、信号量。可以按照java和c#的方式，用一种对象来实现
 -getpid
