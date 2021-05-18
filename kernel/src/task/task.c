@@ -44,7 +44,15 @@ void task_args_add(struct task_args *dst, const char *str,
   }
   assert(holder);
   holder->strlen = strlen(str);
-  holder->data = (char *)malloc(holder->strlen + 1);
+  if (!vm) {
+    holder->data = (char *)malloc(holder->strlen + 1);
+  } else {
+    uintptr_t physical;
+    if (!umalloc(vm, holder->strlen + 1, false, 0, &physical)) {
+      abort();
+    }
+    holder->data = (char *)physical;
+  }
   assert(holder->data);
   memcpy(holder->data, str, holder->strlen);
   holder->data[holder->strlen] = '\0';
@@ -58,7 +66,7 @@ void task_args_pack(struct task_args *dst, struct virtual_memory *vm) {
     dst->packed = malloc(sizeof(char *) * dst->cnt);
   } else {
     uintptr_t physical;
-    if (!umalloc(vm, sizeof(struct task_arg), false, 0, &physical)) {
+    if (!umalloc(vm, sizeof(char *) * dst->cnt, false, 0, &physical)) {
       abort();
     }
     dst->packed = physical;
