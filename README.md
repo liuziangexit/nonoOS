@@ -12,11 +12,11 @@
 |显卡和键盘驱动|OK|drivers|
 |页式内存分配|OK|memory|
 |malloc|OK|memory|
-|虚拟内存|WORKING|memory|
-|task(进程/线程)|WORKING|master|
+|虚拟内存|OK|memory|
+|task(进程/线程)|OK|master|
 |上下文切换|OK|task|
 |task调度|WORKING|master|
-|系统调用|WORKING|master|
+|系统调用|OK|master|
 |同步原语|PENDING|-|
 |硬盘接口|PENDING|-|
 |换页|PENDING|-|
