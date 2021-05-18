@@ -2,6 +2,7 @@
 #define __KERNEL_POW2_UTIL_H__
 #include <assert.h>
 #include <bit_util.h>
+#include <compiler_helper.h>
 #include <defs.h>
 #include <stdbool.h>
 #include <stdint.h>

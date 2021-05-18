@@ -1,5 +1,6 @@
 #include <compiler_helper.h>
 #include <stdio.h>
+#include <defs.h>
 
 #ifndef LIBNO_USER
 

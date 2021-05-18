@@ -1,8 +1,6 @@
 #ifndef __LIBNO_STDIO_H__
 #define __LIBNO_STDIO_H__
 
-#include <defs.h>
-
 #define EOF (-1)
 
 #ifdef __cplusplus

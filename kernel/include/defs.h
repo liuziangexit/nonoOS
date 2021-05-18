@@ -5,13 +5,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define __always_inline inline __attribute__((always_inline))
-#define __noinline __attribute__((noinline))
-#define __noreturn __attribute__((noreturn))
-
-/* used for page numbers */
-typedef size_t ppn_t;
-
 /* *
  * Rounding operations (efficient when n is a power of 2)
  * Round down to the nearest multiple of n

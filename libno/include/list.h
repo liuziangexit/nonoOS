@@ -1,6 +1,7 @@
 #ifndef __LIBNO_LIST_H__
 #define __LIBNO_LIST_H__
 
+#include <compiler_helper.h>
 #include <defs.h>
 #include <stdio.h>
 

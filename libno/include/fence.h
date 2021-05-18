@@ -1,5 +1,6 @@
 #ifndef __LIBNO_FENCE_H__
 #define __LIBNO_FENCE_H__
+#include <compiler_helper.h>
 #include <defs.h>
 #include <panic.h>
 

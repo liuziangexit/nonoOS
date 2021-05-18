@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <compiler_helper.h>
 #include <list.h>
 
 void list_sort_add(list_entry_t *listelm, list_entry_t *elm,
