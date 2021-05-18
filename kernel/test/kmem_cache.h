@@ -22,14 +22,14 @@ void kmem_cache_test() {
   kmem_cache_free(mem);
   mem = aligned_alloc(1, 32 * 1024 * 1024);
   if (!mem) {
-    terminal_fgcolor(CGA_COLOR_LIGHT_RED);
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
     printf("32MB allocation failed\n");
     kmem_page_debug();
     terminal_default_color();
   }
   mem2 = aligned_alloc(16, 4 * 1024 * 1024);
   if (!mem2) {
-    terminal_fgcolor(CGA_COLOR_LIGHT_RED);
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
     printf("16MB allocation failed\n");
     kmem_page_debug();
     terminal_default_color();
@@ -54,14 +54,14 @@ void kmem_cache_test() {
 
   mem = aligned_alloc(1, 32 * 1024 * 1024);
   if (!mem) {
-    terminal_fgcolor(CGA_COLOR_LIGHT_RED);
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
     printf("32MB allocation failed\n");
     kmem_page_debug();
     terminal_default_color();
   }
   mem2 = aligned_alloc(16, 4 * 1024 * 1024);
   if (!mem2) {
-    terminal_fgcolor(CGA_COLOR_LIGHT_RED);
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
     printf("16MB allocation failed\n");
     kmem_page_debug();
     terminal_default_color();

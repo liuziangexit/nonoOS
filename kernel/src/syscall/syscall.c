@@ -3,8 +3,11 @@
 #include "debug.h"
 #include <stdio.h>
 #include <task.h>
+#include <tty.h>
 #include <virtual_memory.h>
 #include <x86.h>
+
+#define VERBOSE
 
 int printf_impl(void *format, void *parameters);
 
@@ -22,21 +25,37 @@ void syscall_dispatch(struct trapframe *tf) {
 
   switch (no) {
   case SYSCALL_EXIT: {
-    // printf("exit() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
-    //        arg[3], arg[4]);
+#ifdef VERBOSE
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+    printf("exit() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
+           arg[3], arg[4]);
+    terminal_default_color();
+#endif
     task_exit();
   } break;
   case SYSCALL_ALLOC: {
-    // printf("aligned_alloc() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1],
-    // arg[2], arg[3], arg[4]);
+#ifdef VERBOSE
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+    printf("aligned_alloc() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1],
+           arg[2], arg[3], arg[4]);
+    terminal_default_color();
+#endif
     // arg[0]也就是alignment不需要用到，因为umalloc直接是平台最大对齐的
     uintptr_t vaddr = umalloc(task->group->vm, arg[1], true, 0, 0);
-    // printf("aligned_alloc() returned: 0x%09llx\n", (int64_t)vaddr);
+#ifdef VERBOSE
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+    printf("aligned_alloc() returned: 0x%09llx\n", (int64_t)vaddr);
+    terminal_default_color();
+#endif
     syscall_return(tf, vaddr);
   } break;
   case SYSCALL_FREE: {
-    // printf("free() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
-    //        arg[3], arg[4]);
+#ifdef VERBOSE
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+    printf("free() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
+           arg[3], arg[4]);
+    terminal_default_color();
+#endif
     ufree(task->group->vm, arg[0]);
     syscall_return(tf, 0);
   } break;

@@ -17,6 +17,8 @@ TODO 合并邻近的VMA，小页表全部存的是物理地址，支持大小页
 -合并页表为4M大页
 */
 
+#define VERBOSE
+
 int vma_compare(const void *a, const void *b) {
   const struct virtual_memory_area *ta = (const struct virtual_memory_area *)a;
   const struct virtual_memory_area *tb = (const struct virtual_memory_area *)b;
@@ -553,6 +555,11 @@ static int compare_malloc_vma(const void *a, const void *b) {
 uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
                   struct virtual_memory_area **out_vma,
                   uintptr_t *out_physical) {
+#ifdef VERBOSE
+  terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+  printf("umalloc(vm, %ll, %s)\n", (int64_t)size, lazy_map ? "true" : "false");
+  terminal_default_color();
+#endif
   struct virtual_memory_area *vma = 0;
   // 1.首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到3
   for (list_entry_t *p = list_next(&vm->partial); p != &vm->partial;
@@ -560,10 +567,20 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     struct virtual_memory_area *pvma = entry2vma(p);
     if (pvma->max_free_area_len >= size) {
       vma = pvma;
+#ifdef VERBOSE
+      terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+      printf("found useable vma in partial\n");
+      terminal_default_color();
+#endif
       break;
     }
   }
   if (vma == 0) {
+#ifdef VERBOSE
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+    printf("create new MALLOC vma\n");
+    terminal_default_color();
+#endif
     // 2.没有找到合适的vma，那么我们创建一个新的vma
     uint32_t vma_size = ROUNDUP(size, 4096);
     uintptr_t vma_start = virtual_memory_find_fit(
@@ -581,7 +598,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     list_sort_add(&vm->partial, &vma->list_node,
                   (int (*)(const list_entry_t *a,
                            const list_entry_t *b))compare_malloc_vma);
-    //增加freearea
+    // 增加freearea
     struct umalloc_free_area *fa = new_free_area();
     fa->addr = vma_start;
     fa->len = vma_size;
@@ -593,6 +610,12 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     vma->physical = 0;
   }
 
+#ifdef VERBOSE
+  terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+  printf("vma.start = 0x%08llx\n", (int64_t)vma->start);
+  terminal_default_color();
+#endif
+
   /*
   3.从vma中分配一个freearea出来
   这里看起来是first-fit，但同时也是best-fit，因为vma里的freearea是从小到大排序的
@@ -603,6 +626,11 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     struct umalloc_free_area *free_area = (struct umalloc_free_area *)p;
     uint32_t actual_size = ROUNDUP(size, 32);
     if (free_area->len >= actual_size) {
+#ifdef VERBOSE
+      terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+      printf("found freearea of size %ll\n", (int64_t)free_area->len);
+      terminal_default_color();
+#endif
       //如果这个freearea够大
       uint32_t free_area_len = free_area->len;
       uintptr_t addr = free_area->addr;
@@ -613,6 +641,11 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
         // freearea分配完之后还有剩余的空间，我们修改完freearea的size后还把它重新加到list里
         free_area->len -= actual_size;
         free_area->addr += actual_size;
+#ifdef VERBOSE
+        terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+        printf("freearea has %ll left\n", (int64_t)free_area->len);
+        terminal_default_color();
+#endif
         list_init(p);
         list_sort_add(&vma->free_area, p, compare_free_area_by_len);
         // 新建record
@@ -622,6 +655,11 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
         // 整个freearea都被用掉了，freearea结构可以用来当record
         assert(free_area->len == actual_size);
         record = free_area;
+#ifdef VERBOSE
+        terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+        printf("freearea are been totally allocated\n");
+        terminal_default_color();
+#endif
       }
       if (free_area_len == vma->max_free_area_len) {
         // 如果这次用的freearea正好是最大的那个，更新max_free_area_len
@@ -632,6 +670,12 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
               ((struct umalloc_free_area *)vma->free_area.prev)->len;
           assert(vma->max_free_area_len != 0);
         }
+#ifdef VERBOSE
+        terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+        printf("update max_free_area_len to %ll\n",
+               (int64_t)vma->max_free_area_len);
+        terminal_default_color();
+#endif
       }
       if (list_empty(&vma->free_area)) {
         // 如果freearea用完了，把vma移动到full链表里
@@ -639,6 +683,11 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
         list_del(&vma->list_node);
         list_init(&vma->list_node);
         list_add(&vm->full, &vma->list_node);
+#ifdef VERBOSE
+        terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+        printf("move vma to full\n");
+        terminal_default_color();
+#endif
       }
       // 记录本次分配的地址和长度
       avl_node_init(&record->avl_head);
@@ -658,6 +707,11 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
           *out_physical = 0;
         }
       }
+#ifdef VERBOSE
+      terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+      printf("return 0x%08llx\n", (int64_t)addr);
+      terminal_default_color();
+#endif
       return addr;
     }
   }
@@ -668,9 +722,6 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
 // malloc的vma缺页时候，把一整个vma都映射上物理内存
 // FIXME 现在这里用的是内核内存（NORMAL_REGION），实际上需要从其他空闲内存分配
 void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
-#ifndef NDEBUG
-  // printf("upfault\n");
-#endif
   assert(vma->type == MALLOC);
   assert(vma->size >= 4096 && vma->size % 4096 == 0);
   void *physical = kmem_page_alloc(vma->size / 4096);
@@ -686,12 +737,28 @@ void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
   }
   vma->physical = physical;
   lcr3(rcr3());
+#ifdef VERBOSE
+  terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+  printf("upfault physical 0x%08llx to virtual 0x%08llx, length %ll\n",
+         (int64_t)(uintptr_t)physical, (int64_t)vma->start, (int64_t)vma->size);
+  terminal_default_color();
+#endif
 }
 
 // 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
 void ufree(struct virtual_memory *vm, uintptr_t addr) {
+#ifdef VERBOSE
+  terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+  printf("ufree(vm, 0x%08llx)\n", (int64_t)addr);
+  terminal_default_color();
+#endif
   struct virtual_memory_area *vma = virtual_memory_get_vma(vm, addr);
   assert(vma && vma->type == MALLOC);
+#ifdef VERBOSE
+  terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+  printf("vma.start = 0x%08llx\n", (int64_t)vma->start);
+  terminal_default_color();
+#endif
   const bool in_full = list_empty(&vma->free_area);
   // 1.查表得到size
   struct umalloc_free_area find;
@@ -826,6 +893,11 @@ FREE_AREA_RETURNED:
         malloc_vma_destroy(vma);
         virtual_memory_free(vm, vma);
         lcr3(rcr3());
+#ifdef VERBOSE
+        terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+        printf("vma deleted\n");
+        terminal_default_color();
+#endif
         return;
       }
     }
@@ -833,9 +905,19 @@ FREE_AREA_RETURNED:
   // 4.更新max_free_area_len和vma所在的链表(从full移动到partial)
   vma->max_free_area_len =
       ((struct umalloc_free_area *)vma->free_area.prev)->len;
+#ifdef VERBOSE
+  terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+  printf("max_free_area_len set to %ll\n", (int64_t)vma->max_free_area_len);
+  terminal_default_color();
+#endif
   if (in_full) {
     // 如果vma->free_area只有1个元素
     list_del(&vma->list_node);
     list_add(&vm->partial, &vma->list_node);
+#ifdef VERBOSE
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+    printf("vma are been moved to partial\n");
+    terminal_default_color();
+#endif
   }
 }
