@@ -3,12 +3,12 @@
 #include <list.h>
 
 void list_sort_add(list_entry_t *listelm, list_entry_t *elm,
-                   int (*compare)(const list_entry_t *a,
-                                  const list_entry_t *b)) {
+                   int (*compare)(const void *a, const void *b),
+                   uint32_t offset) {
   assert(listelm && elm && compare);
   list_entry_t *p = list_next(listelm);
   while (p != listelm) {
-    int cmp = compare(elm, p);
+    int cmp = compare((void *)elm - offset, (void *)p - offset);
     if (cmp > 0) {
       // 如果elm大于当前遍历的元素
       list_entry_t *next = list_next(p);

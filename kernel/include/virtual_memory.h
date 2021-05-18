@@ -1,13 +1,29 @@
 #ifndef __KERNEL_VIRTUAL_MEMORY_H__
 #define __KERNEL_VIRTUAL_MEMORY_H__
 #include <avlmini.h>
+#include <compiler_helper.h>
 #include <list.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 // 首次使用前，对vm系统做一些检查
 void virtual_memory_check();
 
 enum virtual_memory_area_type { KERNEL, CODE, STACK, MALLOC };
+
+static __always_inline const char *
+vma_type_str(enum virtual_memory_area_type e) {
+  if (e == KERNEL)
+    return "KERNEL";
+  if (e == CODE)
+    return "CODE";
+  if (e == STACK)
+    return "STACK";
+  if (e == MALLOC)
+    return "MALLOC";
+  abort();
+  __builtin_unreachable();
+}
 
 /*
 CAUTION!
@@ -25,7 +41,9 @@ struct virtual_memory_area {
   // malloc类型时用的额外信息
   list_entry_t list_node; // 串在virtual_memory.partial或full
   list_entry_t
-      free_area; // umalloc_free_area的链表，按照len从小到大排序，这样first-fit就是best-fit
+      free_area_sort_by_len; // umalloc_free_area的链表，按照len从小到大排序，这样first-fit就是best-fit
+  struct avl_tree
+      free_area_sort_by_addr; // umalloc_free_area的二叉树，以addr为主键
   uint32_t max_free_area_len;          // 最大的freearea是多大
   struct avl_tree allocated_free_area; // 已分配的free_area信息
   void *physical;                      // 物理页地址
@@ -39,7 +57,6 @@ struct virtual_memory {
   list_entry_t partial;
   // 全部使用的malloc类型vma
   list_entry_t full;
-  // uint32_t vma_cnt;
   uint32_t *page_directory;
 };
 
@@ -93,10 +110,8 @@ compare_free_area
 */
 //存在物理页首部的链表头
 struct umalloc_free_area {
-  union {
-    list_entry_t list_head;
-    struct avl_node avl_head;
-  };
+  struct avl_node avl_head;
+  list_entry_t list_head;
   uintptr_t addr;
   size_t len;
 };

@@ -130,7 +130,7 @@ static __always_inline void __list_del(list_entry_t *prev, list_entry_t *next) {
 }
 
 void list_sort_add(list_entry_t *listelm, list_entry_t *elm,
-                   int (*compare)(const list_entry_t *a,
-                                  const list_entry_t *b));
+                   int (*compare)(const void *a, const void *b),
+                   uint32_t offset);
 
 #endif /* !__LIBS_LIST_H__ */
