@@ -32,28 +32,21 @@ void task_args_init(struct task_args *dst) {
 
 void task_args_add(struct task_args *dst, const char *str,
                    struct virtual_memory *vm) {
-  struct task_arg *holder;
-  if (!vm) {
-    holder = (struct task_arg *)malloc(sizeof(struct task_arg));
-  } else {
-    uintptr_t physical;
-    if (!umalloc(vm, sizeof(struct task_arg), false, 0, &physical)) {
-      abort();
-    }
-    holder = (struct task_arg *)physical;
-  }
+  struct task_arg *holder = (struct task_arg *)malloc(sizeof(struct task_arg));
   assert(holder);
   holder->strlen = strlen(str);
   if (!vm) {
     holder->data = (char *)malloc(holder->strlen + 1);
+    holder->vdata = (uintptr_t)holder->data;
   } else {
-    uintptr_t physical;
-    if (!umalloc(vm, holder->strlen + 1, false, 0, &physical)) {
+    uintptr_t virtual, physical;
+    if (!(virtual = umalloc(vm, holder->strlen + 1, false, 0, &physical))) {
       abort();
     }
     holder->data = (char *)physical;
+    holder->vdata = virtual;
   }
-  assert(holder->data);
+  assert(holder->data && holder->vdata);
   memcpy(holder->data, str, holder->strlen);
   holder->data[holder->strlen] = '\0';
   list_add_before(&dst->args, &holder->head);
@@ -65,20 +58,23 @@ void task_args_pack(struct task_args *dst, struct virtual_memory *vm) {
   if (!vm) {
     dst->packed = malloc(sizeof(char *) * dst->cnt);
   } else {
-    uintptr_t physical;
-    if (!umalloc(vm, sizeof(char *) * dst->cnt, false, 0, &physical)) {
+    uintptr_t virtual, physical;
+    if (!(virtual =
+              umalloc(vm, sizeof(char *) * dst->cnt, false, 0, &physical))) {
       abort();
     }
-    dst->packed = physical;
+    dst->packed = (const char **)physical;
+    dst->vpacked = virtual;
   }
   uint32_t i = 0;
   for (list_entry_t *p = list_next(&dst->args); p != &dst->args;
        p = list_next(p)) {
     struct task_arg *arg = (struct task_arg *)p;
-    dst->packed[i++] = arg->data;
+    dst->packed[i++] = (const char *)arg->vdata;
   }
 }
 
+// 对于umalloc出来的内存，这里不作处理，等进程销毁时自动处理
 static void task_args_destroy(struct task_args *dst,
                               struct virtual_memory *vm) {
   uint32_t verify = 0;
@@ -87,14 +83,10 @@ static void task_args_destroy(struct task_args *dst,
     struct task_arg *arg = (struct task_arg *)p;
     if (!vm) {
       free(arg->data);
-    } else {
-      // 反正task销毁时会把所有用户页删掉的，所以这里可以什么也不做
     }
     void *current = p;
     p = list_next(p);
-    if (!vm) {
-      free(current);
-    }
+    free(current);
   }
   list_init(&dst->args);
   if (dst->packed) {
@@ -194,6 +186,7 @@ static void task_destory(ktask_t *t) {
   assert(t);
   if (t->args) {
     task_args_destroy(t->args, t->group->vm);
+    free(t->args);
   }
   kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
   task_group_remove(t);
@@ -209,7 +202,7 @@ static void task_destory(ktask_t *t) {
 }
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
-                                 task_group_t *group, struct task_args *args) {
+                                 task_group_t *group) {
   make_sure_int_disabled();
   if (current && kernel && !current->group->is_kernel) {
     return 0; //只有supervisor才能创造一个supervisor
@@ -274,12 +267,6 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   new_task->id = gen_pid();
   //加入group
   task_group_add(group, new_task);
-  if (args) {
-    task_args_pack(args, group->vm);
-    new_task->args = args;
-  } else {
-    new_task->args = 0;
-  }
   return new_task;
 }
 
@@ -341,7 +328,7 @@ const char *task_state_str(enum task_state s) {
 void task_init() {
   avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
   //将当前的上下文设置为第一个任务
-  ktask_t *init = task_create_impl("idle", true, 0, 0);
+  ktask_t *init = task_create_impl("idle", true, 0);
   if (!init) {
     panic("creating task idle failed");
   }
@@ -436,7 +423,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   assert((entry == DETECT_ENTRY) == is_first);
 
   SMART_CRITICAL_REGION
-  utask_t *new_task = (utask_t *)task_create_impl(name, false, group, args);
+  utask_t *new_task = (utask_t *)task_create_impl(name, false, group);
   if (!new_task) {
     return 0;
   }
@@ -516,11 +503,29 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   //用户栈
   *(uintptr_t *)(new_task->base.regs.esp + 8) =
       new_task->vustack + _4K * TASK_STACK_SIZE;
-  // umalloc(&new_task->base.group->vm,)
-  // argc
-  *(uintptr_t *)(new_task->base.regs.esp + 4) = (uintptr_t)9710;
-  // argv
-  *(void **)(new_task->base.regs.esp) = (void *)9999;
+  if (args) {
+    new_task->base.args = malloc(sizeof(struct task_args));
+    assert(new_task->base.args);
+    task_args_init(new_task->base.args);
+    for (list_entry_t *p = list_next(&args->args); p != &args->args;
+         p = list_next(p)) {
+      struct task_arg *arg = (struct task_arg *)p;
+      task_args_add(new_task->base.args, arg->data, new_task->base.group->vm);
+    }
+    task_args_pack(new_task->base.args, new_task->base.group->vm);
+    *(uint32_t *)(new_task->base.regs.esp + 4) =
+        new_task->base.args->cnt; // argc
+    *(uintptr_t *)(new_task->base.regs.esp) =
+        new_task->base.args->vpacked; // argv
+
+    // 销毁外面传进来的args
+    task_args_destroy(args, 0);
+    free(args);
+  } else {
+    new_task->base.args = 0;
+    *(uintptr_t *)(new_task->base.regs.esp + 4) = (uintptr_t)0; // argc
+    *(void **)(new_task->base.regs.esp) = (void *)0;            // argv
+  }
 
   add_task((ktask_t *)new_task);
   return new_task->base.id;
@@ -531,17 +536,29 @@ pid_t task_create_kernel(void (*func)(int, char **), const char *name,
                          struct task_args *args) {
   SMART_CRITICAL_REGION
   ktask_t *schd = task_find(1);
-  ktask_t *new_task = task_create_impl(name, true, schd->group, args);
+  ktask_t *new_task = task_create_impl(name, true, schd->group);
   if (!new_task)
     return 0;
+
+  if (args) {
+    task_args_pack(args, 0);
+    new_task->args = args;
+  } else {
+    new_task->args = 0;
+  }
 
   //设置上下文和内核栈
   memset(&new_task->regs, 0, sizeof(struct registers));
   new_task->regs.eip = (uint32_t)(uintptr_t)kernel_task_entry;
   new_task->regs.ebp = new_task->kstack + _4K * TASK_STACK_SIZE;
   new_task->regs.esp = new_task->regs.ebp - 3 * sizeof(void *);
-  *(void **)(new_task->regs.esp + 8) = (void *)args->packed; // argv
-  *(void **)(new_task->regs.esp + 4) = (void *)args->cnt;    // argc
+  if (new_task->args) {
+    *(void **)(new_task->regs.esp + 8) = (void *)args->packed; // argv
+    *(void **)(new_task->regs.esp + 4) = (void *)args->cnt;    // argc
+  } else {
+    *(void **)(new_task->regs.esp + 8) = (void *)0; // argv
+    *(void **)(new_task->regs.esp + 4) = (void *)0; // argc
+  }
   *(void **)(new_task->regs.esp) = (void *)func;
 
   add_task(new_task);
