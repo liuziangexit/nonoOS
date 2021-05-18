@@ -28,7 +28,7 @@ void syscall_dispatch(struct trapframe *tf) {
     ktask_t *task = task_find(task_current());
     assert(task && !task->group->is_kernel);
     // arg[0]也就是alignment不需要用到，因为umalloc直接是平台最大对齐的
-    uintptr_t vaddr = umalloc(task->group->vm, arg[1]);
+    uintptr_t vaddr = umalloc(task->group->vm, arg[1], 0, 0);
     printf("aligned_alloc() returned: 0x%09llx\n", (int64_t)vaddr);
     syscall_return(tf, vaddr);
   } break;

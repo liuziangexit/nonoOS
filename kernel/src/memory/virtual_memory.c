@@ -546,8 +546,12 @@ static int compare_malloc_vma(const void *a, const void *b) {
 2)创建ROUND(size, 4K)这么大的vma，然后设置好free_area
 3)通过vma里freearea(从小到大排序)，first-fit(因为排序了，也是best-fit)分配一个合适的虚拟地址返回，同时在内部记录此地址对应的分配长度
 注意确保分配出去的内存总是对齐到MAX_ALIGNMENT
+在函数返回了非0值并有提供out_vma参数时，out_vma将被设置为指向分配内存所属vma的指针
+在函数返回了非0值并有提供out_physical参数时，out_physical将被设置为分配内存的物理地址
 */
-uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
+uintptr_t umalloc(struct virtual_memory *vm, uint32_t size,
+                  struct virtual_memory_area **out_vma,
+                  uintptr_t *out_physical) {
   struct virtual_memory_area *vma = 0;
   // 1.首先遍历vm.partial里的vma，看看max_free_area_len是不是>=size，如果是就跳到3
   for (list_entry_t *p = list_next(&vm->partial); p != &vm->partial;
@@ -640,6 +644,16 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
       record->addr = addr;
       record->len = actual_size;
       avl_tree_add(&vma->allocated_free_area, record);
+      if (out_vma) {
+        *out_vma = vma;
+      }
+      if (out_physical) {
+        if (vma->physical) {
+          *out_physical = vma->physical + (addr - vma->start);
+        } else {
+          *out_physical = 0;
+        }
+      }
       return addr;
     }
   }
