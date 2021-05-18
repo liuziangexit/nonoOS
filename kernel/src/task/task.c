@@ -26,7 +26,7 @@ static ktask_t *current;
 static pid_t id_seq;
 
 void task_args_init(struct task_args *dst) {
-  dst->cnt = 0;
+  memset(dst, 0, sizeof(struct task_args));
   list_init(&dst->args);
 }
 
@@ -64,7 +64,8 @@ static void task_args_destroy(struct task_args *dst) {
     free(current);
   }
   list_init(&dst->args);
-  free((void *)dst->packed);
+  if (dst->packed)
+    free((void *)dst->packed);
   assert(verify == dst->cnt);
   dst->cnt = 0;
 }

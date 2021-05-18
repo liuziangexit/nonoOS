@@ -648,6 +648,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size) {
 }
 
 // malloc的vma缺页时候，把一整个vma都映射上物理内存
+// FIXME 现在这里用的是内核内存（NORMAL_REGION），实际上需要从其他空闲内存分配
 void umalloc_pgfault(struct virtual_memory *vm,
                      struct virtual_memory_area *vma) {
   assert(vma->type == MALLOC);
