@@ -200,6 +200,8 @@ void *kmem_cache_alloc(size_t alignment, size_t size) {
   assert(alignment != 0);
   assert(is_pow2(alignment) && alignment <= MAX_ALIGNMENT);
   //处理size参数，寻找合适的对象池(cache)
+  if (size == 0)
+    size = 1;
   size_t exp = log2(next_pow2(size));
   if (exp < 3)
     exp = 3;
