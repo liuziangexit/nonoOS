@@ -1,6 +1,6 @@
 set -e
 cd ..
-make
-make fs.img
+make -j12
+make fs.img -j12
 cd -
 

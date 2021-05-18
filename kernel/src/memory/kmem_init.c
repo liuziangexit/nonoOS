@@ -35,25 +35,25 @@ void kmem_init(struct e820map_t *memlayout) {
   接下来加上NORMAL_REGION的映射
   */
   normal_region_vaddr = KERNEL_VIRTUAL_BASE + boot_stack_paddr + _4M;
-  //这个for只是为了计算系统内存总量
+  // 这个for只是为了计算系统内存总量
   uint32_t total_memory;
   for (uint32_t i = 0; i < memlayout->count; i++) {
     // BIOS保留的内存
     if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {
       continue;
     }
-    //高于4G
+    // 高于4G
     if (memlayout->ard[i].addr >= 0xffffffff) {
       continue;
     }
     if (memlayout->ard[i].addr + memlayout->ard[i].size > 0xffffffff) {
-      //如果尾端超出4G，那么截去超出部分
+      // 如果尾端超出4G，那么截去超出部分
       total_memory += (uint32_t)((uint64_t)0xffffffff - memlayout->ard[i].addr);
     } else {
       total_memory += memlayout->ard[i].size;
     }
   }
-  //现在计算normal_region应该有多大
+  // 现在计算normal_region应该有多大
   normal_region_size = total_memory / 4;
   // 1G-4M(boot stack用的)-normal_region=还剩多少虚拟地址空间
   uint32_t vm_left = 0xffffffff - 0x400000 - normal_region_vaddr;
@@ -68,18 +68,18 @@ void kmem_init(struct e820map_t *memlayout) {
   printf("kmem_init: normal_region_size =0x%09llx\n",
          (int64_t)normal_region_size);
 
-  //开始寻找合适的物理内存并map到这个normal_region
+  // 开始寻找合适的物理内存并map到这个normal_region
   normal_region_paddr = 0;
   for (uint32_t i = 0; i < memlayout->count; i++) {
     // BIOS保留的内存
     if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {
       continue;
     }
-    //小于normal_region_size的内存
+    // 小于normal_region_size的内存
     if (memlayout->ard[i].size < normal_region_size) {
       continue;
     }
-    //高于4G的内存
+    // 高于4G的内存
     if (memlayout->ard[i].addr >= 0xffffffff) {
       continue;
     }
@@ -89,11 +89,11 @@ void kmem_init(struct e820map_t *memlayout) {
     uint32_t round_diff = (uintptr_t)addr - (uintptr_t)memlayout->ard[i].addr;
     uint32_t page_count =
         (uint32_t)((memlayout->ard[i].size - round_diff) / _4M);
-    //如果对齐之后发现凑不到要求的页数了，那这块内存就没用了
+    // 如果对齐之后发现凑不到要求的页数了，那这块内存就没用了
     if (page_count < normal_region_size / _4M) {
       continue;
     }
-    //如果addr小于NORMAL_REGION开头，就让他从NORMALREGION开始
+    // 如果addr小于NORMAL_REGION开头，就让他从NORMALREGION开始
     if ((uintptr_t)addr < boot_stack_paddr + _4M) {
       if ((uint32_t)addr + (uint32_t)(page_count * _4M) >
           (uint32_t)boot_stack_paddr + _4M) {
@@ -103,17 +103,17 @@ void kmem_init(struct e820map_t *memlayout) {
         continue;
       }
     }
-    //如果addr大于等于4G，就忽略
+    // 如果addr大于等于4G，就忽略
     if ((uintptr_t)addr >= 0xFFFFFFFF) {
       continue;
     }
-    //对于addr+size越过4G界的处理
+    // 对于addr+size越过4G界的处理
     if ((uint32_t)addr + (uint32_t)(page_count * _4M) >= 0xFFFFFFFF) {
       assert((0xFFFFFFFF - (uint32_t)addr) % _4M == 0);
       page_count = (0xFFFFFFFF - (int32_t)addr) / _4M;
     }
-    //对于虚拟地址越过4G界的处理
-    //虚拟地址最后4M是boot栈，所以不能改那里
+    // 对于虚拟地址越过4G界的处理
+    // 虚拟地址最后4M是boot栈，所以不能改那里
     if ((uint64_t)normal_region_vaddr + ((uint64_t)page_count * _4M) >=
         (uint64_t)(0xFFFFFFFF - _4M)) {
       page_count = ((0xFFFFFFFF - _4M) - (int32_t)normal_region_vaddr) / _4M;
@@ -123,7 +123,7 @@ void kmem_init(struct e820map_t *memlayout) {
     }
     normal_region_paddr = (uintptr_t)addr;
     assert(normal_region_paddr == V2P(normal_region_vaddr));
-    //好了，现在准备妥当了，开始做map
+    // 好了，现在准备妥当了，开始做map
     pd_map(kernel_pd, normal_region_vaddr, normal_region_paddr, page_count,
            PTE_P | PTE_W | PTE_PS);
     break;
@@ -137,19 +137,19 @@ void kmem_init(struct e820map_t *memlayout) {
 
   lcr3(V2P((uintptr_t)kernel_pd));
 
-  //验证是不是都可以访问
-  printf("checking memory: 0%...");
+  // 验证是不是都可以访问
+  printf("checking memory: 0%%...");
   uintptr_t cnt =
       normal_region_vaddr + normal_region_size - normal_region_vaddr;
   for (uintptr_t p = normal_region_vaddr;
        p < normal_region_vaddr + normal_region_size; p += 4) {
     *(volatile uint32_t *)p = 0xFFFFFFFF;
     if (cnt != 0 && cnt / (normal_region_vaddr + normal_region_size - p) == 2) {
-      printf("25%...");
+      printf("25%%...");
       cnt = 0;
     }
   }
-  printf("50%...");
+  printf("50%%...");
   cnt = normal_region_vaddr + normal_region_size - normal_region_vaddr;
   for (uintptr_t p = normal_region_vaddr;
        p < normal_region_vaddr + normal_region_size; p += 4) {
@@ -157,11 +157,11 @@ void kmem_init(struct e820map_t *memlayout) {
       panic("normal_region write test failed");
     }
     if (cnt != 0 && cnt / (normal_region_vaddr + normal_region_size - p) == 2) {
-      printf("75%...");
+      printf("75%%...");
       cnt = 0;
     }
   }
-  printf("100%\n");
+  printf("100%%\n");
   terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("normal_region write test passed\n");
   terminal_default_color();
