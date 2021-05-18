@@ -649,7 +649,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size,
       }
       if (out_physical) {
         if (vma->physical) {
-          *out_physical = vma->physical + (addr - vma->start);
+          *out_physical = (uintptr_t)(vma->physical + (addr - vma->start));
         } else {
           *out_physical = 0;
         }
