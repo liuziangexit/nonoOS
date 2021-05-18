@@ -30,8 +30,18 @@ void task_args_init(struct task_args *dst) {
   list_init(&dst->args);
 }
 
-void task_args_add(struct task_args *dst, const char *str) {
-  struct task_arg *holder = (struct task_arg *)malloc(sizeof(struct task_arg));
+void task_args_add(struct task_args *dst, const char *str,
+                   struct virtual_memory *vm) {
+  struct task_arg *holder;
+  if (!vm) {
+    holder = (struct task_arg *)malloc(sizeof(struct task_arg));
+  } else {
+    uintptr_t physical;
+    if (!umalloc(vm, sizeof(struct task_arg), false, 0, &physical)) {
+      abort();
+    }
+    holder = (struct task_arg *)physical;
+  }
   assert(holder);
   holder->strlen = strlen(str);
   holder->data = (char *)malloc(holder->strlen + 1);
@@ -42,9 +52,17 @@ void task_args_add(struct task_args *dst, const char *str) {
   dst->cnt++;
 }
 
-void task_args_pack(struct task_args *dst) {
+void task_args_pack(struct task_args *dst, struct virtual_memory *vm) {
   assert(dst->packed == 0);
-  dst->packed = malloc(sizeof(char *) * dst->cnt);
+  if (!vm) {
+    dst->packed = malloc(sizeof(char *) * dst->cnt);
+  } else {
+    uintptr_t physical;
+    if (!umalloc(vm, sizeof(struct task_arg), false, 0, &physical)) {
+      abort();
+    }
+    dst->packed = physical;
+  }
   uint32_t i = 0;
   for (list_entry_t *p = list_next(&dst->args); p != &dst->args;
        p = list_next(p)) {
@@ -53,19 +71,29 @@ void task_args_pack(struct task_args *dst) {
   }
 }
 
-static void task_args_destroy(struct task_args *dst) {
+static void task_args_destroy(struct task_args *dst,
+                              struct virtual_memory *vm) {
   uint32_t verify = 0;
   for (list_entry_t *p = list_next(&dst->args); p != &dst->args;) {
     verify++;
     struct task_arg *arg = (struct task_arg *)p;
-    free(arg->data);
+    if (!vm) {
+      free(arg->data);
+    } else {
+      // 反正task销毁时会把所有用户页删掉的，所以这里可以什么也不做
+    }
     void *current = p;
     p = list_next(p);
-    free(current);
+    if (!vm) {
+      free(current);
+    }
   }
   list_init(&dst->args);
-  if (dst->packed)
-    free((void *)dst->packed);
+  if (dst->packed) {
+    if (!vm) {
+      free((void *)dst->packed);
+    }
+  }
   assert(verify == dst->cnt);
   dst->cnt = 0;
 }
@@ -157,7 +185,7 @@ static pid_t gen_pid() {
 static void task_destory(ktask_t *t) {
   assert(t);
   if (t->args) {
-    task_args_destroy(t->args);
+    task_args_destroy(t->args, t->group->vm);
   }
   kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
   task_group_remove(t);
@@ -239,7 +267,7 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   //加入group
   task_group_add(group, new_task);
   if (args) {
-    task_args_pack(args);
+    task_args_pack(args, group->vm);
     new_task->args = args;
   } else {
     new_task->args = 0;
@@ -480,7 +508,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   //用户栈
   *(uintptr_t *)(new_task->base.regs.esp + 8) =
       new_task->vustack + _4K * TASK_STACK_SIZE;
-  // TODO 等到实现了用户的业内内存分配，这里就要换成真的参数了
+  // umalloc(&new_task->base.group->vm,)
   // argc
   *(uintptr_t *)(new_task->base.regs.esp + 4) = (uintptr_t)9710;
   // argv

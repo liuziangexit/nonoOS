@@ -39,9 +39,9 @@ void utask_test() {
 
   struct task_args *args = (struct task_args *)malloc(sizeof(struct task_args));
   task_args_init(args);
-  task_args_add(args, "1");
-  task_args_add(args, "2");
-  task_args_add(args, "3");
+  task_args_add(args, "1", 0);
+  task_args_add(args, "2", 0);
+  task_args_add(args, "3", 0);
   pid_t upid =
       task_create_user(_binary____program_hello_world_hello_exe_start,
                        (uintptr_t)_binary____program_hello_world_hello_exe_size,
@@ -57,9 +57,9 @@ void task_test() {
   printf("task1: creating task2\n");
   struct task_args *args = (struct task_args *)malloc(sizeof(struct task_args));
   task_args_init(args);
-  task_args_add(args, "11");
-  task_args_add(args, "22");
-  task_args_add(args, "33");
+  task_args_add(args, "11", 0);
+  task_args_add(args, "22", 0);
+  task_args_add(args, "33", 0);
   pid_t t2 = task_create_kernel(task2, "kernel_test_proc", args);
   assert(t2);
   pid_t t1 = task_current();

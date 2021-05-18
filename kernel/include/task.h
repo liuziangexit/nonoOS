@@ -58,7 +58,8 @@ struct task_arg {
 
 void task_args_init(struct task_args *dst);
 
-void task_args_add(struct task_args *dst, const char *str);
+void task_args_add(struct task_args *dst, const char *str,
+                   struct virtual_memory *vm);
 
 struct registers {
   uint32_t eip;
