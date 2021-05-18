@@ -101,11 +101,10 @@ struct umalloc_free_area {
   size_t len;
 };
 
-uintptr_t umalloc(struct virtual_memory *vm, uint32_t size,
+uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
                   struct virtual_memory_area **out_vma,
                   uintptr_t *out_physical);
-void umalloc_pgfault(struct virtual_memory *vm,
-                     struct virtual_memory_area *vma);
+void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma);
 void ufree(struct virtual_memory *vm, uintptr_t addr);
 
 #endif

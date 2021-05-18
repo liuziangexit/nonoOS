@@ -546,10 +546,11 @@ static int compare_malloc_vma(const void *a, const void *b) {
 2)创建ROUND(size, 4K)这么大的vma，然后设置好free_area
 3)通过vma里freearea(从小到大排序)，first-fit(因为排序了，也是best-fit)分配一个合适的虚拟地址返回，同时在内部记录此地址对应的分配长度
 注意确保分配出去的内存总是对齐到MAX_ALIGNMENT
+参数lazy_map指示在分配vma时，是否延迟映射实际物理页
 在函数返回了非0值并有提供out_vma参数时，out_vma将被设置为指向分配内存所属vma的指针
 在函数返回了非0值并有提供out_physical参数时，out_physical将被设置为分配内存的物理地址
 */
-uintptr_t umalloc(struct virtual_memory *vm, uint32_t size,
+uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
                   struct virtual_memory_area **out_vma,
                   uintptr_t *out_physical) {
   struct virtual_memory_area *vma = 0;
@@ -644,6 +645,9 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size,
       record->addr = addr;
       record->len = actual_size;
       avl_tree_add(&vma->allocated_free_area, record);
+      if (!lazy_map && vma->physical == 0) {
+        upfault(vm, vma);
+      }
       if (out_vma) {
         *out_vma = vma;
       }
@@ -663,13 +667,16 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size,
 
 // malloc的vma缺页时候，把一整个vma都映射上物理内存
 // FIXME 现在这里用的是内核内存（NORMAL_REGION），实际上需要从其他空闲内存分配
-void umalloc_pgfault(struct virtual_memory *vm,
-                     struct virtual_memory_area *vma) {
+void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
+#ifndef NDEBUG
+  printf("upfault\n");
+#endif
   assert(vma->type == MALLOC);
   assert(vma->size >= 4096 && vma->size % 4096 == 0);
   void *physical = kmem_page_alloc(vma->size / 4096);
   if (physical == 0) {
     // 1.swap  2.如果不能swap，让进程崩溃
+    // 考虑此函数有可能是从umalloc里调用的
     abort();
   }
   bool ret = virtual_memory_map(vm, vma, vma->start, vma->size,
