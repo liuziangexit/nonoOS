@@ -557,7 +557,8 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
                   uintptr_t *out_physical) {
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-  printf("umalloc(vm, %ll, %s)\n", (int64_t)size, lazy_map ? "true" : "false");
+  printf("****umalloc(vm, %ll, %s)****\n", (int64_t)size,
+         lazy_map ? "true" : "false");
   terminal_default_color();
 #endif
   struct virtual_memory_area *vma = 0;
@@ -576,13 +577,13 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     }
   }
   if (vma == 0) {
-#ifdef VERBOSE
-    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-    printf("create new MALLOC vma\n");
-    terminal_default_color();
-#endif
     // 2.没有找到合适的vma，那么我们创建一个新的vma
     uint32_t vma_size = ROUNDUP(size, 4096);
+#ifdef VERBOSE
+    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+    printf("create new MALLOC vma size %ll\n", (int64_t)vma_size);
+    terminal_default_color();
+#endif
     uintptr_t vma_start = virtual_memory_find_fit(
         vm, vma_size, USER_CODE_BEGIN, USER_STACK_BEGIN, PTE_U | PTE_W | PTE_P);
     if (vma_start == 0) {
@@ -643,7 +644,8 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
         free_area->addr += actual_size;
 #ifdef VERBOSE
         terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-        printf("freearea has %ll left\n", (int64_t)free_area->len);
+        printf("after allocating %ll, freearea has %ll left\n",
+               (int64_t)actual_size, (int64_t)free_area->len);
         terminal_default_color();
 #endif
         list_init(p);
@@ -709,7 +711,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
       }
 #ifdef VERBOSE
       terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-      printf("return 0x%08llx\n", (int64_t)addr);
+      printf("****return 0x%08llx****\n", (int64_t)addr);
       terminal_default_color();
 #endif
       return addr;
@@ -749,7 +751,7 @@ void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
 void ufree(struct virtual_memory *vm, uintptr_t addr) {
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-  printf("ufree(vm, 0x%08llx)\n", (int64_t)addr);
+  printf("****ufree(vm, 0x%08llx)****\n", (int64_t)addr);
   terminal_default_color();
 #endif
   struct virtual_memory_area *vma = virtual_memory_get_vma(vm, addr);
@@ -920,4 +922,9 @@ FREE_AREA_RETURNED:
     terminal_default_color();
 #endif
   }
+#ifdef VERBOSE
+  terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
+  printf("****ufree return****\n", (int64_t)addr);
+  terminal_default_color();
+#endif
 }
