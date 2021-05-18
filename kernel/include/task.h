@@ -17,8 +17,8 @@
 #define TASK_STACK_SIZE 1024
 //用户代码的虚拟地址
 #define USER_CODE_BEGIN 0x8000000
-//用户栈的虚拟地址(3GB - 512MB)
-#define USER_STACK_BEGIN 0xA0000000
+//用户栈的虚拟地址(3GB - 4K)
+#define USER_STACK_BEGIN (0xC0000000 - TASK_STACK_SIZE * 4096)
 
 #define TASK_INITED_MAGIC 9863479
 extern uint32_t task_inited;

@@ -4,6 +4,5 @@
 #include <stdint.h>
 typedef uint32_t pid_t;
 pid_t get_pid();
-
 #endif
 #endif

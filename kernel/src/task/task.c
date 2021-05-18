@@ -482,7 +482,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
       entry = (uintptr_t)elf_header->e_entry;
     }
   }
-  //在虚拟内存中的3G-512MB是用户栈
+  //在虚拟内存中的用户栈
   new_task->vustack = USER_STACK_BEGIN;
   struct virtual_memory_area *vma = virtual_memory_alloc(
       new_task->base.group->vm, new_task->vustack, _4K * TASK_STACK_SIZE,

@@ -6,8 +6,7 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
-int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
-                void *parameters);
+int printf_impl(void *format, void *parameters);
 
 void syscall_return(struct trapframe *tf, uint32_t ret) {
   tf->tf_gprs.reg_eax = ret;
@@ -23,8 +22,8 @@ void syscall_dispatch(struct trapframe *tf) {
 
   switch (no) {
   case SYSCALL_EXIT: {
-    printf("exit() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
-           arg[3], arg[4]);
+    // printf("exit() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
+    //        arg[3], arg[4]);
     task_exit();
   } break;
   case SYSCALL_ALLOC: {
@@ -45,7 +44,7 @@ void syscall_dispatch(struct trapframe *tf) {
     syscall_return(tf, task->id);
   } break;
   case SYSCALL_PRINTF: {
-    int ret = printf_impl(arg[0], 0, 0, arg[1]);
+    int ret = printf_impl((void *)arg[0], (void *)arg[1]);
     syscall_return(tf, ret);
   } break;
   default: {

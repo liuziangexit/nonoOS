@@ -669,7 +669,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
 // FIXME 现在这里用的是内核内存（NORMAL_REGION），实际上需要从其他空闲内存分配
 void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
 #ifndef NDEBUG
-  printf("upfault\n");
+  // printf("upfault\n");
 #endif
   assert(vma->type == MALLOC);
   assert(vma->size >= 4096 && vma->size % 4096 == 0);

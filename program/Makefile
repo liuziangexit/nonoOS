@@ -5,7 +5,7 @@ AR=$(CCPREFIX)ar
 LD=$(CCPREFIX)ld
 OBJCOPY=$(CCPREFIX)objcopy
 
-CFLAGS=-O0 -g -Wall -Wextra -ffreestanding -nostdinc
+CFLAGS=-O0 -DLIBNO_USER -g -Wall -Wextra -ffreestanding -nostdinc
 CVERSION=-std=gnu11
 INCLUDE=-I../libno/include
 

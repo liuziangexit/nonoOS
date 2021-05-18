@@ -22,14 +22,10 @@ static void print(const char *data, size_t length) {
   terminal_write(data, length);
 }
 
-#define GET_ARG_VA(TYPE) (va_arg(*parameters, TYPE))
-#define GET_ARG_ARRAY(TYPE) ((TYPE)args[arg_idx++])
-#define GET_ARG(TYPE) (args ? GET_ARG_ARRAY(TYPE) : GET_ARG_VA(TYPE))
+#define GET_ARG(TYPE) (va_arg(*parameters, TYPE))
 // TODO 瞎xx写的printf，以后重构掉或者抄一个来
-int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
-                va_list *parameters) {
+int printf_impl(const char *restrict format, va_list *parameters) {
   int written = 0;
-  uint32_t arg_idx = 0;
   while (*format != '\0') {
     size_t maxrem = INT_MAX - written;
     if (format[0] != '%' || format[1] == '%') {
@@ -53,7 +49,6 @@ int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
     if (*format == 'c') {
       format++;
       char c = (char)GET_ARG(int);
-      assert(arg_idx <= len);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
         return -1;
@@ -63,7 +58,6 @@ int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
     } else if (*format == 's') {
       format++;
       const char *str = GET_ARG(const char *);
-      assert(arg_idx <= len);
       size_t len = strlen(str);
       if (maxrem < len) {
         // TODO: Set errno to EOVERFLOW.
@@ -75,7 +69,6 @@ int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
                *(format + 1) == 'l') {
       format += 2;
       int64_t v = GET_ARG(uint64_t);
-      assert(arg_idx <= len);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
         return -1;
@@ -89,7 +82,6 @@ int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
     } else if (*format == 'd') {
       format++;
       int32_t v = GET_ARG(int32_t);
-      assert(arg_idx <= len);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
         return -1;
@@ -108,7 +100,6 @@ int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
       format++;
       format++; // skip x
       int32_t v = GET_ARG(int32_t);
-      assert(arg_idx <= len);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
         return -1;
@@ -137,7 +128,6 @@ int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
       format++;
       format += 3; // skip llx
       int64_t v = GET_ARG(int64_t);
-      assert(arg_idx <= len);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
         return -1;
@@ -175,8 +165,9 @@ int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
 int printf(const char *restrict format, ...) {
   va_list parameters;
   va_start(parameters, format);
-  printf_impl(format, 0, 0, &parameters);
+  int ret = printf_impl(format, &parameters);
   va_end(parameters);
+  return ret;
 }
 
 int puts(const char *string) { return printf("%s\n", string); }
@@ -191,26 +182,10 @@ int putchar(int ic) {
 }
 
 int printf(const char *restrict format, ...) {
-  // UNUSED(format);
-  // // 数一下有多少个占位符
-  // uint32_t placeholder_cnt = 0;
-  // uint32_t format_len = strlen(format);
-  // for (uint32_t idx = 0; idx < format_len; idx++) {
-  //   if (format[idx] == '%') {
-  //     if (idx + 1 >= format_len || format[idx + 1] != '%') {
-  //       placeholder_cnt++;
-  //     }
-  //   }
-  // }
-  // uint64_t *args = malloc(sizeof(uint64_t) * placeholder_cnt);
-  // assert(args);
-  // free(args);
-
   va_list parameters;
   va_start(parameters, format);
   uint32_t ret = syscall(SYSCALL_PRINTF, 2, format, &parameters);
   va_end(parameters);
-
   return ret;
 }
 
