@@ -7,10 +7,16 @@
 #define DMA_REGION_SIZE 0x1000000
 // 内核代码从16MB开始
 #define KERNEL_IMAGE 0x1000000
+
 // NORMAL_REGION是动态的
-// 内核vmalloc的地方从896MB开始
-#define KERNEL_VMALLOC_REGION 0x38000000
-#define KERNEL_VMALLOC_REGION_SIZE (0x40000000 - 0x38000000)
+// 见后面的代码
+
+// 内核MAP的地方从896MB开始
+// 这个区域的主要作用是把FREE SPACE的某个或多个页map到这里，以便内核访问
+// 这个只有加上了KERNEL_VIRTUAL_BASE才有意义
+#define KERNEL_MAP_REGION 0x38000000
+#define KERNEL_MAP_REGION_SIZE (0x40000000 - 0x38000000)
+
 //虚拟地址转物理地址
 #define V2P(n) (n - KERNEL_VIRTUAL_BASE)
 //物理地址转虚拟地址
@@ -32,6 +38,7 @@ extern uintptr_t boot_stack_paddr;
 uintptr_t boot_stack_v2p(uintptr_t);
 uintptr_t boot_stack_p2v(uintptr_t);
 
+// NORMAL REGION
 extern uintptr_t normal_region_vaddr;
 extern uint32_t normal_region_size;
 extern uintptr_t normal_region_paddr;

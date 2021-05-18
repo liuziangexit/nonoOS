@@ -38,6 +38,9 @@ void kmem_cache_test() {
     free(mem2);
   if (mem)
     free(mem);
+  mem = kmem_cache_alloc(32, 0);
+  assert(mem);
+  kmem_cache_free(mem);
 
   mem = kmem_cache_alloc(32, 1898);
   assert(mem);

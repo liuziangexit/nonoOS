@@ -196,7 +196,7 @@ static void task_destory(ktask_t *t) {
     free(ut->program);
   }
 #ifndef NDEBUG
-  printf("task_destory: destroy task %s\n", t->name);
+  printf("task_destory: destroy task %s(%ll)\n", t->name, (int64_t)t->id);
 #endif
   free(t);
 }

@@ -6,6 +6,9 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
+int printf_impl(const char *restrict format, uint64_t *args, uint32_t len,
+                void *parameters);
+
 void syscall_return(struct trapframe *tf, uint32_t ret) {
   tf->tf_gprs.reg_eax = ret;
 }
@@ -15,6 +18,8 @@ void syscall_dispatch(struct trapframe *tf) {
                      tf->tf_gprs.reg_ebx, tf->tf_gprs.reg_edi,
                      tf->tf_gprs.reg_esi};
   int no = tf->tf_gprs.reg_eax;
+  ktask_t *const task = task_find(task_current());
+  assert(task && !task->group->is_kernel);
 
   switch (no) {
   case SYSCALL_EXIT: {
@@ -23,30 +28,25 @@ void syscall_dispatch(struct trapframe *tf) {
     task_exit();
   } break;
   case SYSCALL_ALLOC: {
-    printf("aligned_alloc() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1],
-           arg[2], arg[3], arg[4]);
-    ktask_t *task = task_find(task_current());
-    assert(task && !task->group->is_kernel);
+    // printf("aligned_alloc() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1],
+    // arg[2], arg[3], arg[4]);
     // arg[0]也就是alignment不需要用到，因为umalloc直接是平台最大对齐的
     uintptr_t vaddr = umalloc(task->group->vm, arg[1], true, 0, 0);
-    printf("aligned_alloc() returned: 0x%09llx\n", (int64_t)vaddr);
+    // printf("aligned_alloc() returned: 0x%09llx\n", (int64_t)vaddr);
     syscall_return(tf, vaddr);
   } break;
   case SYSCALL_FREE: {
-    printf("free() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
-           arg[3], arg[4]);
-    ktask_t *task = task_find(task_current());
-    assert(task && !task->group->is_kernel);
+    // printf("free() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
+    //        arg[3], arg[4]);
     ufree(task->group->vm, arg[0]);
     syscall_return(tf, 0);
   } break;
   case SYSCALL_GETPID: {
-    printf("getpid() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
-           arg[3], arg[4]);
-    printf("\n\n");
-    print_cur_status();
-    printf("\n\nhlt()");
-    hlt();
+    syscall_return(tf, task->id);
+  } break;
+  case SYSCALL_PRINTF: {
+    int ret = printf_impl(arg[0], 0, 0, arg[1]);
+    syscall_return(tf, ret);
   } break;
   default: {
     printf("unknown systeam call %d with args:  %d, %d, %d, %d, %d\n", no,

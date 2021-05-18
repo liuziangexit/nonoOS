@@ -9,11 +9,19 @@
 #include <tty.h>
 #include <x86.h>
 
-// DMA_REGION是boot stack之后的16MB内存
-// NORMAL_REGION是DMA_REGION之后的剩余内存中的1/4
-// 例：总共有255MB内存，最初4MB是程序映像，第二个4MB是boot
-// stack，接着是16MB的DMA_REGION，
-// 然后是(255-4-4-16)/4=57MB的NORMAL_REGION，剩下的区域是FREESPACE，用于VMA
+/*
+物理内存上看，最开始16MB是VMA区域，其中较低部分包含了CGA BUFFER等硬件映射的内存
+接着是kernel代码从16MB开始
+kernel代码后的第一个4M地址上是bootstack，长度是4MB
+bootstack后第一个4M地址上是NORMAL REGION，长度不大于total memory/4
+剩下的内存都是VMA用的
+
+从虚拟内存上看，最初0-4M没有映射
+3GB开始，第一个16MB是直接映射的VMA区域
+接着从3G+16M开始，是内核代码直接映射
+接着是NORMAL REGION直接映射
+最后3GB+896MB(KERNEL_MAP_REGION)开始一直到虚拟地址末尾是MAP区域
+*/
 void kmem_init(struct e820map_t *memlayout) {
   extern uint32_t kernel_pd[];
   _Alignas(_4K) uint32_t temp_pd[1024];
