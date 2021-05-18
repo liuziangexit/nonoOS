@@ -37,18 +37,20 @@ OK-测试umalloc_pgfault
 OK-实现ufree
 OK-析构vm的时候回收用户malloc相关内存
 OK-实现用户的malloc的页内内存分配
+OK-实现task传参数
+OK-画一下内核内存布局
+OK-getpid
+OK-实现系统调用 printf
 
--实现task传参数
 -task返回值
 
 -考虑一下switch_to里面没有储存eax有没有问题？
--画一下内核内存布局
 -实现内核之外的物理内存的页分配
+-用户malloc使用FREE SPACE的内存
 -用户只需要调用那个中断就可以提权到ring0，修复这问题
 
 -实现简单调度算法
 -实现mutex、信号量。可以按照java和c#的方式，用一种对象来实现
--getpid
 -sleep
 -yield
 -lock
@@ -57,10 +59,9 @@ OK-实现用户的malloc的页内内存分配
 -notify
 
 -实现用户态abort，只是abort用户进程
--实现系统调用 printf
 -实现nosh(nonoShell)
 -重新考虑输入输出，主要是如何判断输入属于哪个进程
--实现系统调用 scanf
+-实现系统调用scanf
 
 -想办法看看taskswitch耗时多少，考虑怎么根据耗时动态计算时间片
 -在物理机上运行
