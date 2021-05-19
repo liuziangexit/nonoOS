@@ -71,9 +71,7 @@ void virtual_memory_clone(struct virtual_memory *vm,
         struct virtual_memory_area *vma = virtual_memory_alloc(
             vm, pd_idx * _4M, _4M, page_directory[pd_idx] & 7, type, true);
         assert(vma);
-        bool ret =
-            virtual_memory_map(vm, vma, pd_idx * _4M, _4M, ps_page_frame);
-        assert(ret);
+        virtual_memory_map(vm, vma, pd_idx * _4M, _4M, ps_page_frame);
       } else {
         // 4K页
         uint32_t *pt = (uint32_t *)(page_directory[pd_idx] & ~0xFFF);
@@ -84,9 +82,8 @@ void virtual_memory_clone(struct virtual_memory *vm,
                 virtual_memory_alloc(vm, pt_idx * _4K + pd_idx * _4M, _4K,
                                      pt[pt_idx] & 7, type, true);
             assert(vma);
-            bool ret = virtual_memory_map(vm, vma, pt_idx * _4K + pd_idx * _4M,
-                                          _4K, page_frame);
-            assert(ret);
+            virtual_memory_map(vm, vma, pt_idx * _4K + pd_idx * _4M, _4K,
+                               page_frame);
           }
         }
       }
@@ -164,8 +161,7 @@ static uintptr_t vm_get_4mboundary(uintptr_t addr) {
 }
 
 // vma是否至少有一部分在boundary所指代的4m页中
-static bool vm_same_4mpage(uintptr_t boundary,
-                           struct virtual_memory_area *vma) {
+static bool vm_same_4mpage(uint64_t boundary, struct virtual_memory_area *vma) {
   assert(boundary % _4M == 0);
   // 特殊情况，如果头在4m之前，尾在4m之后，那么还是返回true
   if (vma->start <= boundary && vma->start + vma->size >= boundary + _4M) {
@@ -192,7 +188,8 @@ static bool vm_compare_flags(uint16_t a, uint16_t b) {
 // 返回0，说明无法匹配flags
 uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
                                const uintptr_t end, uint32_t size,
-                               uint16_t flags) {
+                               uint16_t flags,
+                               enum virtual_memory_area_type type) {
   assert(end > begin && end - begin >= size);
   uintptr_t real_begin = begin;
   struct virtual_memory_area key;
@@ -205,7 +202,7 @@ uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
     }
     if (vm_same_4mpage(key.start, vma)) {
     SAME_PAGE:
-      if (!vm_compare_flags(flags, vma->flags)) {
+      if (!vm_compare_flags(flags, vma->flags) || type != vma->type) {
         // 是同页但比不上
         // 将begin移动到下一个4M页开头
         real_begin = vm_get_4mboundary(real_begin + _4M);
@@ -257,10 +254,10 @@ uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
 // 其实就是first-fit
 // 返回0表示找不到
 // 这是对齐到4K的
-// FIXME 这函数有问题，需要重写
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   uintptr_t begin, uintptr_t end,
-                                  uint16_t flags) {
+                                  uint16_t flags,
+                                  enum virtual_memory_area_type type) {
   assert(end > begin && vma_size >= _4K && vma_size % _4K == 0);
   uint64_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDDOWN(end, _4K);
   if (real_end - real_begin < vma_size) {
@@ -287,7 +284,7 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
           end_candidate - real_begin >= vma_size) {
         // 这个空闲区间满足长度要求，现在检测flags
         real_begin = vm_verify_area_flags(vm, real_begin, end_candidate,
-                                          vma_size, flags);
+                                          vma_size, flags, type);
         if (!real_begin) {
           // flags不匹配！
           // 其实现在这个处理性能不好，因为此时我可以直接跳到下一个4M页，从那里开始检测，对吧
@@ -308,7 +305,7 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
       // 当然，有可能这空间不够大，函数的最后我们会检测这情况的
       // 检查flags先
       real_begin =
-          vm_verify_area_flags(vm, real_begin, real_end, vma_size, flags);
+          vm_verify_area_flags(vm, real_begin, real_end, vma_size, flags, type);
       if (!real_begin) {
         // flags不匹配！
         return 0;
@@ -334,7 +331,7 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
   assert(flags >> 3 == 0);
   // 确定一下有没有重叠
   if (vma_start != virtual_memory_find_fit(vm, vma_size, vma_start,
-                                           vma_start + vma_size, flags)) {
+                                           vma_start + vma_size, flags, type)) {
     panic("vma_start != virtual_memory_find_fit");
   }
   // 确认没有重叠，开始新增了
@@ -439,7 +436,7 @@ void virtual_memory_free(struct virtual_memory *vm,
   free(vma);
 }
 
-bool virtual_memory_map(struct virtual_memory *vm,
+void virtual_memory_map(struct virtual_memory *vm,
                         struct virtual_memory_area *vma, uintptr_t virtual_addr,
                         uint32_t size, uintptr_t physical_addr) {
   assert(virtual_addr % 4096 == 0 && size % 4096 == 0 &&
@@ -492,7 +489,6 @@ bool virtual_memory_map(struct virtual_memory *vm,
     pte_map(&punning.pte, physical_addr, flags);
     pt[pt_idx] = punning.value;
   }
-  return true;
 }
 
 void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
@@ -512,8 +508,8 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
 
 void virtual_memory_print(struct virtual_memory *vm) {
   printf("***************virtual_memory_print***************\n");
-  for (struct virtual_memory_area *vma = avl_tree_first(vm); vma != 0;
-       vma = avl_tree_next(vm, vma)) {
+  for (struct virtual_memory_area *vma = avl_tree_first(&vm->vma_tree);
+       vma != 0; vma = avl_tree_next(&vm->vma_tree, vma)) {
     printf("type:%s start:0x%08llx length:%lld(%lldMB)\n",
            vma_type_str(vma->type), (int64_t)vma->start, (int64_t)vma->size,
            (int64_t)vma->size / 1024 / 1024);
@@ -607,8 +603,9 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     printf("create new MALLOC vma size %lld\n", (int64_t)vma_size);
     terminal_default_color();
 #endif
-    uintptr_t vma_start = virtual_memory_find_fit(
-        vm, vma_size, USER_CODE_BEGIN, USER_STACK_BEGIN, PTE_U | PTE_W | PTE_P);
+    uintptr_t vma_start =
+        virtual_memory_find_fit(vm, vma_size, USER_CODE_BEGIN, USER_STACK_BEGIN,
+                                PTE_U | PTE_W | PTE_P, UMALLOC);
     if (vma_start == 0) {
       panic("unlikely...");
       return 0;
@@ -767,10 +764,7 @@ void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
     // 考虑此函数有可能是从umalloc里调用的
     abort();
   }
-  bool ret = virtual_memory_map(vm, vma, vma->start, vma->size, physical);
-  if (!ret) {
-    abort();
-  }
+  virtual_memory_map(vm, vma, vma->start, vma->size, physical);
   vma->physical = physical;
   lcr3(rcr3());
 #ifdef VERBOSE

@@ -54,6 +54,7 @@ extern uintptr_t normal_region_paddr;
 // MAP REGION
 // 用来映射FREE REGION中的内存以便内核访问的虚拟内存区域
 extern uintptr_t map_region_vaddr;
+extern uintptr_t map_region_vend;
 extern uint32_t map_region_size;
 
 // some constants for bios interrupt 15h AX = 0xE820

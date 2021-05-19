@@ -177,4 +177,5 @@ void kmem_init(struct e820map_t *memlayout) {
   // 设置MAP REGION
   map_region_vaddr = ROUNDUP(normal_region_vaddr + normal_region_size, _4M);
   map_region_size = ROUNDDOWN(0xffffffff - map_region_vaddr, _4K);
+  map_region_vend = map_region_vaddr + map_region_size;
 }

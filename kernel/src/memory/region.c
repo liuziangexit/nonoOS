@@ -8,4 +8,5 @@ uint32_t normal_region_size;
 uintptr_t normal_region_paddr;
 
 uintptr_t map_region_vaddr;
+uintptr_t map_region_vend;
 uint32_t map_region_size;

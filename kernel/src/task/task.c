@@ -27,6 +27,11 @@ static ktask_t *current;
 // id序列
 static pid_t id_seq;
 
+struct virtual_memory *current_vm;
+struct virtual_memory *virtual_memory_current() {
+  return current_vm;
+}
+
 void task_args_init(struct task_args *dst) {
   memset(dst, 0, sizeof(struct task_args));
   list_init(&dst->args);
@@ -507,10 +512,9 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
         new_task->base.group->vm, USER_CODE_BEGIN, ROUNDUP(program_size, _4K),
         PTE_P | PTE_U, UCODE, false);
     assert(vma);
-    bool ret = virtual_memory_map(new_task->base.group->vm, vma,
-                                  USER_CODE_BEGIN, ROUNDUP(program_size, _4K),
-                                  V2P((uintptr_t)new_task->program));
-    assert(ret);
+    virtual_memory_map(new_task->base.group->vm, vma, USER_CODE_BEGIN,
+                       ROUNDUP(program_size, _4K),
+                       V2P((uintptr_t)new_task->program));
     if (entry == DETECT_ENTRY) {
       entry = (uintptr_t)elf_header->e_entry;
     }
@@ -521,9 +525,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
       new_task->base.group->vm, new_task->vustack, _4K * TASK_STACK_SIZE,
       PTE_P | PTE_W | PTE_U, USTACK, false);
   assert(vma);
-  int ret = virtual_memory_map(new_task->base.group->vm, vma, new_task->vustack,
-                               _4K * TASK_STACK_SIZE, V2P(new_task->pustack));
-  assert(ret);
+  virtual_memory_map(new_task->base.group->vm, vma, new_task->vustack,
+                     _4K * TASK_STACK_SIZE, V2P(new_task->pustack));
 
   //设置上下文和内核栈
   memset(&new_task->base.regs, 0, sizeof(struct registers));
@@ -650,14 +653,9 @@ void task_switch(ktask_t *next) {
       uintptr_t val;
     } cr3;
     cr3.val = 0;
-    //如果是用户到内核，那么切换到kernel_pd
-    if (next->group->is_kernel) {
-      set_cr3(&cr3.cr3, V2P((uintptr_t)kernel_pd), false, false);
-    } else {
-      //如果是用户到用户或者内核到用户，那么切换到PCB里的页表
-      set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
-              false);
-    }
+    // 切换到PCB里的页表
+    set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
+            false);
     lcr3(cr3.val);
 
     // 2.切换tss栈
@@ -670,16 +668,17 @@ void task_switch(ktask_t *next) {
   next->state = RUNNING;
   ktask_t *prev = current;
   current = next;
+  current_vm = next->group->vm;
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
 }
 
-//初始化任务系统
+// 初始化任务系统
 void task_init() {
   avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
   avl_tree_init(&ret_val_tree, compare_ret_val, sizeof(struct ret_val), 0);
 
-  //将当前的上下文设置为第一个任务
+  // 将当前的上下文设置为第一个任务
   ktask_t *init = task_create_impl("idle", true, 0);
   if (!init) {
     panic("creating task idle failed");
@@ -691,4 +690,7 @@ void task_init() {
   current = init;
   load_esp0(0);
   task_inited = TASK_INITED_MAGIC;
+  // 设置当前vm为kernelvm
+  init->group->vm = &kernel_vm;
+  current_vm = &kernel_vm;
 }

@@ -83,6 +83,8 @@ struct virtual_memory {
 // 初始化一个虚拟地址空间结构
 struct virtual_memory *virtual_memory_create();
 void virtual_memory_init(struct virtual_memory *vm, void *pd);
+// 当前的vm
+struct virtual_memory *virtual_memory_current();
 //从一个已有的页目录里建立vma
 void virtual_memory_clone(struct virtual_memory *vm,
                           const uint32_t *page_directory,
@@ -96,7 +98,8 @@ struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
 // 返回0表示找不到
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   uintptr_t begin, uintptr_t end,
-                                  uint16_t flags);
+                                  uint16_t flags,
+                                  enum virtual_memory_area_type type);
 
 // 分配对齐到4k的虚拟内存，但没有对应的物理内存
 // 如果vma_start紧接着一个已存在的vma，那么将不会创建新的vma，而是拓展已存在的vma
@@ -113,12 +116,8 @@ void virtual_memory_free(struct virtual_memory *vm,
                          struct virtual_memory_area *vma);
 
 // 在一个虚拟地址空间结构中进行以4k为边界映射
-// 返回false如果
-// 1)没有管理virtual_addr的vma
-// 2)有vma但是size越界
-// 3)这片地址中至少有一部分已经有映射了
 // vma为空时，函数会自动寻找vma
-bool virtual_memory_map(struct virtual_memory *vm,
+void virtual_memory_map(struct virtual_memory *vm,
                         struct virtual_memory_area *vma, uintptr_t virtual_addr,
                         uint32_t size, uintptr_t physical_addr);
 void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
