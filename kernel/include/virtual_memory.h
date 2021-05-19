@@ -46,7 +46,7 @@ struct virtual_memory_area {
       free_area_sort_by_addr; // umalloc_free_area的二叉树，以addr为主键
   uint32_t max_free_area_len;          // 最大的freearea是多大
   struct avl_tree allocated_free_area; // 已分配的free_area信息
-  void *physical;                      // 物理页地址
+  uintptr_t physical;                  // 物理页地址
 };
 
 struct virtual_memory {

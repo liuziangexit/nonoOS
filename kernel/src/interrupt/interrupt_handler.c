@@ -94,9 +94,11 @@ static inline void print_pgfault(struct trapframe *tf) {
    * bit 1 == 0 means read, 1 means write
    * bit 2 == 0 means kernel, 1 means user
    * */
+  uintptr_t physical = linear2physical((const void *)P2V(rcr3()), rcr2());
   terminal_fgcolor(CGA_COLOR_RED);
-  printf("page fault at 0x%08x: %c/%c [%s].\n", rcr2(),
-         (tf->tf_err & 4) ? 'U' : 'K', (tf->tf_err & 2) ? 'W' : 'R',
+  printf("page fault at virtual 0x%08x / physical 0x%08x: %c/%c [%s].\n",
+         rcr2(), physical, (tf->tf_err & 4) ? 'U' : 'K',
+         (tf->tf_err & 2) ? 'W' : 'R',
          (tf->tf_err & 1) ? "protection fault" : "no page found");
   terminal_default_color();
 }

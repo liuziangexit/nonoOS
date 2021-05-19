@@ -305,20 +305,62 @@ static void combine(uint32_t exp, struct page *page_struct, struct zone *zones,
 }
 
 void *kmem_page_alloc(size_t cnt) {
-  SMART_CRITICAL_REGION
-  cnt = next_pow2(cnt);
-  void *p = split(log2(cnt), normal_region_zones, sizeof(normal_region_zones));
-  memset(p, 0, cnt * 4096);
-  return p;
+  return alloc_page_impl(NORMAL_REGION, cnt);
 }
 
 void kmem_page_free(void *p, size_t cnt) {
+  free_page_impl(NORMAL_REGION, (uintptr_t)p, cnt);
+}
+
+static struct zone *get_region_zones(enum MEMORY_REGION r) {
+  if (r == NORMAL_REGION) {
+    return normal_region_zones;
+  }
+  if (r == FREE_REGION) {
+    return free_space_zones;
+  }
+  abort();
+  __builtin_unreachable();
+}
+
+static uint32_t get_region_zones_size(enum MEMORY_REGION r) {
+  if (r == NORMAL_REGION) {
+    return sizeof(normal_region_zones);
+  }
+  if (r == FREE_REGION) {
+    return sizeof(free_space_zones);
+  }
+  abort();
+  __builtin_unreachable();
+}
+
+void *alloc_page_impl(enum MEMORY_REGION r, size_t cnt) {
   SMART_CRITICAL_REGION
-  struct page *page_struct = p;
+  cnt = next_pow2(cnt);
+  void *p = split(log2(cnt), get_region_zones(r), get_region_zones_size(r));
+  if (r == NORMAL_REGION) {
+    memset(p, 0, cnt * 4096);
+  }
+  if (r == FREE_REGION) {
+    // TODO
+  }
+  return p;
+}
+
+void free_page_impl(enum MEMORY_REGION r, uintptr_t p, size_t cnt) {
+  SMART_CRITICAL_REGION
+  struct page *page_struct;
+  if (r == NORMAL_REGION) {
+    page_struct = (struct page *)p;
+  } else if (r == FREE_REGION) {
+    page_struct = malloc(sizeof(struct page));
+  } else {
+    abort();
+  }
   page_struct->addr = (uintptr_t)p;
   cnt = next_pow2(cnt);
-  combine(log2(cnt), page_struct, normal_region_zones,
-          sizeof(normal_region_zones));
+  combine(log2(cnt), page_struct, get_region_zones(r),
+          get_region_zones_size(r));
 }
 
 static bool write_dump(uint32_t *write_pos, void *dst, uint32_t dst_len,

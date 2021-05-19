@@ -90,7 +90,7 @@ void kmain() {
   kmem_page_debug();
   kmem_alloc_init();
   kmem_cache_init();
-  kmem_free_region_init(e820map);
+  free_region_init(e820map);
   virtual_memory_check();
   printf("\n");
   {
@@ -117,7 +117,7 @@ void kmain() {
   memcpy((void *)new_esp, (void *)esp, used_stack);
   // 然后unmap清空原来的内核栈，这样如果还有代码访问那个地方，就会被暴露出来
   memcpy(temp_pd, kernel_pd, _4K);
-  lcr3(pd_lookup(kernel_pd, (uintptr_t)temp_pd));
+  lcr3(linear2physical(kernel_pd, (uintptr_t)temp_pd));
   kernel_pd[1023] = 0;
   // 取消0-4M的映射，要访问0-4M，请访问3G - 3G+4M
   kernel_pd[0] = 0;

@@ -94,7 +94,7 @@ static void malloc_vma_destroy(struct virtual_memory_area *vma) {
   list_init(&vma->list_node);
   assert(vma->size % 4096 == 0);
   if (vma->physical)
-    kmem_page_free(vma->physical, vma->size / 4096);
+    free_region_page_free(vma->physical, vma->size / 4096);
 }
 
 static struct virtual_memory *__vm;
@@ -128,7 +128,6 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
 }
 
 // 寻找对应的vma，如果没有返回0
-// TODO 此函数未测试
 struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
                                                    uint32_t mem) {
   struct virtual_memory_area vma;
@@ -473,7 +472,7 @@ bool virtual_memory_map(struct virtual_memory *vm,
       // 确定PDE的flags和现在要加的PTE flags是一样的
       assert((uint16_t)((*pde) & 0x1F) == flags);
     }
-    //确定页表没问题了，现在开始改页表
+    // 确定页表没问题了，现在开始改页表
     uint32_t *pt = (uint32_t *)P2V((((uint32_t)*pde) & ~0xFFF));
     union {
       struct PTE pte;
@@ -738,18 +737,16 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
 }
 
 // malloc的vma缺页时候，把一整个vma都映射上物理内存
-// FIXME 现在这里用的是内核内存（NORMAL_REGION），实际上需要从其他空闲内存分配
 void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
   assert(vma->type == MALLOC);
   assert(vma->size >= 4096 && vma->size % 4096 == 0);
-  void *physical = kmem_page_alloc(vma->size / 4096);
+  uintptr_t physical = free_region_page_alloc(vma->size / 4096);
   if (physical == 0) {
     // 1.swap  2.如果不能swap，让进程崩溃
     // 考虑此函数有可能是从umalloc里调用的
     abort();
   }
-  bool ret = virtual_memory_map(vm, vma, vma->start, vma->size,
-                                V2P((uintptr_t)physical));
+  bool ret = virtual_memory_map(vm, vma, vma->start, vma->size, physical);
   if (!ret) {
     abort();
   }

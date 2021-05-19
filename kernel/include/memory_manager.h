@@ -4,7 +4,6 @@
 #include <memlayout.h>
 
 void kmem_init(struct e820map_t *memlayout);
-void kmem_free_region_init(struct e820map_t *memlayout);
 
 //跟std::max_align_t意思是一样的
 #define MAX_ALIGNMENT 32
@@ -18,6 +17,7 @@ bool kmem_free(void *);
 
 /*
 按页分配内存的接口
+分配的是normal region内存，这些内存直接映射到内核空间
 用buddy算法实现
 */
 void kmem_page_debug();
@@ -28,6 +28,9 @@ void kmem_page_free(void *, size_t cnt);
 void kmem_page_dump(void *dst, uint32_t dst_len);
 bool kmem_page_compare_dump(void *a, void *b);
 void kmem_page_print_dump(void *dmp);
+enum MEMORY_REGION { NORMAL_REGION, FREE_REGION };
+void *alloc_page_impl(enum MEMORY_REGION r, size_t cnt);
+void free_page_impl(enum MEMORY_REGION r, uintptr_t p, size_t cnt);
 
 /*
 按对象分配内存的接口
@@ -37,5 +40,13 @@ https://www.kernel.org/doc/gorman/html/understand/understand011.html
 void kmem_cache_init();
 void *kmem_cache_alloc(size_t alignment, size_t size);
 bool kmem_cache_free(void *);
+
+/*
+按页分配内存的接口
+分配的是free region内存，这些返回的物理页需要映射到虚拟空间后才能访问
+*/
+void free_region_init(struct e820map_t *memlayout);
+uintptr_t free_region_page_alloc(size_t cnt);
+void free_region_page_free(uintptr_t, size_t cnt);
 
 #endif

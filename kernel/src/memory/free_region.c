@@ -2,9 +2,10 @@
 #include <defs.h>
 #include <memory_manager.h>
 #include <stdio.h>
+#include <sync.h>
 #include <tty.h>
 
-void kmem_free_region_init(struct e820map_t *memlayout) {
+void free_region_init(struct e820map_t *memlayout) {
   // 开始将FREE REGION分配到kmem_page_alloc里
   for (uint32_t i = 0; i < memlayout->count; i++) {
     // BIOS保留的内存
@@ -53,4 +54,12 @@ void kmem_free_region_init(struct e820map_t *memlayout) {
     printf("free region ok\n");
     terminal_default_color();
   }
+}
+
+uintptr_t free_region_page_alloc(size_t cnt) {
+  return (uintptr_t)alloc_page_impl(FREE_REGION, cnt);
+}
+
+void free_region_page_free(uintptr_t addr, size_t cnt) {
+  free_page_impl(FREE_REGION, addr, cnt);
 }

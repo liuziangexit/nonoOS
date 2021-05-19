@@ -14,7 +14,7 @@ src/entry.o\
 src/kernel.o\
 src/memory/kernel_pd.o\
 src/memory/boot_stack.o\
-src/memory/region.o\
+src/memory/normal_region.o\
 src/panic.o\
 src/ctl_char_handler.o\
 src/tty.o\
@@ -22,12 +22,12 @@ src/memory/gdt.o\
 src/memory/e820map.o\
 src/memory/kmem_page_alloc.o\
 src/memory/kmem_cache_alloc.o\
-src/memory/kmem_free_region.o\
 src/memory/kmem_alloc.o\
 src/memory/kmem_init.o\
 src/memory/bare_hashmap.o\
 src/memory/virtual_memory.o\
 src/memory/page_directory_debug.o\
+src/memory/free_region.o\
 src/interrupt/interrupt_handler.o\
 src/interrupt/idtvector.o\
 src/interrupt/interrupt_entry.o\
