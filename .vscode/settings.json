@@ -64,6 +64,9 @@
         "cstdio": "c",
         "sync.h": "c",
         "stdarg.h": "c",
-        "task.h": "c"
+        "task.h": "c",
+        "compare": "c",
+        "cmath": "c",
+        "limits": "c"
     }
 }
