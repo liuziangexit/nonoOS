@@ -15,8 +15,7 @@
 #include <tty.h>
 #include <x86.h>
 
-// buddy
-// TODO 加锁
+// buddy算法实现，管理页内存
 
 //#define NDEBUG 1
 
@@ -36,6 +35,7 @@ struct zone {
 static struct zone zones[31];
 
 static void add_page(struct zone *z, struct page *p) {
+  make_sure_int_disabled();
   list_init((struct list_entry *)p);
 #ifndef NDEBUG
   // dbg模式下看看有没有重复的
@@ -51,6 +51,7 @@ static void add_page(struct zone *z, struct page *p) {
 }
 
 static void del_page(struct zone *z, struct page *p) {
+  make_sure_int_disabled();
 #ifndef NDEBUG
   // dbg模式下看看是不是真的在里面
   bool found = false;
@@ -145,6 +146,7 @@ void kmem_page_init() {
 //从zone[exp]获得一个指针
 //如果zone[exp]没有，则去上层要
 static void *split(uint32_t exp) {
+  make_sure_int_disabled();
   assert(exp < sizeof(zones) / sizeof(struct zone));
 #ifndef NDEBUG
   assert(list_size(&zones[exp].pages.li) == zones[exp].cnt);
@@ -178,6 +180,7 @@ static void *split(uint32_t exp) {
 //如果single可以在zone[exp]里找到他的partner，那就把他们俩组合起来丢到更高层的zone去
 //如果single没有在zone[exp]里找到partner，那就把single丢在zone[exp]里
 static void combine(uint32_t exp, void *single) {
+  make_sure_int_disabled();
   assert(exp < sizeof(zones) / sizeof(struct zone));
 #ifndef NDEBUG
   assert(list_size(&zones[exp].pages.li) == zones[exp].cnt);
