@@ -149,13 +149,14 @@ void ktask0() {
                          16 * 1024 * 1024, 0, KDMA, 0);
     extern uint32_t program_begin[], program_end[];
     virtual_memory_alloc(
-        &kernel_vm, 16 * 1024 * 1024,
+        &kernel_vm, KERNEL_VIRTUAL_BASE + 16 * 1024 * 1024,
         ROUNDUP((uintptr_t)program_end - (uintptr_t)program_begin, _4M), 0,
         KCODE, 0);
     virtual_memory_alloc(&kernel_vm, normal_region_vaddr, normal_region_size, 0,
                          KNORMAL, 0);
     virtual_memory_alloc(&kernel_vm, map_region_vaddr, map_region_size, 0, KMAP,
                          0);
+    virtual_memory_print(&kernel_vm);
   }
   task_test();
   // https://en.wikipedia.org/wiki/Code_page_437

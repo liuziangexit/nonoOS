@@ -24,23 +24,23 @@ enum virtual_memory_area_type {
 static __always_inline const char *
 vma_type_str(enum virtual_memory_area_type e) {
   if (e == UCODE)
-    return "UCODE";
+    return "UCODE  ";
   if (e == USTACK)
-    return "USTACK";
+    return "USTACK ";
   if (e == UMALLOC)
     return "UMALLOC";
   if (e == UKERNEL)
     return "UKERNEL";
   if (e == KUSER)
-    return "KUSER";
+    return "KUSER  ";
   if (e == KDMA)
-    return "KDMA";
+    return "KDMA   ";
   if (e == KCODE)
-    return "KCODE";
+    return "KCODE  ";
   if (e == KNORMAL)
     return "KNORMAL";
   if (e == KMAP)
-    return "KMAP";
+    return "KMAP   ";
   abort();
   __builtin_unreachable();
 }
@@ -123,6 +123,9 @@ bool virtual_memory_map(struct virtual_memory *vm,
                         uint32_t size, uintptr_t physical_addr);
 void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
                           uint32_t size);
+
+// 打印
+void virtual_memory_print(struct virtual_memory *vm);
 
 /*
 CAUTION!

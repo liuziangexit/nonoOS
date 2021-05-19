@@ -510,6 +510,17 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
   }
 }
 
+void virtual_memory_print(struct virtual_memory *vm) {
+  printf("***************virtual_memory_print***************\n");
+  for (struct virtual_memory_area *vma = avl_tree_first(vm); vma != 0;
+       vma = avl_tree_next(vm, vma)) {
+    printf("type:%s start:0x%08llx length:%lld(%lldMB)\n",
+           vma_type_str(vma->type), (int64_t)vma->start, (int64_t)vma->size,
+           (int64_t)vma->size / 1024 / 1024);
+  }
+  printf("**************************************************\n");
+}
+
 void virtual_memory_check() {
   if (sizeof(struct umalloc_free_area) > MAX_ALIGNMENT) {
     panic("sizeof(umalloc_free_area) > MAX_ALIGNMENT");
