@@ -31,8 +31,12 @@ struct zone {
 };
 
 // 2^0到2^30
-//这里必须是static，因为下面的代码假定这些内存已经被memset为0了
-static struct zone zones[31];
+// 这里必须是static，因为下面的代码假定这些内存已经被memset为0了
+
+// normal region的zones
+static struct zone normal_region_zones[31];
+// free space的zones
+static struct zone free_space_zones[31];
 
 static void add_page(struct zone *z, struct page *p) {
   make_sure_int_disabled();
@@ -86,16 +90,19 @@ static uint32_t list_size(list_entry_t *head) {
 void kmem_page_debug() {
   printf("kmem_page_debug\n");
   printf("******************************************\n");
-  for (uint32_t i = 0; i < sizeof(zones) / sizeof(struct zone); i++) {
-    if (zones[i].cnt)
-      printf("zone for 2^%d contains %d\n", i, zones[i].cnt);
+  for (uint32_t i = 0; i < sizeof(normal_region_zones) / sizeof(struct zone);
+       i++) {
+    if (normal_region_zones[i].cnt)
+      printf("zone for 2^%d contains %d\n", i, normal_region_zones[i].cnt);
   }
   printf("******************************************\n");
 }
 
 void kmem_page_init() {
-  for (uint32_t i = 0; i < sizeof(zones) / sizeof(struct zone); i++) {
-    list_init(&zones[i].pages.li);
+  // 初始化normal_region_zones
+  for (uint32_t i = 0; i < sizeof(normal_region_zones) / sizeof(struct zone);
+       i++) {
+    list_init(&normal_region_zones[i].pages.li);
   }
 
   uintptr_t p = normal_region_vaddr;
@@ -126,10 +133,10 @@ void kmem_page_init() {
     struct page *pg = (struct page *)p;
     list_init((list_entry_t *)pg);
     const uint32_t log2_c = log2(c);
-    list_add(&zones[log2_c].pages.li, (list_entry_t *)pg);
+    list_add(&normal_region_zones[log2_c].pages.li, (list_entry_t *)pg);
 
 #ifndef NDEBUG
-    zones[log2_c].cnt++;
+    normal_region_zones[log2_c].cnt++;
 #endif
     page_cnt -= c;
     p += (_4K * c);
@@ -145,9 +152,9 @@ void kmem_page_init() {
 
 //从zone[exp]获得一个指针
 //如果zone[exp]没有，则去上层要
-static void *split(uint32_t exp) {
+static void *split(uint32_t exp, struct zone *zones, const size_t zones_size) {
   make_sure_int_disabled();
-  assert(exp < sizeof(zones) / sizeof(struct zone));
+  assert(exp < zones_size / sizeof(struct zone));
 #ifndef NDEBUG
   assert(list_size(&zones[exp].pages.li) == zones[exp].cnt);
 #endif
@@ -159,12 +166,12 @@ static void *split(uint32_t exp) {
     return rv;
   } else {
     //本层没有
-    if (exp == sizeof(zones) / sizeof(struct zone) - 1) {
+    if (exp == zones_size / sizeof(struct zone) - 1) {
       //本层已经是最顶层，真的没有了，失败
       return 0;
     } else {
       //本层不是最顶层，向上头要
-      void *a = split(exp + 1);
+      void *a = split(exp + 1, zones, zones_size);
       if (a == 0)
         return 0;
       //把拿到的内存切两半
@@ -179,9 +186,10 @@ static void *split(uint32_t exp) {
 
 //如果single可以在zone[exp]里找到他的partner，那就把他们俩组合起来丢到更高层的zone去
 //如果single没有在zone[exp]里找到partner，那就把single丢在zone[exp]里
-static void combine(uint32_t exp, void *single) {
+static void combine(uint32_t exp, void *single, struct zone *zones,
+                    const size_t zones_size) {
   make_sure_int_disabled();
-  assert(exp < sizeof(zones) / sizeof(struct zone));
+  assert(exp < zones_size / sizeof(struct zone));
 #ifndef NDEBUG
   assert(list_size(&zones[exp].pages.li) == zones[exp].cnt);
 #endif
@@ -189,7 +197,7 @@ static void combine(uint32_t exp, void *single) {
   struct page *psingle = (struct page *)single;
   // partner可能是single+2^exp或single-2^exp
   // 看看能不能找到partner
-  if (exp < sizeof(zones) / sizeof(struct zone) - 1 &&
+  if (exp < zones_size / sizeof(struct zone) - 1 &&
       !list_empty(&zones[exp].pages.li)) {
     list_entry_t *p = (list_entry_t *)zones[exp].pages.li.next;
     bool end = false;
@@ -209,10 +217,10 @@ static void combine(uint32_t exp, void *single) {
         //然后向上合并
         if (found == 1) {
           // single在前面
-          combine(exp + 1, single);
+          combine(exp + 1, single, zones, zones_size);
         } else {
           // partner在前面
-          combine(exp + 1, p);
+          combine(exp + 1, p, zones, zones_size);
         }
         return;
       }
@@ -228,7 +236,7 @@ static void combine(uint32_t exp, void *single) {
 void *kmem_page_alloc(size_t cnt) {
   SMART_CRITICAL_REGION
   cnt = next_pow2(cnt);
-  void *p = split(log2(cnt));
+  void *p = split(log2(cnt), normal_region_zones, sizeof(normal_region_zones));
   memset(p, 0, cnt * 4096);
   return p;
 }
@@ -236,7 +244,7 @@ void *kmem_page_alloc(size_t cnt) {
 void kmem_page_free(void *p, size_t cnt) {
   SMART_CRITICAL_REGION
   cnt = next_pow2(cnt);
-  combine(log2(cnt), p);
+  combine(log2(cnt), p, normal_region_zones, sizeof(normal_region_zones));
 }
 
 static bool write_dump(uint32_t *write_pos, void *dst, uint32_t dst_len,
@@ -270,15 +278,18 @@ n*4:zone.pages
 void kmem_page_dump(void *dst, uint32_t dst_len) {
 #ifndef NDEBUG
   uint32_t used = 0;
-  assert(write_dump(&used, dst, dst_len, sizeof(zones) / sizeof(struct zone)));
-  for (uint32_t i = 0; i < sizeof(zones) / sizeof(struct zone); i++) {
-    assert(write_dump(&used, dst, dst_len, zones[i].cnt));
-    if (zones[i].cnt) {
+  assert(write_dump(&used, dst, dst_len,
+                    sizeof(normal_region_zones) / sizeof(struct zone)));
+  for (uint32_t i = 0; i < sizeof(normal_region_zones) / sizeof(struct zone);
+       i++) {
+    assert(write_dump(&used, dst, dst_len, normal_region_zones[i].cnt));
+    if (normal_region_zones[i].cnt) {
       uint32_t biggest = 0;
-      for (uint32_t j = 0; j < zones[i].cnt; j++) {
+      for (uint32_t j = 0; j < normal_region_zones[i].cnt; j++) {
         assert(write_dump(
             &used, dst, dst_len, //
-            pick_biggest(&biggest, (uint32_t *)&zones[i].pages, zones[i].cnt)));
+            pick_biggest(&biggest, (uint32_t *)&normal_region_zones[i].pages,
+                         normal_region_zones[i].cnt)));
       }
     }
   }
