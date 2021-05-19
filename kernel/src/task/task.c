@@ -41,6 +41,7 @@ void task_args_add(struct task_args *dst, const char *str,
                    struct virtual_memory *vm, bool use_umalloc) {
   struct task_arg *holder = (struct task_arg *)malloc(sizeof(struct task_arg));
   assert(holder);
+  memset(holder, 0, sizeof(struct task_arg));
   holder->strlen = strlen(str);
   if (!use_umalloc) {
     holder->data = (uintptr_t)malloc(holder->strlen + 1);
@@ -142,6 +143,7 @@ static int compare_ret_val(const void *a, const void *b) {
 static void record_ret_val(pid_t id, int32_t val) {
   struct ret_val *record = malloc(sizeof(struct ret_val));
   assert(record);
+  memset(record, 0, sizeof(struct ret_val));
   avl_node_init(&record->avl_head);
   record->pid = id;
   record->val = val;
@@ -196,6 +198,7 @@ static task_group_t *task_group_create(bool is_kernel) {
   if (!group) {
     return 0;
   }
+  memset(group, 0, sizeof(sizeof(task_group_t)));
   list_init(&group->tasks);
   group->task_cnt = 0;
   group->is_kernel = is_kernel;
@@ -307,14 +310,12 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   ktask_t *new_task;
   if (kernel) {
     new_task = malloc(sizeof(ktask_t));
-    if (new_task) {
-      memset(new_task, 0, sizeof(ktask_t));
-    }
+    assert(new_task);
+    memset(new_task, 0, sizeof(ktask_t));
   } else {
     new_task = malloc(sizeof(utask_t));
-    if (new_task) {
-      memset(new_task, 0, sizeof(utask_t));
-    }
+    assert(new_task);
+    memset(new_task, 0, sizeof(utask_t));
   }
   if (!new_task) {
     if (group_created) {
