@@ -42,10 +42,9 @@ OK-画一下内核内存布局
 OK-getpid
 OK-实现系统调用 printf
 OK-用户只需要调用那个中断就可以提权到ring0，修复这问题
+OK-task返回值
+OK-考虑一下switch_to里面没有储存eax有没有问题？-没有问题，反正本身eax就是用来返回值的，这也就意味着不储存它不会有什么影响
 
--task返回值
-
--考虑一下switch_to里面没有储存eax有没有问题？
 -实现内核之外的物理内存的页分配
 -用户malloc使用FREE SPACE的内存
 
