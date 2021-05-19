@@ -34,6 +34,7 @@ void kmem_init(struct e820map_t *memlayout) {
   3)boot stack的映射
   接下来加上NORMAL_REGION的映射
   */
+  // 确定normal_region的虚拟地址
   normal_region_vaddr = KERNEL_VIRTUAL_BASE + boot_stack_paddr + _4M;
   // 这个for只是为了计算系统内存总量
   uint32_t total_memory;
@@ -53,7 +54,7 @@ void kmem_init(struct e820map_t *memlayout) {
       total_memory += memlayout->ard[i].size;
     }
   }
-  // 现在计算normal_region应该有多大
+  // 现在计算normal_region的大小
   normal_region_size = total_memory / 4;
   // 1G-4M(boot stack用的)-normal_region=还剩多少虚拟地址空间
   uint32_t vm_left = 0xffffffff - 0x400000 - normal_region_vaddr;
@@ -68,7 +69,7 @@ void kmem_init(struct e820map_t *memlayout) {
   printf("kmem_init: normal_region_size =0x%09llx\n",
          (int64_t)normal_region_size);
 
-  // 开始寻找合适的物理内存并map到这个normal_region
+  // 开始确定normal_region的物理地址
   normal_region_paddr = 0;
   for (uint32_t i = 0; i < memlayout->count; i++) {
     // BIOS保留的内存
@@ -84,6 +85,17 @@ void kmem_init(struct e820map_t *memlayout) {
       continue;
     }
 
+    // 验证4M对齐后，低于4G部分的size是否足够normal_region_size
+    {
+      uint64_t addr = ROUNDUP(memlayout->ard[i].addr, _4M);
+      if (addr >= 0xFFFFFFFF) {
+        continue;
+      }
+      if (0xFFFFFFFF - addr < (uint64_t)normal_region_size) {
+        // 4M对齐后，低于4G部分的size不够normal_region_size
+        continue;
+      }
+    }
     // 4M对齐
     char *addr = (char *)ROUNDUP((uintptr_t)memlayout->ard[i].addr, _4M);
     uint32_t round_diff = (uintptr_t)addr - (uintptr_t)memlayout->ard[i].addr;
@@ -104,9 +116,7 @@ void kmem_init(struct e820map_t *memlayout) {
       }
     }
     // 如果addr大于等于4G，就忽略
-    if ((uintptr_t)addr >= 0xFFFFFFFF) {
-      continue;
-    }
+    assert((uintptr_t)addr < 0xFFFFFFFF);
     // 对于addr+size越过4G界的处理
     if ((uint32_t)addr + (uint32_t)(page_count * _4M) >= 0xFFFFFFFF) {
       assert((0xFFFFFFFF - (uint32_t)addr) % _4M == 0);

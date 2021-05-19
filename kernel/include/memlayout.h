@@ -8,8 +8,11 @@
 // 内核代码从16MB开始
 #define KERNEL_IMAGE 0x1000000
 
-// NORMAL_REGION是动态的
-// 见后面的代码
+/*
+ NORMAL_REGION是动态的，直接映射到内核空间，供内核malloc使用
+ FREE_REGION是动态的，供umalloc使用
+ FREE_REGION可能包含数个不相邻的内存块
+ */
 
 // 内核MAP的地方从896MB开始
 // 这个区域的主要作用是把FREE SPACE的某个或多个页map到这里，以便内核访问
