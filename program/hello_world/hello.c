@@ -5,7 +5,7 @@
 #include <task.h>
 
 int main(int argc, char **argv) {
-  printf("****hello world from user process %ll****\n", (int64_t)get_pid());
+  printf("****hello world from user process %lld****\n", (int64_t)get_pid());
   printf("argc: %d\n", argc);
   for (int i = 0; i < argc; i++) {
     printf("%s ", argv[i]);

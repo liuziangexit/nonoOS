@@ -65,9 +65,9 @@ int printf_impl(const char *restrict format, va_list *parameters) {
       }
       print(str, len);
       written += len;
-    } else if (strlen(format) >= 2 && *(format) == 'l' &&
-               *(format + 1) == 'l') {
-      format += 2;
+    } else if (strlen(format) >= 3 && *(format) == 'l' &&
+               *(format + 1) == 'l' && *(format + 2) == 'd') {
+      format += 3;
       int64_t v = GET_ARG(uint64_t);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.

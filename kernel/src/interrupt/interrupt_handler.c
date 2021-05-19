@@ -121,7 +121,7 @@ void interrupt_handler(struct trapframe *tf) {
   case IRQ_OFFSET + IRQ_TIMER: {
     uint64_t ticks = clock_count_tick();
     if (ticks % TICK_PER_SECOND == 0) {
-      // printf("%ll ", ticks / TICK_PER_SECOND);
+      // printf("%lld ", ticks / TICK_PER_SECOND);
     }
     clock_handler();
   } break;

@@ -244,7 +244,7 @@ static void task_destory(ktask_t *t) {
     free(ut->program);
   }
 #ifndef NDEBUG
-  printf("task_destory: destroy task %s(%ll)\n", t->name, (int64_t)t->id);
+  printf("task_destory: destroy task %s(%lld)\n", t->name, (int64_t)t->id);
 #endif
   free(t);
 }
@@ -617,7 +617,7 @@ void task_sleep(uint64_t millisecond) {
 // TODO 通知等待此线程的线程
 void task_exit(int32_t ret) {
 #ifdef VERBOSE
-  printf("task %llx returned %d\n", (int64_t)task_current(), ret);
+  printf("task %lld returned %d\n", (int64_t)task_current(), ret);
 #endif
   disable_interrupt();
   // 保存返回值供其他task查询

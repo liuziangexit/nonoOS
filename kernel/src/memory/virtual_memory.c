@@ -391,7 +391,7 @@ static struct umalloc_free_area *offset_free_area(void *list_head) {
 static void unfreed_free_area_dtor(void *data) {
   struct umalloc_free_area *free_area = (struct umalloc_free_area *)data;
 #ifndef NDEBUG
-  printf("unfreed memory: 0x%09llx, size: %ll\n", (int64_t)free_area->addr,
+  printf("unfreed memory: 0x%09llx, size: %lld\n", (int64_t)free_area->addr,
          (int64_t)free_area->len);
 #endif
   delete_free_area(free_area);
@@ -560,7 +560,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
                   uintptr_t *out_physical) {
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-  printf("****umalloc(vm, %ll, %s)****\n", (int64_t)size,
+  printf("****umalloc(vm, %lld, %s)****\n", (int64_t)size,
          lazy_map ? "true" : "false");
   terminal_default_color();
 #endif
@@ -584,7 +584,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     uint32_t vma_size = ROUNDUP(size, 4096);
 #ifdef VERBOSE
     terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-    printf("create new MALLOC vma size %ll\n", (int64_t)vma_size);
+    printf("create new MALLOC vma size %lld\n", (int64_t)vma_size);
     terminal_default_color();
 #endif
     uintptr_t vma_start = virtual_memory_find_fit(
@@ -637,7 +637,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     if (free_area->len >= actual_size) {
 #ifdef VERBOSE
       terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-      printf("found freearea of size %ll\n", (int64_t)free_area->len);
+      printf("found freearea of size %lld\n", (int64_t)free_area->len);
       terminal_default_color();
 #endif
       // 如果这个freearea够大
@@ -653,7 +653,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
         free_area->addr += actual_size;
 #ifdef VERBOSE
         terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-        printf("after allocating %ll, freearea has %ll left\n",
+        printf("after allocating %lld, freearea has %lld left\n",
                (int64_t)actual_size, (int64_t)free_area->len);
         terminal_default_color();
 #endif
@@ -688,7 +688,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
         }
 #ifdef VERBOSE
         terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-        printf("update max_free_area_len to %ll\n",
+        printf("update max_free_area_len to %lld\n",
                (int64_t)vma->max_free_area_len);
         terminal_default_color();
 #endif
@@ -757,7 +757,7 @@ void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
   lcr3(rcr3());
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-  printf("upfault physical 0x%08llx to virtual 0x%08llx, length %ll\n",
+  printf("upfault physical 0x%08llx to virtual 0x%08llx, length %lld\n",
          (int64_t)(uintptr_t)physical, (int64_t)vma->start, (int64_t)vma->size);
   terminal_default_color();
 #endif
@@ -785,7 +785,7 @@ void ufree(struct virtual_memory *vm, uintptr_t addr) {
   avl_tree_remove(&vma->allocated_free_area, corresponding);
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-  printf("vma.start = 0x%08llx, free size = %ll\n", (int64_t)vma->start,
+  printf("vma.start = 0x%08llx, free size = %lld\n", (int64_t)vma->start,
          (int64_t)corresponding->len);
   terminal_default_color();
 #endif
@@ -841,7 +841,7 @@ void ufree(struct virtual_memory *vm, uintptr_t addr) {
       offset_free_area(vma->free_area_sort_by_len.prev)->len;
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-  printf("max_free_area_len set to %ll\n", (int64_t)vma->max_free_area_len);
+  printf("max_free_area_len set to %lld\n", (int64_t)vma->max_free_area_len);
   terminal_default_color();
 #endif
   // 3.如果一整个vma都是free的，那么直接删除整个vma，释放物理内存
