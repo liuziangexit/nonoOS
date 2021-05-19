@@ -610,7 +610,9 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     avl_tree_init(&vma->free_area_sort_by_addr, compare_free_area_by_addr,
                   sizeof(struct umalloc_free_area), 0);
     avl_node_init(&fa->avl_head);
-    avl_tree_add(&vma->free_area_sort_by_addr, fa);
+    if (avl_tree_add(&vma->free_area_sort_by_addr, fa)) {
+      panic("umalloc avl_tree_add");
+    }
     vma->max_free_area_len = vma_size;
     avl_tree_init(&vma->allocated_free_area, compare_free_area_by_addr,
                   sizeof(struct umalloc_free_area), 0);
@@ -659,7 +661,9 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
         list_sort_add(&vma->free_area_sort_by_len, &free_area->list_head,
                       compare_free_area_by_len, 16);
         avl_node_init(&free_area->avl_head);
-        avl_tree_add(&vma->free_area_sort_by_addr, free_area);
+        if (avl_tree_add(&vma->free_area_sort_by_addr, free_area)) {
+          panic("umalloc avl_tree_add 2");
+        }
         // 新建record
         record = new_free_area();
         assert(record);
@@ -705,7 +709,9 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
       avl_node_init(&record->avl_head);
       record->addr = addr;
       record->len = actual_size;
-      avl_tree_add(&vma->allocated_free_area, record);
+      if (avl_tree_add(&vma->allocated_free_area, record)) {
+        panic("umalloc avl_tree_add 3");
+      }
       if (!lazy_map && vma->physical == 0) {
         upfault(vm, vma);
       }
@@ -827,7 +833,9 @@ void ufree(struct virtual_memory *vm, uintptr_t addr) {
   list_sort_add(&vma->free_area_sort_by_len, &corresponding->list_head,
                 compare_free_area_by_len, 16);
   avl_node_init(&corresponding->avl_head);
-  avl_tree_add(&vma->free_area_sort_by_addr, corresponding);
+  if (avl_tree_add(&vma->free_area_sort_by_addr, corresponding)) {
+    panic("ufree avl_tree_add");
+  }
   // 更新max_free_area_len
   vma->max_free_area_len =
       offset_free_area(vma->free_area_sort_by_len.prev)->len;
