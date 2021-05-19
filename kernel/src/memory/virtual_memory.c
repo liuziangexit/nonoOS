@@ -37,17 +37,23 @@ struct virtual_memory *virtual_memory_create() {
   if (!vm) {
     return 0;
   }
-  vm->page_directory = kmem_page_alloc(1);
-  if (!vm->page_directory) {
-    free(malloc);
+  void *pd = kmem_page_alloc(1);
+  if (!pd) {
+    free(vm);
     return 0;
   }
-  memset(vm->page_directory, 0, _4K);
+  memset(pd, 0, _4K);
+  virtual_memory_init(vm, pd);
+  return vm;
+}
+
+void virtual_memory_init(struct virtual_memory *vm, void *pd) {
+  assert(vm);
+  vm->page_directory = pd;
   avl_tree_init(&vm->vma_tree, vma_compare, sizeof(struct virtual_memory_area),
                 0);
   list_init(&vm->full);
   list_init(&vm->partial);
-  return vm;
 }
 
 //从一个已有的页目录里建立vma
@@ -213,6 +219,10 @@ uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
       MATCH:
         // 是同页并且匹配
         // 去检测下一个4M页
+        if ((uint64_t)key.start + _4M >= 0xffffffff) {
+          // 跑完地址空间了
+          break;
+        }
         key.start += _4M;
         if (key.start >= end) {
           // 检测完啦，没问题哈

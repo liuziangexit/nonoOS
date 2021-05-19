@@ -10,15 +10,15 @@
 void virtual_memory_check();
 
 enum virtual_memory_area_type {
-  UCODE,          // 用户代码
-  USTACK,         // 用户栈
-  UMALLOC,        // 用户malloc内存块
-  UKERNEL,        // 用户程序看来的内核空间
-  KUSER,          // 内核看来的用户空间
-  KDMA,           // 内核DMA区
-  KCODE,          // 内核代码
-  KNORMAL_REGION, // 内核NORMAL REGION
-  KMAP_REGION     // 内核MAP REGION
+  UCODE,   // 用户代码
+  USTACK,  // 用户栈
+  UMALLOC, // 用户malloc内存块
+  UKERNEL, // 用户程序看来的内核空间
+  KUSER,   // 内核看来的用户空间
+  KDMA,    // 内核DMA区
+  KCODE,   // 内核代码
+  KNORMAL, // 内核NORMAL REGION
+  KMAP     // 内核MAP REGION
 };
 
 static __always_inline const char *
@@ -37,10 +37,10 @@ vma_type_str(enum virtual_memory_area_type e) {
     return "KDMA";
   if (e == KCODE)
     return "KCODE";
-  if (e == KNORMAL_REGION)
-    return "KNORMAL_REGION";
-  if (e == KMAP_REGION)
-    return "KMAP_REGION";
+  if (e == KNORMAL)
+    return "KNORMAL";
+  if (e == KMAP)
+    return "KMAP";
   abort();
   __builtin_unreachable();
 }
@@ -82,6 +82,7 @@ struct virtual_memory {
 
 // 初始化一个虚拟地址空间结构
 struct virtual_memory *virtual_memory_create();
+void virtual_memory_init(struct virtual_memory *vm, void *pd);
 //从一个已有的页目录里建立vma
 void virtual_memory_clone(struct virtual_memory *vm,
                           const uint32_t *page_directory,
