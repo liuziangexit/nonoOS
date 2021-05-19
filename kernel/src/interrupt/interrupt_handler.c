@@ -35,9 +35,11 @@ void idt_init(void) {
     SETGATE(idt[i], 0, SEG_KCODE, __idt_vectors[i], DPL_KERNEL);
   }
 
-  //用户态转内核态的中断的特权级改为最低
-  SETGATE(idt[T_SWITCH_KERNEL], 0, SEG_KCODE, __idt_vectors[T_SWITCH_KERNEL],
-          DPL_USER);
+  // T_SWITCH_KERNEL是debug时候用的，平时不能给用户这个权限，不然等于他们可以随便提权到ring0
+  // SETGATE(idt[T_SWITCH_KERNEL], 0, SEG_KCODE, __idt_vectors[T_SWITCH_KERNEL],
+  //         DPL_USER);
+
+  // 设置T_SYSCALL为用户可用
   SETGATE(idt[T_SYSCALL], 0, SEG_KCODE, __idt_vectors[T_SYSCALL], DPL_USER);
 
   // load the IDT
