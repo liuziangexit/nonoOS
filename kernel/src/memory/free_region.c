@@ -1,9 +1,13 @@
 #include <assert.h>
 #include <defs.h>
+#include <memlayout.h>
 #include <memory_manager.h>
 #include <stdio.h>
 #include <sync.h>
+#include <task.h>
 #include <tty.h>
+#include <virtual_memory.h>
+#include <x86.h>
 
 void free_region_init(struct e820map_t *memlayout) {
   // 开始将FREE REGION分配到kmem_page_alloc里
@@ -63,3 +67,10 @@ uintptr_t free_region_page_alloc(size_t cnt) {
 void free_region_page_free(uintptr_t addr, size_t cnt) {
   free_page_impl(FREE_REGION, addr, cnt);
 }
+
+// void *free_region_access(uintptr_t physical, size_t length) {
+//   void *current_pd = P2V(rcr3());
+//   // virtual_memory_find_fit()
+// }
+
+// void free_region_no_access(void *virtual, size_t length);

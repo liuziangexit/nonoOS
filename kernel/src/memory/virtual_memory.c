@@ -89,7 +89,7 @@ void virtual_memory_clone(struct virtual_memory *vm,
 }
 
 static void malloc_vma_destroy(struct virtual_memory_area *vma) {
-  assert(vma->type == MALLOC);
+  assert(vma->type == UMALLOC);
   list_del(&vma->list_node);
   list_init(&vma->list_node);
   assert(vma->size % 4096 == 0);
@@ -100,7 +100,7 @@ static void malloc_vma_destroy(struct virtual_memory_area *vma) {
 static struct virtual_memory *__vm;
 static void vm_clear_tree_callback(void *data) {
   struct virtual_memory_area *tdata = (struct virtual_memory_area *)data;
-  if (tdata->type == MALLOC)
+  if (tdata->type == UMALLOC)
     malloc_vma_destroy(tdata);
   virtual_memory_free(__vm, tdata);
 }
@@ -350,7 +350,7 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
       // 并且前一个vma的flags、type还与现在要加的vma相同
       && prev->flags == flags && prev->type == type) {
     // 那么直接拓展那个vma(根据设计，不应该拓展MALLOC类型的vma)
-    assert(prev->type != MALLOC);
+    assert(prev->type != UMALLOC);
     // 变大小
     prev->size += vma_size;
     return prev;
@@ -409,7 +409,7 @@ void virtual_memory_free(struct virtual_memory *vm,
       (struct virtual_memory_area *)avl_tree_find(&vm->vma_tree, vma);
   assert(verify == 0 || verify == vma);
 #endif
-  if (vma->type == MALLOC) {
+  if (vma->type == UMALLOC) {
     // 删除对应的物理内存也是umalloc_free做
     // 移除list_node的职责是umalloc_free来做，并且在做完之后就要list_init来标记
     if (!list_empty(&vma->list_node)) {
@@ -536,7 +536,7 @@ static int compare_free_area_by_addr(const void *a, const void *b) {
 static int compare_malloc_vma(const void *a, const void *b) {
   const struct virtual_memory_area *ta = ((void *)a);
   const struct virtual_memory_area *tb = ((void *)b);
-  assert(ta->type == MALLOC && tb->type == MALLOC);
+  assert(ta->type == UMALLOC && tb->type == UMALLOC);
   if (ta->max_free_area_len > tb->max_free_area_len)
     return 1;
   else if (ta->max_free_area_len < tb->max_free_area_len)
@@ -595,7 +595,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     // 分配虚拟内存
     // 注意，这里merge选了false，这是为了让每个vma粒度更小，这样更容易被释放
     vma = virtual_memory_alloc(vm, vma_start, vma_size, PTE_U | PTE_W | PTE_P,
-                               MALLOC, false);
+                               UMALLOC, false);
     assert(vma);
     list_init(&vma->list_node);
     list_sort_add(&vm->partial, &vma->list_node, compare_malloc_vma, 32);
@@ -738,7 +738,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
 
 // malloc的vma缺页时候，把一整个vma都映射上物理内存
 void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
-  assert(vma->type == MALLOC);
+  assert(vma->type == UMALLOC);
   assert(vma->size >= 4096 && vma->size % 4096 == 0);
   uintptr_t physical = free_region_page_alloc(vma->size / 4096);
   if (physical == 0) {
@@ -768,7 +768,7 @@ void ufree(struct virtual_memory *vm, uintptr_t addr) {
   terminal_default_color();
 #endif
   struct virtual_memory_area *vma = virtual_memory_get_vma(vm, addr);
-  assert(vma && vma->type == MALLOC);
+  assert(vma && vma->type == UMALLOC);
   const bool in_full = list_empty(&vma->free_area_sort_by_len);
   // 1.查表得到size
   struct umalloc_free_area find;

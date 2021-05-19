@@ -174,4 +174,7 @@ void kmem_init(struct e820map_t *memlayout) {
   terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("normal_region write test passed\n");
   terminal_default_color();
+  // 设置MAP REGION
+  map_region_vaddr = normal_region_vaddr + normal_region_size;
+  map_region_size = 0xffffffff - map_region_vaddr;
 }

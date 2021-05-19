@@ -207,7 +207,7 @@ void interrupt_handler(struct trapframe *tf) {
       // 找到vma
       struct virtual_memory_area *vma =
           virtual_memory_get_vma(task->group->vm, addr);
-      if (vma && vma->type == MALLOC) {
+      if (vma && vma->type == UMALLOC) {
         // 处理MALLOC缺页
         upfault(task->group->vm, vma);
         break;

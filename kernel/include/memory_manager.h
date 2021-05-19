@@ -48,5 +48,9 @@ bool kmem_cache_free(void *);
 void free_region_init(struct e820map_t *memlayout);
 uintptr_t free_region_page_alloc(size_t cnt);
 void free_region_page_free(uintptr_t, size_t cnt);
+// 将free region的某部分map到内核空间的map部分以供访问
+// 返回值是指向physical的内核虚拟地址
+void *free_region_access(uintptr_t physical, size_t length);
+void free_region_no_access(void *virtual, size_t length);
 
 #endif

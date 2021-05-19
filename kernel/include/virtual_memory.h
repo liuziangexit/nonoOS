@@ -9,18 +9,38 @@
 // 首次使用前，对vm系统做一些检查
 void virtual_memory_check();
 
-enum virtual_memory_area_type { KERNEL, CODE, STACK, MALLOC };
+enum virtual_memory_area_type {
+  UCODE,          // 用户代码
+  USTACK,         // 用户栈
+  UMALLOC,        // 用户malloc内存块
+  UKERNEL,        // 用户程序看来的内核空间
+  KUSER,          // 内核看来的用户空间
+  KDMA,           // 内核DMA区
+  KCODE,          // 内核代码
+  KNORMAL_REGION, // 内核NORMAL REGION
+  KMAP_REGION     // 内核MAP REGION
+};
 
 static __always_inline const char *
 vma_type_str(enum virtual_memory_area_type e) {
-  if (e == KERNEL)
-    return "KERNEL";
-  if (e == CODE)
-    return "CODE";
-  if (e == STACK)
-    return "STACK";
-  if (e == MALLOC)
-    return "MALLOC";
+  if (e == UCODE)
+    return "UCODE";
+  if (e == USTACK)
+    return "USTACK";
+  if (e == UMALLOC)
+    return "UMALLOC";
+  if (e == UKERNEL)
+    return "UKERNEL";
+  if (e == KUSER)
+    return "KUSER";
+  if (e == KDMA)
+    return "KDMA";
+  if (e == KCODE)
+    return "KCODE";
+  if (e == KNORMAL_REGION)
+    return "KNORMAL_REGION";
+  if (e == KMAP_REGION)
+    return "KMAP_REGION";
   abort();
   __builtin_unreachable();
 }
