@@ -161,7 +161,7 @@ void task_sleep(uint64_t millisecond);
 //对task接口
 //退出当前task
 // aka exit
-void task_exit();
+void task_exit(int32_t ret);
 
 //对kernel接口
 //切换到另一个task

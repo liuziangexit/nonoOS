@@ -31,7 +31,7 @@ void syscall_dispatch(struct trapframe *tf) {
            arg[3], arg[4]);
     terminal_default_color();
 #endif
-    task_exit();
+    task_exit(arg[0]);
   } break;
   case SYSCALL_ALLOC: {
 #ifdef VERBOSE

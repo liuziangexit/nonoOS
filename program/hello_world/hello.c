@@ -20,5 +20,5 @@ int main(int argc, char **argv) {
   free((void *)mem);
   free((void *)mem2);
   free((void *)mem3);
-  return 0;
+  return 888;
 }

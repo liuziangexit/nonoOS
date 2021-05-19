@@ -11,7 +11,7 @@
 #undef NDEBUG
 #endif
 
-void task2(int argc, char **argv) {
+int task2(int argc, char **argv) {
   printf("task2: i cant believe im alive!\n");
   printf("argc: %d\n", argc);
   for (int i = 0; i < argc; i++) {
@@ -26,7 +26,7 @@ void task2(int argc, char **argv) {
   task_display();
   printf("task2: exiting\n");
   disable_interrupt();
-  task_exit();
+  return 777;
 }
 
 void utask_test() {

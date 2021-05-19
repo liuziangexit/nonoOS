@@ -16,6 +16,8 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
+#define VERBOSE
+
 uint32_t task_inited;
 
 // 所有的task
@@ -72,6 +74,52 @@ void task_args_pack(struct task_args *dst, struct virtual_memory *vm) {
     struct task_arg *arg = (struct task_arg *)p;
     dst->packed[i++] = (const char *)arg->vdata;
   }
+}
+
+static struct avl_tree ret_val_tree;
+struct ret_val {
+  struct avl_node avl_head;
+  pid_t pid;
+  int32_t val;
+};
+static int compare_ret_val(const void *a, const void *b) {
+  const struct ret_val *ta = (const struct ret_val *)a;
+  const struct ret_val *tb = (const struct ret_val *)b;
+  if (ta->pid > tb->pid)
+    return 1;
+  else if (ta->pid < tb->pid)
+    return -1;
+  else
+    return 0;
+}
+static void record_ret_val(pid_t id, int32_t val) {
+  struct ret_val *record = malloc(sizeof(struct ret_val));
+  assert(record);
+  avl_node_init(&record->avl_head);
+  record->pid = id;
+  record->val = val;
+  void *prev = avl_tree_add(&ret_val_tree, record);
+  if (prev) {
+    panic("record_ret_val avl_tree_add");
+  }
+}
+static void del_ret_val(pid_t id) {
+  struct ret_val find;
+  find.pid = id;
+  struct ret_val *record = avl_tree_find(&ret_val_tree, &find);
+  if (record) {
+    avl_tree_remove(&ret_val_tree, record);
+    free(record);
+  }
+}
+static int32_t get_ret_val(pid_t id) {
+  struct ret_val find;
+  find.pid = id;
+  struct ret_val *record = avl_tree_find(&ret_val_tree, &find);
+  if (!record) {
+    abort();
+  }
+  return record->val;
 }
 
 // 对于umalloc出来的内存，这里不作处理，等进程销毁时自动处理
@@ -265,7 +313,9 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   new_task->name = name;
   //生成id
   new_task->id = gen_pid();
-  //加入group
+  // 移除此pid的返回值记录，因为此前可能有一个进程用过这个pid
+  del_ret_val(new_task->id);
+  // 加入group
   task_group_add(group, new_task);
   return new_task;
 }
@@ -322,23 +372,6 @@ const char *task_state_str(enum task_state s) {
     panic("zhu ni zhong qiu jie kuai le!");
   }
   __builtin_unreachable();
-}
-
-//初始化任务系统
-void task_init() {
-  avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
-  //将当前的上下文设置为第一个任务
-  ktask_t *init = task_create_impl("idle", true, 0);
-  if (!init) {
-    panic("creating task idle failed");
-  }
-  init->state = RUNNING;
-  init->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
-  assert(init->kstack);
-  add_task(init);
-  current = init;
-  load_esp0(0);
-  task_inited = TASK_INITED_MAGIC;
 }
 
 void task_clean() {
@@ -565,10 +598,10 @@ pid_t task_create_kernel(void (*func)(int, char **), const char *name,
   return new_task->id;
 }
 
-//等待进程结束
-void task_join(pid_t pid) {
-  UNUSED(pid);
+// 等待进程结束
+int32_t task_join(pid_t pid) {
   panic("not implemented");
+  return get_ret_val(pid);
 }
 
 //放弃当前进程时间片
@@ -580,14 +613,20 @@ void task_sleep(uint64_t millisecond) {
   panic("not implemented");
 }
 
-//退出当前进程
-void task_exit() {
+// 退出当前进程
+// TODO 通知等待此线程的线程
+void task_exit(int32_t ret) {
+#ifdef VERBOSE
+  printf("task %llx returned %d\n", (int64_t)task_current(), ret);
+#endif
   disable_interrupt();
-  //找到idle task，它的pid是1
+  // 保存返回值供其他task查询
+  record_ret_val(task_current(), ret);
+  // 找到idle task，它的pid是1
   ktask_t *schd = task_find(1);
-  //把current设置为EXITED
+  // 把current设置为EXITED
   current->state = EXITED;
-  //切换到schd
+  // 切换到schd
   task_switch(schd);
 }
 
@@ -633,4 +672,23 @@ void task_switch(ktask_t *next) {
   current = next;
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
+}
+
+//初始化任务系统
+void task_init() {
+  avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
+  avl_tree_init(&ret_val_tree, compare_ret_val, sizeof(struct ret_val), 0);
+
+  //将当前的上下文设置为第一个任务
+  ktask_t *init = task_create_impl("idle", true, 0);
+  if (!init) {
+    panic("creating task idle failed");
+  }
+  init->state = RUNNING;
+  init->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
+  assert(init->kstack);
+  add_task(init);
+  current = init;
+  load_esp0(0);
+  task_inited = TASK_INITED_MAGIC;
 }
