@@ -47,7 +47,7 @@ typedef struct task_group task_group_t;
 
 struct task_args {
   uint32_t cnt;
-  const char **packed;
+  uintptr_t packed;
   uintptr_t vpacked;
   list_entry_t args;
 };
@@ -55,13 +55,12 @@ struct task_arg {
   list_entry_t head;
   uint32_t strlen;
   uintptr_t vdata;
-  char *data;
+  uintptr_t data;
 };
 
 void task_args_init(struct task_args *dst);
-
 void task_args_add(struct task_args *dst, const char *str,
-                   struct virtual_memory *vm);
+                   struct virtual_memory *vm, bool use_umalloc);
 
 struct registers {
   uint32_t eip;

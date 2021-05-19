@@ -72,17 +72,20 @@ void free_region_page_free(uintptr_t addr, size_t cnt) {
 void *free_region_access(uintptr_t physical, size_t length) {
   SMART_CRITICAL_REGION
   struct virtual_memory *current_vm = virtual_memory_current();
-  uintptr_t vaddr =
-      virtual_memory_find_fit(current_vm, length, map_region_vaddr,
-                              map_region_vend, PTE_P | PTE_W, KMAP);
+  uintptr_t vaddr = virtual_memory_find_fit(current_vm, ROUNDUP(length, _4K),
+                                            map_region_vaddr, map_region_vend,
+                                            PTE_P | PTE_W, KMAP);
+  assert(vaddr == ROUNDDOWN(vaddr, _4K));
   if (!vaddr)
     return 0;
   struct virtual_memory_area *vma = virtual_memory_alloc(
-      current_vm, vaddr, length, PTE_P | PTE_W, KMAP, false);
+      current_vm, vaddr, ROUNDUP(length, _4K), PTE_P | PTE_W, KMAP, false);
   if (!vma)
     return 0;
-  virtual_memory_map(current_vm, vma, vaddr, length, physical);
-  return (void *)vaddr;
+  virtual_memory_map(current_vm, vma, vaddr, ROUNDUP(length, _4K),
+                     ROUNDDOWN(physical, _4K));
+  uintptr_t round_diff = physical - ROUNDDOWN(physical, _4K);
+  return (void *)vaddr + round_diff;
 }
 
 void free_region_no_access(void *virtual) {
@@ -90,7 +93,7 @@ void free_region_no_access(void *virtual) {
   struct virtual_memory *current_vm = virtual_memory_current();
   struct virtual_memory_area *vma =
       virtual_memory_get_vma(current_vm, (uintptr_t) virtual);
-  assert(vma);
+  assert(vma && vma->type == KMAP);
   virtual_memory_unmap(current_vm, vma->start, vma->size);
   virtual_memory_free(current_vm, vma);
 }

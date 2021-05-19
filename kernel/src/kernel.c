@@ -154,9 +154,11 @@ void ktask0() {
         KCODE, 0);
     virtual_memory_alloc(&kernel_vm, normal_region_vaddr, normal_region_size, 0,
                          KNORMAL, 0);
-    virtual_memory_alloc(&kernel_vm, map_region_vaddr, map_region_size, 0, KMAP,
-                         0);
+    struct virtual_memory_area *map_vma = virtual_memory_alloc(
+        &kernel_vm, map_region_vaddr, map_region_size, 0, KMAP, 0);
     virtual_memory_print(&kernel_vm);
+    // mapregion要用的，必须free了
+    virtual_memory_free(&kernel_vm, map_vma);
   }
   task_test();
   // https://en.wikipedia.org/wiki/Code_page_437

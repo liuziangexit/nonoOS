@@ -190,6 +190,8 @@ uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
                                const uintptr_t end, uint32_t size,
                                uint16_t flags,
                                enum virtual_memory_area_type type) {
+  if (begin == end)
+    return 0;
   assert(end > begin && end - begin >= size);
   uintptr_t real_begin = begin;
   struct virtual_memory_area key;
@@ -377,6 +379,10 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
     if (avl_tree_add(&vm->vma_tree, vma)) {
       abort(); // never!
     }
+#ifdef VERBOSE
+    printf("virtual_memory_alloc type:%s  start:0x%09llx\n",
+           vma_type_str(vma->type), (int64_t)vma->start);
+#endif
     return vma;
   }
   abort();
@@ -407,8 +413,10 @@ void virtual_memory_free(struct virtual_memory *vm,
                          struct virtual_memory_area *vma) {
   assert(vma);
 #ifdef VERBOSE
-  printf("virtual_memory_free vma.type: %s  vma.start: 0x%09llx\n",
-         vma_type_str(vma->type), vma->start);
+  printf("virtual_memory_free  type:%s start:0x%09llx flags:"
+         "%lld size:%lld\n",
+         vma_type_str(vma->type), (int64_t)vma->start, (int64_t)vma->flags,
+         (int64_t)vma->size);
 #endif
 #ifndef NDEBUG
   // debug时候确认下vma在vm里面

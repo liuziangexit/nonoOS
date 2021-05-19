@@ -38,47 +38,89 @@ void task_args_init(struct task_args *dst) {
 }
 
 void task_args_add(struct task_args *dst, const char *str,
-                   struct virtual_memory *vm) {
+                   struct virtual_memory *vm, bool use_umalloc) {
   struct task_arg *holder = (struct task_arg *)malloc(sizeof(struct task_arg));
   assert(holder);
   holder->strlen = strlen(str);
-  if (!vm) {
-    holder->data = (char *)malloc(holder->strlen + 1);
+  if (!use_umalloc) {
+    holder->data = (uintptr_t)malloc(holder->strlen + 1);
     holder->vdata = (uintptr_t)holder->data;
   } else {
     uintptr_t virtual, physical;
     if (!(virtual = umalloc(vm, holder->strlen + 1, false, 0, &physical))) {
       abort();
     }
-    holder->data = (char *)physical;
+    holder->data = physical;
     holder->vdata = virtual;
   }
   assert(holder->data && holder->vdata);
-  memcpy(holder->data, str, holder->strlen);
-  holder->data[holder->strlen] = '\0';
+  // 这data是在free region所以需要临时map到内核来才能访问
+  char *data_access;
+  if (use_umalloc) {
+    data_access = free_region_access(holder->data, holder->strlen);
+  } else {
+    data_access = (char *)holder->data;
+  }
+  memcpy(data_access, str, holder->strlen);
+  data_access[holder->strlen] = '\0';
+  if (use_umalloc)
+    free_region_no_access(data_access);
   list_add_before(&dst->args, &holder->head);
   dst->cnt++;
 }
 
-void task_args_pack(struct task_args *dst, struct virtual_memory *vm) {
+static void task_args_pack(struct task_args *dst, struct virtual_memory *vm,
+                           bool use_umalloc) {
   assert(dst->packed == 0);
-  if (!vm) {
-    dst->packed = malloc(sizeof(char *) * dst->cnt);
+  if (!use_umalloc) {
+    dst->packed = (uintptr_t)malloc(sizeof(char *) * dst->cnt);
   } else {
     uintptr_t virtual, physical;
     if (!(virtual =
               umalloc(vm, sizeof(char *) * dst->cnt, false, 0, &physical))) {
       abort();
     }
-    dst->packed = (const char **)physical;
+    dst->packed = physical;
     dst->vpacked = virtual;
+  }
+  const char **data_access;
+  if (use_umalloc) {
+    data_access = free_region_access(dst->packed, sizeof(char *) * dst->cnt);
+  } else {
+    data_access = (const char **)dst->packed;
   }
   uint32_t i = 0;
   for (list_entry_t *p = list_next(&dst->args); p != &dst->args;
        p = list_next(p)) {
     struct task_arg *arg = (struct task_arg *)p;
-    dst->packed[i++] = (const char *)arg->vdata;
+    data_access[i++] = (const char *)arg->vdata;
   }
+  if (use_umalloc) {
+    free_region_no_access(data_access);
+  }
+}
+
+// 对于umalloc出来的内存，这里不作处理，等进程销毁时自动处理
+static void task_args_destroy(struct task_args *dst, bool free_data) {
+  uint32_t verify = 0;
+  for (list_entry_t *p = list_next(&dst->args); p != &dst->args;) {
+    verify++;
+    struct task_arg *arg = (struct task_arg *)p;
+    if (free_data) {
+      free((void *)arg->data);
+    }
+    void *current = p;
+    p = list_next(p);
+    free(current);
+  }
+  list_init(&dst->args);
+  if (dst->packed) {
+    if (free_data) {
+      free((void *)dst->packed);
+    }
+  }
+  assert(verify == dst->cnt);
+  dst->cnt = 0;
 }
 
 static struct avl_tree ret_val_tree;
@@ -125,30 +167,6 @@ static int32_t get_ret_val(pid_t id) {
     abort();
   }
   return record->val;
-}
-
-// 对于umalloc出来的内存，这里不作处理，等进程销毁时自动处理
-static void task_args_destroy(struct task_args *dst,
-                              struct virtual_memory *vm) {
-  uint32_t verify = 0;
-  for (list_entry_t *p = list_next(&dst->args); p != &dst->args;) {
-    verify++;
-    struct task_arg *arg = (struct task_arg *)p;
-    if (!vm) {
-      free(arg->data);
-    }
-    void *current = p;
-    p = list_next(p);
-    free(current);
-  }
-  list_init(&dst->args);
-  if (dst->packed) {
-    if (!vm) {
-      free((void *)dst->packed);
-    }
-  }
-  assert(verify == dst->cnt);
-  dst->cnt = 0;
 }
 
 static void add_task(ktask_t *new_task) {
@@ -238,7 +256,7 @@ static pid_t gen_pid() {
 static void task_destory(ktask_t *t) {
   assert(t);
   if (t->args) {
-    task_args_destroy(t->args, t->group->vm);
+    task_args_destroy(t->args, t->group->is_kernel);
     free(t->args);
   }
   kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
@@ -546,9 +564,10 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     for (list_entry_t *p = list_next(&args->args); p != &args->args;
          p = list_next(p)) {
       struct task_arg *arg = (struct task_arg *)p;
-      task_args_add(new_task->base.args, arg->data, new_task->base.group->vm);
+      task_args_add(new_task->base.args, (const char *)arg->data,
+                    new_task->base.group->vm, true);
     }
-    task_args_pack(new_task->base.args, new_task->base.group->vm);
+    task_args_pack(new_task->base.args, new_task->base.group->vm, true);
     *(uint32_t *)(new_task->base.regs.esp + 4) =
         new_task->base.args->cnt; // argc
     *(uintptr_t *)(new_task->base.regs.esp) =
@@ -577,7 +596,7 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name,
     return 0;
 
   if (args) {
-    task_args_pack(args, 0);
+    task_args_pack(args, 0, false);
     new_task->args = args;
   } else {
     new_task->args = 0;
