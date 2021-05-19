@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sync.h>
 #include <tty.h>
@@ -20,11 +21,14 @@
 //#define NDEBUG 1
 
 struct page {
-  struct list_entry li;
+  struct list_entry head;
+  uintptr_t addr;
 };
 
+// 每个zone表示一些相同页数的内存块的集合
 struct zone {
-  struct page pages;
+  struct list_entry pages;
+  bool distinct_struct;
 #ifndef NDEBUG
   uint32_t cnt;
 #endif
@@ -40,18 +44,20 @@ static struct zone free_space_zones[31];
 
 static void add_page(struct zone *z, struct page *p) {
   make_sure_int_disabled();
-  list_init((struct list_entry *)p);
+  assert(z->distinct_struct ? (uintptr_t)p != p->addr
+                            : (uintptr_t)p == p->addr);
 #ifndef NDEBUG
   // dbg模式下看看有没有重复的
-  for (struct page *it = (struct page *)z->pages.li.next; //
-       it != &z->pages;                                   //
-       it = (struct page *)it->li.next) {
-    if (it == p)
+  for (struct page *it = (struct page *)list_next(&z->pages); //
+       &it->head != &z->pages;                                //
+       it = (struct page *)list_next(&it->head)) {
+    if (it->addr == p->addr)
       panic("add_page check failed 1");
   }
   z->cnt++;
 #endif
-  list_add(&z->pages.li, (struct list_entry *)p);
+  list_init(&p->head);
+  list_add(&z->pages, &p->head);
 }
 
 static void del_page(struct zone *z, struct page *p) {
@@ -59,10 +65,10 @@ static void del_page(struct zone *z, struct page *p) {
 #ifndef NDEBUG
   // dbg模式下看看是不是真的在里面
   bool found = false;
-  for (struct page *it = (struct page *)z->pages.li.next; //
-       it != &z->pages;                                   //
-       it = (struct page *)it->li.next) {
-    if (it == p) {
+  for (struct page *it = (struct page *)list_next(&z->pages); //
+       &it->head != &z->pages;                                //
+       it = (struct page *)list_next(&it->head)) {
+    if (it->addr == p->addr) {
       found = true;
       break;
     }
@@ -72,20 +78,26 @@ static void del_page(struct zone *z, struct page *p) {
   }
   z->cnt--;
 #endif
-  list_del((struct list_entry *)p);
+  list_del(&p->head);
+  assert(z->distinct_struct ? (uintptr_t)p != p->addr
+                            : (uintptr_t)p == p->addr);
+  if (z->distinct_struct) {
+    // 如果链表结构不在页上，那么我们需要额外删除这结构
+    free(p);
+  }
 }
 
-//别乱用。。
+#ifndef NDEBUG
 static uint32_t list_size(list_entry_t *head) {
-  if (head == 0)
-    return 0;
   uint32_t cnt = 0;
-  const list_entry_t *cp = head;
-  for (list_entry_t *it = cp->next; it != cp; it = it->next) {
-    cnt++;
+  if (head) {
+    for (list_entry_t *it = head->next; it != head; it = it->next) {
+      cnt++;
+    }
   }
   return cnt;
 }
+#endif
 
 void kmem_page_debug() {
   printf("kmem_page_debug\n");
@@ -102,7 +114,14 @@ void kmem_page_init() {
   // 初始化normal_region_zones
   for (uint32_t i = 0; i < sizeof(normal_region_zones) / sizeof(struct zone);
        i++) {
-    list_init(&normal_region_zones[i].pages.li);
+    list_init(&normal_region_zones[i].pages);
+    normal_region_zones[i].distinct_struct = false;
+  }
+  // 初始化free_space_zones
+  for (uint32_t i = 0; i < sizeof(normal_region_zones) / sizeof(struct zone);
+       i++) {
+    list_init(&free_space_zones[i].pages);
+    free_space_zones[i].distinct_struct = true;
   }
 
   uintptr_t p = normal_region_vaddr;
@@ -131,13 +150,10 @@ void kmem_page_init() {
 #endif
 
     struct page *pg = (struct page *)p;
-    list_init((list_entry_t *)pg);
+    pg->addr = p;
     const uint32_t log2_c = log2(c);
-    list_add(&normal_region_zones[log2_c].pages.li, (list_entry_t *)pg);
+    add_page(&normal_region_zones[log2_c], pg);
 
-#ifndef NDEBUG
-    normal_region_zones[log2_c].cnt++;
-#endif
     page_cnt -= c;
     p += (_4K * c);
   }
@@ -150,22 +166,65 @@ void kmem_page_init() {
 #endif
 }
 
-void kmem_page_init_free_region(uintptr_t addr, uint32_t len) {}
+void kmem_page_add_free_region(uintptr_t addr, uint32_t len) {
+  uintptr_t p = addr;
+  //这里的页都是小页
+  uint32_t page_cnt = len / _4K;
 
-//从zone[exp]获得一个指针
-//如果zone[exp]没有，则去上层要
+#ifndef NDEBUG
+  printf("kmem_page_add_free_region: memory starts at 0x%08llx (total %d 4k "
+         "pages) are "
+         "being split into ",
+         (int64_t)p, page_cnt);
+#endif
+
+  while (page_cnt > 0) {
+    int32_t c;
+    if (page_cnt == 1) {
+      c = 1;
+    } else {
+      c = prev_pow2(page_cnt);
+    }
+
+#ifndef NDEBUG
+    printf("%d ", c);
+    // TODO 把内存页map到内核空间，然后尝试访问
+    // volatile int *test = (volatile int *)p;
+    // *test = 9710;
+    // assert(*test == 9710);
+#endif
+
+    struct page *page_struct = (struct page *)malloc(sizeof(struct page));
+    assert(page_struct);
+    page_struct->addr = p;
+    const uint32_t log2_c = log2(c);
+    add_page(&free_space_zones[log2_c], page_struct);
+
+    page_cnt -= c;
+    p += (_4K * c);
+  }
+
+#ifndef NDEBUG
+  printf("\n");
+#endif
+}
+
+// 从zone[exp]获得一个指针
+// 如果zone[exp]没有，则去上层要
 static void *split(uint32_t exp, struct zone *zones, const size_t zones_size) {
   make_sure_int_disabled();
   assert(exp < zones_size / sizeof(struct zone));
 #ifndef NDEBUG
-  assert(list_size(&zones[exp].pages.li) == zones[exp].cnt);
+  uint32_t look = list_size(&zones[exp].pages);
+  assert(look == zones[exp].cnt);
 #endif
 
-  if (!list_empty(&zones[exp].pages.li)) {
+  if (!list_empty(&zones[exp].pages)) {
     //本层有，返回本层的
-    struct page *rv = (struct page *)list_next(&zones[exp].pages.li);
+    struct page *rv = (struct page *)list_next(&zones[exp].pages);
+    void *addr = (void *)rv->addr;
     del_page(&zones[exp], rv);
-    return rv;
+    return addr;
   } else {
     //本层没有
     if (exp == zones_size / sizeof(struct zone) - 1) {
@@ -179,60 +238,70 @@ static void *split(uint32_t exp, struct zone *zones, const size_t zones_size) {
       //把拿到的内存切两半
       void *b = a + pow2(exp) * _4K;
       //一半存本层里
-      add_page(&zones[exp], a);
+      struct page *page_struct;
+      if (zones[exp].distinct_struct) {
+        page_struct = malloc(sizeof(struct page));
+        assert(page_struct);
+      } else {
+        page_struct = a;
+      }
+      page_struct->addr = (uintptr_t)a;
+      add_page(&zones[exp], page_struct);
       //一半return掉
       return b;
     }
   }
 }
 
-//如果single可以在zone[exp]里找到他的partner，那就把他们俩组合起来丢到更高层的zone去
-//如果single没有在zone[exp]里找到partner，那就把single丢在zone[exp]里
-static void combine(uint32_t exp, void *single, struct zone *zones,
+// 如果single可以在zone[exp]里找到他的partner，那就把他们俩组合起来丢到更高层的zone去
+// 如果single没有在zone[exp]里找到partner，那就把single丢在zone[exp]里
+static void combine(uint32_t exp, struct page *page_struct, struct zone *zones,
                     const size_t zones_size) {
   make_sure_int_disabled();
   assert(exp < zones_size / sizeof(struct zone));
 #ifndef NDEBUG
-  assert(list_size(&zones[exp].pages.li) == zones[exp].cnt);
+  assert(list_size(&zones[exp].pages) == zones[exp].cnt);
 #endif
 
-  struct page *psingle = (struct page *)single;
   // partner可能是single+2^exp或single-2^exp
   // 看看能不能找到partner
   if (exp < zones_size / sizeof(struct zone) - 1 &&
-      !list_empty(&zones[exp].pages.li)) {
-    list_entry_t *p = (list_entry_t *)zones[exp].pages.li.next;
-    bool end = false;
+      !list_empty(&zones[exp].pages)) {
+    struct page *p = (struct page *)list_next(&zones[exp].pages);
     do {
       int found; // 0=不是，1=single是前面的，2=single是后面的
-      if ((uintptr_t)single + pow2(exp) * _4K == (uintptr_t)p) {
+      if (page_struct->addr + pow2(exp) * _4K == (uintptr_t)p) {
         found = 1;
-      } else if ((uintptr_t)single - pow2(exp) * _4K == (uintptr_t)p) {
+      } else if (page_struct->addr - pow2(exp) * _4K == (uintptr_t)p) {
         found = 2;
       } else {
         found = 0;
       }
       if (found != 0) {
-        //找到了partner
-        //首先把p移出链表
-        del_page(&zones[exp], (struct page *)p);
-        //然后向上合并
-        if (found == 1) {
-          // single在前面
-          combine(exp + 1, single, zones, zones_size);
-        } else {
+        // 找到了partner
+        // 首先把p移出链表
+        const uintptr_t partner_addr = p->addr;
+        del_page(&zones[exp], p);
+        // 然后向上合并
+        // single在前面的情况下，不需要修改page_struct
+        if (found == 2) {
           // partner在前面
-          combine(exp + 1, p, zones, zones_size);
+          if (!zones[exp].distinct_struct) {
+            page_struct = p;
+          }
+          page_struct->addr = partner_addr;
         }
+        combine(exp + 1, page_struct, zones, zones_size);
         return;
       }
-      end = p->next == &zones[exp].pages.li;
-      if (!end)
-        p = list_next(p);
-    } while (!end);
+      if (list_next(&p->head) == &zones[exp].pages) {
+        break;
+      }
+      p = (struct page *)list_next(&p->head);
+    } while (true);
   }
-  //没找到，把single放进链表
-  add_page(&zones[exp], psingle);
+  // 本层没他的partner，把他放进链表
+  add_page(&zones[exp], page_struct);
 }
 
 void *kmem_page_alloc(size_t cnt) {
@@ -245,8 +314,11 @@ void *kmem_page_alloc(size_t cnt) {
 
 void kmem_page_free(void *p, size_t cnt) {
   SMART_CRITICAL_REGION
+  struct page *page_struct = p;
+  page_struct->addr = (uintptr_t)p;
   cnt = next_pow2(cnt);
-  combine(log2(cnt), p, normal_region_zones, sizeof(normal_region_zones));
+  combine(log2(cnt), page_struct, normal_region_zones,
+          sizeof(normal_region_zones));
 }
 
 static bool write_dump(uint32_t *write_pos, void *dst, uint32_t dst_len,

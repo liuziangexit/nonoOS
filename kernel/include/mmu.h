@@ -3,10 +3,6 @@
 #ifndef __KERNEL_MMU_H__
 #define __KERNEL_MMU_H__
 
-#define _4K (4096)
-#define _4M (_4K * 1024)
-#define _4G (_4M * 1024)
-
 // Eflags register
 #define FL_CF 0x00000001        // Carry Flag
 #define FL_PF 0x00000004        // Parity Flag

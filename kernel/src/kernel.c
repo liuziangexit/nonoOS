@@ -90,6 +90,7 @@ void kmain() {
   kmem_page_debug();
   kmem_alloc_init();
   kmem_cache_init();
+  kmem_free_region_init(e820map);
   virtual_memory_check();
   printf("\n");
   {

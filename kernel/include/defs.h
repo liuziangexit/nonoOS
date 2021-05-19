@@ -22,4 +22,8 @@
     (typeof(a))(ROUNDDOWN((size_t)(a) + __n - 1, __n));                        \
   })
 
+#define _4K (4096)
+#define _4M (_4K * 1024)
+#define _4G (_4M * 1024)
+
 #endif /* !__LIBS_DEFS_H__ */
