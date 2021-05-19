@@ -93,7 +93,7 @@ void virtual_memory_clone(struct virtual_memory *vm,
 void virtual_memory_destroy(struct virtual_memory *vm);
 // 寻找对应的vma，如果没有返回0
 struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
-                                                   uint32_t mem);
+                                                   uintptr_t mem);
 // 在一个虚拟地址空间结构中寻找[begin,end)中空闲的指定长度的地址空间
 // 返回0表示找不到
 uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,

@@ -2,6 +2,7 @@
 #include <defs.h>
 #include <memlayout.h>
 #include <memory_manager.h>
+#include <mmu.h>
 #include <stdio.h>
 #include <sync.h>
 #include <task.h>
@@ -68,9 +69,28 @@ void free_region_page_free(uintptr_t addr, size_t cnt) {
   free_page_impl(FREE_REGION, addr, cnt);
 }
 
-// void *free_region_access(uintptr_t physical, size_t length) {
-//   void *current_pd = P2V(rcr3());
-//   // virtual_memory_find_fit()
-// }
+void *free_region_access(uintptr_t physical, size_t length) {
+  SMART_CRITICAL_REGION
+  struct virtual_memory *current_vm = virtual_memory_current();
+  uintptr_t vaddr =
+      virtual_memory_find_fit(current_vm, length, map_region_vaddr,
+                              map_region_vend, PTE_P | PTE_W, KMAP);
+  if (!vaddr)
+    return 0;
+  struct virtual_memory_area *vma = virtual_memory_alloc(
+      current_vm, vaddr, length, PTE_P | PTE_W, KMAP, false);
+  if (!vma)
+    return 0;
+  virtual_memory_map(current_vm, vma, vaddr, length, physical);
+  return (void *)vaddr;
+}
 
-// void free_region_no_access(void *virtual, size_t length);
+void free_region_no_access(void *virtual) {
+  SMART_CRITICAL_REGION
+  struct virtual_memory *current_vm = virtual_memory_current();
+  struct virtual_memory_area *vma =
+      virtual_memory_get_vma(current_vm, (uintptr_t) virtual);
+  assert(vma);
+  virtual_memory_unmap(current_vm, vma->start, vma->size);
+  virtual_memory_free(current_vm, vma);
+}

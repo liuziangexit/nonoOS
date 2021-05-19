@@ -132,7 +132,7 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
 
 // 寻找对应的vma，如果没有返回0
 struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
-                                                   uint32_t mem) {
+                                                   uintptr_t mem) {
   struct virtual_memory_area vma;
   vma.start = mem;
   struct virtual_memory_area *nearest =
