@@ -21,6 +21,8 @@ bootstack后第一个4M地址上是NORMAL REGION，长度不大于total memory/4
 接着从3G+16M开始，是内核代码直接映射
 接着是NORMAL REGION直接映射
 最后3GB+896MB(KERNEL_MAP_REGION)开始一直到虚拟地址末尾是MAP区域
+
+注意，下面说的页基本上是指4M页
 */
 void kmem_init(struct e820map_t *memlayout) {
   extern uint32_t kernel_pd[];
@@ -63,11 +65,10 @@ void kmem_init(struct e820map_t *memlayout) {
   }
   normal_region_size = ROUNDDOWN(normal_region_size, _4M);
   assert(normal_region_size >= _4M);
-  printf("kmem_init: total_memory       =0x%09llx\n", (int64_t)total_memory);
-  printf("kmem_init: normal_region_vaddr=0x%09llx\n",
+  printf("kmem_init: total_memory       = %lld\n", (int64_t)total_memory);
+  printf("kmem_init: normal_region_vaddr= 0x%09llx\n",
          (int64_t)normal_region_vaddr);
-  printf("kmem_init: normal_region_size =0x%09llx\n",
-         (int64_t)normal_region_size);
+  printf("kmem_init: normal_region_size = %lld\n", (int64_t)normal_region_size);
 
   // 开始确定normal_region的物理地址
   normal_region_paddr = 0;
@@ -118,10 +119,8 @@ void kmem_init(struct e820map_t *memlayout) {
     // 如果addr大于等于4G，就忽略
     assert((uintptr_t)addr < 0xFFFFFFFF);
     // 对于addr+size越过4G界的处理
-    if ((uint32_t)addr + (uint32_t)(page_count * _4M) >= 0xFFFFFFFF) {
-      assert((0xFFFFFFFF - (uint32_t)addr) % _4M == 0);
-      page_count = (0xFFFFFFFF - (int32_t)addr) / _4M;
-    }
+    assert((uint64_t)(uintptr_t)addr + (uint64_t)(page_count * _4M) <
+           0xFFFFFFFF);
     // 对于虚拟地址越过4G界的处理
     // 虚拟地址最后4M是boot栈，所以不能改那里
     if ((uint64_t)normal_region_vaddr + ((uint64_t)page_count * _4M) >=
@@ -142,7 +141,7 @@ void kmem_init(struct e820map_t *memlayout) {
   if (!normal_region_paddr) {
     panic("normal_region_paddr == 0");
   }
-  printf("kmem_init: normal_region_paddr=0x%09llx\n",
+  printf("kmem_init: normal_region_paddr= 0x%09llx\n",
          (int64_t)normal_region_paddr);
 
   lcr3(V2P((uintptr_t)kernel_pd));
@@ -175,4 +174,52 @@ void kmem_init(struct e820map_t *memlayout) {
   terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("normal_region write test passed\n");
   terminal_default_color();
+
+  // 开始将FREE REGION分配到kmem_page_alloc里
+  for (uint32_t i = 0; i < memlayout->count; i++) {
+    // BIOS保留的内存
+    if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {
+      continue;
+    }
+    // 高于4G的内存
+    if (memlayout->ard[i].addr >= 0xffffffff) {
+      continue;
+    }
+    // 低于normal region的内存
+    if (memlayout->ard[i].addr + memlayout->ard[i].size <
+        normal_region_paddr + normal_region_size) {
+      continue;
+    }
+    // 4M对齐
+    char *addr = (char *)(uintptr_t)memlayout->ard[i].addr;
+    if ((uintptr_t)addr < normal_region_paddr + normal_region_size) {
+      // 如果addr在normal region中或更低，那么我们让他至少从normalregion末尾开始
+      assert(normal_region_paddr + normal_region_size < 0xffffffff);
+      addr = (char *)(normal_region_paddr + normal_region_size);
+    }
+    assert(ROUNDUP((uint64_t)(uintptr_t)addr, _4M) < 0xffffffff);
+    addr = (char *)ROUNDUP((uintptr_t)addr, _4M);
+    assert((uint64_t)(uintptr_t)addr > memlayout->ard[i].addr);
+    assert((uintptr_t)addr >= normal_region_paddr + normal_region_size);
+    assert((uintptr_t)addr < 0xFFFFFFFF);
+    uint32_t round_diff = (uintptr_t)addr - (uintptr_t)memlayout->ard[i].addr;
+    uint32_t page_count =
+        (uint32_t)((memlayout->ard[i].size - round_diff) / _4M);
+    // 如果对齐之后发现凑不到1页了，那这块内存就没用了
+    if (page_count == 0) {
+      continue;
+    }
+    // 对于addr+size越过4G界的处理
+    if ((uint64_t)(uintptr_t)addr + (uint64_t)(page_count * _4M) >=
+        0xFFFFFFFF) {
+      assert((0xFFFFFFFF - (uint64_t)(uintptr_t)addr) % _4M == 0);
+      page_count = (0xFFFFFFFF - (uint64_t)(uintptr_t)addr) / _4M;
+    }
+    // 加入kmem_page
+    printf("adding 0x%09llx length %lld to free region\n",
+           (int64_t)(uintptr_t)addr, (int64_t)page_count * 4096 * 1024);
+    terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
+    printf("free region ok\n");
+    terminal_default_color();
+  }
 }

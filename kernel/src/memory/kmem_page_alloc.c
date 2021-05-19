@@ -150,6 +150,8 @@ void kmem_page_init() {
 #endif
 }
 
+void kmem_page_init_free_region(uintptr_t addr, uint32_t len) {}
+
 //从zone[exp]获得一个指针
 //如果zone[exp]没有，则去上层要
 static void *split(uint32_t exp, struct zone *zones, const size_t zones_size) {
