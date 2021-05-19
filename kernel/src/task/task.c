@@ -300,7 +300,7 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     return 0;
   }
 
-  //内核栈
+  // 内核栈
   new_task->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->kstack) {
     task_destory(new_task);
@@ -311,7 +311,7 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   new_task->state = CREATED;
   new_task->parent = current;
   new_task->name = name;
-  //生成id
+  // 生成id
   new_task->id = gen_pid();
   // 移除此pid的返回值记录，因为此前可能有一个进程用过这个pid
   del_ret_val(new_task->id);
@@ -565,7 +565,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
 }
 
 //创建内核线程
-pid_t task_create_kernel(void (*func)(int, char **), const char *name,
+pid_t task_create_kernel(int (*func)(int, char **), const char *name,
                          struct task_args *args) {
   SMART_CRITICAL_REGION
   ktask_t *schd = task_find(1);
@@ -604,10 +604,10 @@ int32_t task_join(pid_t pid) {
   return get_ret_val(pid);
 }
 
-//放弃当前进程时间片
+// 放弃当前进程时间片
 void task_yield() { panic("not implemented"); }
 
-//将当前进程挂起一段时间
+// 将当前进程挂起一段时间
 void task_sleep(uint64_t millisecond) {
   UNUSED(millisecond);
   panic("not implemented");

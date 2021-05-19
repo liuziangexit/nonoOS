@@ -13,22 +13,22 @@
 [3G - 512MB, 3G - 512MB + STACK_SIZE)用户栈
 */
 
-//这个指的是4k页数
+// 这个指的是4k页数
 #define TASK_STACK_SIZE 1024
-//用户代码的虚拟地址
+// 用户代码的虚拟地址
 #define USER_CODE_BEGIN 0x8000000
-//用户栈的虚拟地址(3GB - 4K)
+// 用户栈的虚拟地址(3GB - 4K)
 #define USER_STACK_BEGIN (0xC0000000 - TASK_STACK_SIZE * 4096)
 
 #define TASK_INITED_MAGIC 9863479
 extern uint32_t task_inited;
 
 enum task_state {
-  CREATED, //已创建
-  YIELDED, //被调走
-  // WAITING, //正在等待同步或IO
-  RUNNING, //运行中
-  EXITED   //已退出
+  CREATED, // 已创建
+  YIELDED, // 被调走
+  // WAITING, // 正在等待同步或IO
+  RUNNING, // 运行中
+  EXITED   // 已退出
 };
 
 const char *task_state_str(enum task_state);
@@ -40,8 +40,8 @@ typedef uint32_t pid_t;
 struct task_group {
   list_entry_t tasks;
   uint32_t task_cnt;
-  bool is_kernel;            //是否内核权限
-  struct virtual_memory *vm; //虚拟内存管理
+  bool is_kernel;            // 是否内核权限
+  struct virtual_memory *vm; // 虚拟内存管理
 };
 typedef struct task_group task_group_t;
 
@@ -79,7 +79,7 @@ CAUTION!
 task_group_head_retrieve
 依赖于此类型的内存布局
 */
-//内核task
+// 内核task
 struct ktask {
   struct avl_node global_head;
   list_entry_t group_head;
@@ -87,10 +87,10 @@ struct ktask {
   enum task_state state;
   pid_t id;
   const char *name;
-  struct ktask *parent;   //父进程
-  uintptr_t kstack;       //内核栈
-  struct registers regs;  //寄存器
-  struct task_args *args; //命令行参数
+  struct ktask *parent;   // 父进程
+  uintptr_t kstack;       // 内核栈
+  struct registers regs;  // 寄存器
+  struct task_args *args; // 命令行参数
 };
 typedef struct ktask ktask_t;
 
@@ -101,16 +101,16 @@ typedef struct ktask ktask_t;
 用户栈和代码之间的空间是heap，用来malloc或者mmap
 */
 
-//用户线程
+// 用户线程
 struct utask {
   ktask_t base;
-  uintptr_t pustack; //用户栈
-  uintptr_t vustack; //用户栈的虚拟地址
-  void *program;     //程序映像拷贝
+  uintptr_t pustack; // 用户栈
+  uintptr_t vustack; // 用户栈的虚拟地址
+  void *program;     // 程序映像拷贝
 };
 typedef struct utask utask_t;
 
-//内部函数
+// 内部函数
 
 ktask_t *task_find(pid_t pid);
 
@@ -118,53 +118,54 @@ void task_display();
 
 void task_clean();
 
-//对外接口
+// 对外接口
 
-//对kernel接口
-//初始化task系统
+// 对kernel接口
+// 初始化task系统
 void task_init();
 
-//对kernel接口
-//开始调度，此函数不会返回
+// 对kernel接口
+// 开始调度，此函数不会返回
 void task_schd();
 
-//对kernel接口
-//对task接口
-//当前task
+// 对kernel接口
+// 对task接口
+// 当前task
 pid_t task_current();
 
-//对kernel接口
-//创建内核线程
-pid_t task_create_kernel(void (*func)(int, char **), const char *name,
+// 对kernel接口
+// 创建内核线程
+pid_t task_create_kernel(int (*func)(int, char **), const char *name,
                          struct task_args *args);
 
-//对kernel接口
-//创建user task
+// 对kernel接口
+// 创建user task
 #define DETECT_ENTRY 0xC0000000
 pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                        task_group_t *group, uintptr_t entry,
                        struct task_args *args);
 
-//对kernel接口
-//对task接口
-//等待task结束
-void task_join(pid_t pid);
+// 对kernel接口
+// 对task接口
+// 等待task结束
+// 返回被等待task的返回值
+int32_t task_join(pid_t pid);
 
-//对task接口
-//放弃当前task时间片
+// 对task接口
+// 放弃当前task时间片
 void task_yield();
 
-//对task接口
-//将当前task挂起一段时间
+// 对task接口
+// 将当前task挂起一段时间
 void task_sleep(uint64_t millisecond);
 
-//对task接口
-//退出当前task
+// 对task接口
+// 退出当前task
 // aka exit
 void task_exit(int32_t ret);
 
-//对kernel接口
-//切换到另一个task
+// 对kernel接口
+// 切换到另一个task
 void task_switch(ktask_t *);
 
 #endif
