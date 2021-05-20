@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sync.h>
 #include <virtual_memory.h>
 #include <x86.h>
 
@@ -582,6 +583,7 @@ static int compare_malloc_vma(const void *a, const void *b) {
 uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
                   struct virtual_memory_area **out_vma,
                   uintptr_t *out_physical) {
+  SMART_CRITICAL_REGION
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
   printf("****umalloc(vm, %lld, %s)****\n", (int64_t)size,
@@ -764,6 +766,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
 
 // malloc的vma缺页时候，把一整个vma都映射上物理内存
 void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
+  SMART_CRITICAL_REGION
   assert(vma->type == UMALLOC);
   assert(vma->size >= 4096 && vma->size % 4096 == 0);
   uintptr_t physical = free_region_page_alloc(vma->size / 4096);
@@ -785,6 +788,7 @@ void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
 
 // 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
 void ufree(struct virtual_memory *vm, uintptr_t addr) {
+  SMART_CRITICAL_REGION
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
   printf("****ufree(vm, 0x%08llx)****\n", (int64_t)addr);
