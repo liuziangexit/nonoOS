@@ -107,12 +107,13 @@ static ktask_t *ready_queue_get() {
   return task_ready_queue_head_retrieve(entry);
 }
 
+// 为了实现降序排列，这里和一般的比较函数语义是相反的
 static int compare_task_by_dp(const void *a, const void *b) {
   const ktask_t *ta = a;
   const ktask_t *tb = b;
-  if (ta->dynamic_priority > tb->dynamic_priority)
-    return 1;
   if (ta->dynamic_priority < tb->dynamic_priority)
+    return 1;
+  if (ta->dynamic_priority > tb->dynamic_priority)
     return -1;
   if (ta->dynamic_priority == tb->dynamic_priority)
     return 0;
