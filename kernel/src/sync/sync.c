@@ -2,6 +2,12 @@
 #include <sync.h>
 #include <x86.h>
 
+// TODO
+// 单核多任务环境下，需不需要内存屏障？
+// 从逻辑上就可以推出，是不需要的。如果需要的话，每次上下文切换不都要加屏障吗，但大家切上下文的时候都不这样做
+// 但这个问题还要进一步研究，morespecifically，乱序流水线和分支预测等东西的存在什么时候会被程序观测到（我猜答案是多核心时候会被观测到）？
+// 但是为什么呢？这是一个学术问题，需要进一步研究
+
 void disable_interrupt() { cli(); }
 void enable_interrupt() { sti(); }
 void make_sure_int_disabled() {
