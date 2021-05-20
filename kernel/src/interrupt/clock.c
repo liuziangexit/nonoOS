@@ -1,6 +1,8 @@
 #include <clock.h>
 #include <interrupt.h>
+#include <memory_barrier.h>
 #include <picirq.h>
+#include <sync.h>
 #include <x86.h>
 
 /* *
@@ -23,7 +25,8 @@
 #define TIMER_RATEGEN 0x04         // mode 2, rate generator
 #define TIMER_16BIT 0x30           // r/w counter 16 bits, LSB first
 
-uint64_t ticks;
+// volatile意思是阻止编译器优化掉对它的读
+volatile uint64_t ticks;
 
 /* *
  * clock_init - initialize 8253 clock to interrupt TICK_NUM times per second,
@@ -40,4 +43,17 @@ void clock_init() {
   pic_enable(IRQ_TIMER);
 }
 
-uint64_t clock_count_tick() { return ++ticks; }
+uint64_t clock_count_tick() {
+  SMART_CRITICAL_REGION
+  memory_barrier(RELEASE);
+  uint64_t val = ++ticks;
+  memory_barrier(ACQUIRE);
+  return val;
+}
+
+uint64_t clock_get_tick() {
+  SMART_CRITICAL_REGION
+  uint64_t val = ticks;
+  memory_barrier(ACQUIRE);
+  return val;
+}

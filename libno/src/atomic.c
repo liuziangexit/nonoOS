@@ -1,5 +1,5 @@
 #include <atomic.h>
-#include <fence.h>
+#include <memory_barrier.h>
 
 void atomic_store(uint32_t *dst, uint32_t val) {
   memory_barrier(RELEASE);
