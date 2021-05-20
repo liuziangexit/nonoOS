@@ -339,10 +339,12 @@ void *alloc_page_impl(enum MEMORY_REGION r, size_t cnt) {
   cnt = next_pow2(cnt);
   void *p = split(log2(cnt), get_region_zones(r), get_region_zones_size(r));
   if (r == NORMAL_REGION) {
-    memset(p, 0, cnt * 4096);
+    memset(p, 0, cnt * _4K);
   }
   if (r == FREE_REGION) {
-    // TODO
+    void *access = free_region_access((uintptr_t)p, cnt * _4K);
+    memset(access, 0, cnt * _4K);
+    free_region_no_access(access);
   }
   return p;
 }
