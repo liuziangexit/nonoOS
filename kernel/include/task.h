@@ -84,6 +84,7 @@ task_group_head_retrieve
 // 内核task
 struct ktask {
   struct avl_node global_head;
+  struct avl_node ready_queue_head;
   list_entry_t group_head;
   task_group_t *group;
   enum task_state state;

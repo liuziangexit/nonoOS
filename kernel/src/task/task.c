@@ -262,7 +262,7 @@ static void task_group_remove(ktask_t *t) {
 
 // 从组链表node获得对象
 inline static ktask_t *task_group_head_retrieve(list_entry_t *head) {
-  return (ktask_t *)(((void *)head) - sizeof(struct avl_node));
+  return (ktask_t *)(((void *)head) - sizeof(struct avl_node) * 2);
 }
 
 // 生成ID
@@ -720,6 +720,8 @@ void task_init() {
   assert(TASK_TIME_SLICE_MS >= TICK_TIME_MS &&
          TASK_TIME_SLICE_MS % TICK_TIME_MS == 0);
   avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
+  avl_tree_init(&ready_queue, compare_task_by_dp, sizeof(ktask_t),
+                sizeof(struct avl_node));
   avl_tree_init(&ret_val_tree, compare_ret_val, sizeof(struct ret_val), 0);
 
   // 将当前的上下文设置为第一个任务
