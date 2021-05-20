@@ -541,8 +541,9 @@ void task_idle() {
         }
         t = avl_tree_next(&tasks, t);
       }
+      if (task_schd())
+        printf("idle\n");
     }
-    // printf("idle\n");
     hlt();
   }
 }
