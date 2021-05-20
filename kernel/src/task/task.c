@@ -510,11 +510,17 @@ void task_clean() {
   }
 }
 
+/*
+FIXME
+看起来动态优先级还不工作
+为什么schd test5创建了那么久才被执行？
+*/
+
 // 要维护的性质是
 // ready队列里面只能是created或yielded任务
 // 也就是说，一个任务运行时，一定不在ready队列里
 bool task_schd() {
-  make_sure_int_disabled();
+  SMART_CRITICAL_REGION
   if (!task_preemptive)
     return false;
   // 如果调度队列有task
@@ -529,7 +535,7 @@ bool task_schd() {
 
 void task_idle() {
   while (true) {
-    {
+    while (task_schd()) {
       SMART_CRITICAL_REGION
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
         if (t->state == EXITED) {
@@ -541,8 +547,7 @@ void task_idle() {
         }
         t = avl_tree_next(&tasks, t);
       }
-      if (task_schd())
-        printf("idle\n");
+      printf("idle\n");
     }
     hlt();
   }
