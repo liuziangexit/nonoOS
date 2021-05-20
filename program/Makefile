@@ -10,7 +10,8 @@ CVERSION=-std=gnu11
 INCLUDE=-I../libno/include
 
 PROG_EXE=\
-hello_world/hello.exe
+hello_world/hello.exe \
+schd_test/main.exe
 
 .PHONY: all clean crt
 .SUFFIXES: .o .c .S .exe

@@ -163,7 +163,7 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name,
 
 // 对kernel接口
 // 创建user task
-#define DETECT_ENTRY 0xC0000000
+#define DEFAULT_ENTRY 0
 pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                        task_group_t *group, uintptr_t entry,
                        struct task_args *args);

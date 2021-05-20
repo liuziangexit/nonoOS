@@ -541,6 +541,7 @@ void task_idle() {
       }
       task_schd();
     }
+    // printf("idle\n");
     hlt();
   }
 }
@@ -573,8 +574,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   // mdzz
   bool is_first = program ? true : false;
 
-  //只有is_first时才能检测程序入口
-  assert((entry == DETECT_ENTRY) == is_first);
+  // 只有is_first时才能检测程序入口
+  assert((entry == DEFAULT_ENTRY) == is_first);
 
   SMART_CRITICAL_REGION
   utask_t *new_task = (utask_t *)task_create_impl(name, false, group);
@@ -631,7 +632,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     virtual_memory_map(new_task->base.group->vm, vma, USER_CODE_BEGIN,
                        ROUNDUP(program_size, _4K),
                        V2P((uintptr_t)new_task->program));
-    if (entry == DETECT_ENTRY) {
+    if (entry == DEFAULT_ENTRY) {
       entry = (uintptr_t)elf_header->e_entry;
     }
   }
