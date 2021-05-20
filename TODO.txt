@@ -48,11 +48,11 @@ OK-实现一个打印vm内存布局的函数，打印内核布局和用户布局
 OK-实现内核之外的物理内存的页分配
 OK-用户malloc使用FREE SPACE的内存
 
-
--实现简单调度算法
--实现mutex、信号量。可以按照java和c#的方式，用一种对象来实现
+WORKING-实现简单调度算法
+-每个进程的cpu占用率计算
 -sleep
 -yield
+-实现mutex、信号量。可以按照java和c#的方式，用一种对象来实现
 -lock
 -unlock
 -wait
