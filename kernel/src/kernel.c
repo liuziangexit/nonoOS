@@ -187,6 +187,7 @@ void ktask0() {
   print_cur_status();
   printf("\n\n");
 
+  task_enable_preemptive();
   clock_init();
   sti();
 

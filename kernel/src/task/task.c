@@ -28,7 +28,84 @@ static ktask_t *current;
 // id序列
 static pid_t id_seq;
 // 调度队列，在这个队列中的task都是可执行的，也就是它没有等待锁或者io或者sleep
-static struct avl_tree ready_queue;
+static list_entry_t ready_queue;
+
+static __always_inline uint32_t task_count() {
+  make_sure_int_disabled();
+  return tasks.count;
+}
+
+// 从组链表node获得对象
+inline static ktask_t *task_group_head_retrieve(list_entry_t *head) {
+  return (ktask_t *)(((void *)head) - sizeof(struct avl_node) * 2);
+}
+
+// 从ready链表node获得对象
+inline static ktask_t *task_ready_queue_head_retrieve(list_entry_t *head) {
+  return (ktask_t *)(((void *)head) - sizeof(struct avl_node));
+}
+
+// 期望的周转时间
+static __always_inline uint64_t expect_turnaround_ms() {
+  make_sure_int_disabled();
+  assert(task_count() >= 1);
+  return TICK_TIME_MS * (task_count() - 1);
+}
+
+static void task_update_dynamic_priority(ktask_t *t) {
+  const uint64_t current_tick = clock_get_tick();
+  if (t->schd_out == 0) {
+    // 第一次执行这个task，不更新
+    return;
+  }
+  /*
+   当本次周转时间(ctat)低于目标周转时间(etat)时，动态优先级下降，dynamic_priority-=(etat-ctat)*(priority>=0?(100+priority)/100的倒数:(100-priority)/100)
+   当本次周转时间(ctat)高于目标周转时间(etat)时，动态优先级上升，dynamic_priority+=(ctat-etat)*(priority>=0?(100+priority)/100:(100-priority)/100的倒数)
+  */
+  uint32_t expect_diff;
+  if (current_tick > expect_turnaround_ms()) {
+    // 本次周转时间低于目标周转时间，动态优先级下降
+    expect_diff = current_tick - expect_turnaround_ms();
+    int32_t delta;
+    if (t->priority >= 0) {
+      // 高优先级减得更慢
+      delta = expect_diff *
+              ((double)1 / (((double)100 + (double)t->priority) / (double)100));
+    } else {
+      // 低优先级减得更快
+      delta = expect_diff * (100 - t->priority) / 100;
+    }
+    t->dynamic_priority -= delta;
+  } else if (current_tick < expect_turnaround_ms()) {
+    // 本次周转时间高于目标周转时间，动态优先级上升
+    expect_diff = expect_turnaround_ms() - current_tick;
+    int32_t delta;
+    if (t->priority >= 0) {
+      // 高优先级加得更快
+      delta = expect_diff * (100 + t->priority) / 100;
+    } else {
+      // 低优先级加得更慢
+      delta = expect_diff *
+              ((double)1 / (((double)100 - (double)t->priority) / (double)100));
+    }
+    t->dynamic_priority += delta;
+  }
+  if (t->dynamic_priority < -DPRIOR_MAX) {
+    t->dynamic_priority = -DPRIOR_MAX;
+  }
+  if (t->dynamic_priority > DPRIOR_MAX) {
+    t->dynamic_priority = DPRIOR_MAX;
+  }
+}
+
+static ktask_t *ready_queue_get() {
+  make_sure_int_disabled();
+  list_entry_t *entry = list_next(&ready_queue);
+  if (entry == &ready_queue) {
+    return 0;
+  }
+  return task_ready_queue_head_retrieve(entry);
+}
 
 static int compare_task_by_dp(const void *a, const void *b) {
   const ktask_t *ta = a;
@@ -42,21 +119,16 @@ static int compare_task_by_dp(const void *a, const void *b) {
   __builtin_unreachable();
 }
 
+static void ready_queue_put(ktask_t *t) {
+  make_sure_int_disabled();
+  list_init(&t->ready_queue_head);
+  list_sort_add(&ready_queue, &t->ready_queue_head, compare_task_by_dp,
+                sizeof(struct avl_node));
+}
+
 struct virtual_memory *current_vm;
 struct virtual_memory *virtual_memory_current() {
   return current_vm;
-}
-
-static __always_inline uint32_t task_count() {
-  make_sure_int_disabled();
-  return tasks.count;
-}
-
-// 期望的周转时间
-static __always_inline uint64_t expect_turnaround_ms() {
-  make_sure_int_disabled();
-  assert(task_count() >= 1);
-  return TICK_TIME_MS * (task_count() - 1);
 }
 
 void task_args_init(struct task_args *dst) {
@@ -205,6 +277,7 @@ static void add_task(ktask_t *new_task) {
   if (prev) {
     abort();
   }
+  ready_queue_put(new_task);
 }
 
 static int compare_task(const void *a, const void *b) {
@@ -258,11 +331,6 @@ static void task_group_remove(ktask_t *t) {
     g->task_cnt--;
     list_del(&t->group_head);
   }
-}
-
-// 从组链表node获得对象
-inline static ktask_t *task_group_head_retrieve(list_entry_t *head) {
-  return (ktask_t *)(((void *)head) - sizeof(struct avl_node) * 2);
 }
 
 // 生成ID
@@ -393,18 +461,15 @@ void task_display() {
   printf("\n\nTask Display   Current: %s", current->name);
   printf("\n*******************************************************************"
          "******\n");
-  ktask_t key;
-  key.id = 0;
-  ktask_t *p = avl_tree_nearest(&tasks, &key);
-  do {
-    if (p) {
-      printf("State:%s  ID:%d  Supervisor:%s  Group:0x%08llx  Name:%s\n",
-             task_state_str(p->state), (int)p->id,
-             p->group->is_kernel ? "T" : "F",
-             (int64_t)(uint64_t)(uintptr_t)p->group, p->name);
-      p = avl_tree_next(&tasks, p);
-    }
-  } while (p != 0);
+  for (ktask_t *p = avl_tree_first(&tasks); p != 0;
+       p = avl_tree_next(&tasks, p)) {
+    printf("State:%s ID:%d K:%s Group:0x%08llx P:%d DP:%d Name:%s\n",
+           task_state_str(p->state), (int)p->id,
+           p->group->is_kernel ? "T" : "F",
+           (int64_t)(uint64_t)(uintptr_t)p->group, p->priority,
+           p->dynamic_priority, p->name);
+  }
+
   printf("*********************************************************************"
          "****\n\n");
 }
@@ -444,21 +509,35 @@ void task_clean() {
   }
 }
 
+// 要维护的性质是
+// ready队列里面只能是created或yielded任务
+// 也就是说，一个任务运行时，一定不在ready队列里
 void task_schd() {
   make_sure_int_disabled();
   if (!task_preemptive)
     return;
-  // 1.如果调度队列有task
-
-  // 2.取出第一个task，计算它的动态优先级，然后将它加回队列
-  // 3.执行task
+  // 如果调度队列有task
+  ktask_t *t = ready_queue_get();
+  if (t) {
+    // 执行那个任务
+    task_switch(t);
+  }
 }
 
 void task_idle() {
   while (true) {
-    // 还需要删除EXITED的线程
     {
       SMART_CRITICAL_REGION
+      for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
+        if (t->state == EXITED) {
+          ktask_t *n = avl_tree_next(&tasks, t);
+          avl_tree_remove(&tasks, t);
+          task_destory(t);
+          t = n;
+          continue;
+        }
+        t = avl_tree_next(&tasks, t);
+      }
       task_schd();
     }
     hlt();
@@ -674,7 +753,7 @@ void task_exit(int32_t ret) {
 void task_switch(ktask_t *next) {
   make_sure_int_disabled();
   assert(current);
-  assert(next);
+  assert(next && (next->state == CREATED || next->state == YIELDED));
   if (next == current) {
     panic("task_switch");
   }
@@ -706,6 +785,18 @@ void task_switch(ktask_t *next) {
   ktask_t *prev = current;
   current = next;
   current_vm = next->group->vm;
+  // next在ready队列里面，prev不在队列里面
+  assert(next->ready_queue_head.next != 0 && next->ready_queue_head.prev != 0);
+  assert(prev->ready_queue_head.next == 0 && prev->ready_queue_head.prev == 0);
+  // 从队列移除next
+  list_del(&next->ready_queue_head);
+  next->ready_queue_head.next = 0;
+  next->ready_queue_head.prev = 0;
+  // 向队列加入prev
+  if (prev->state == YIELDED) {
+    ready_queue_put(prev);
+  }
+  // 切换进去
   prev->schd_out = clock_get_tick();
   // 切换寄存器，包括eip、esp和ebp
   // switch_to里面会重新打开中断
@@ -713,6 +804,8 @@ void task_switch(ktask_t *next) {
   // 这里就有一个问题，因为当本线程别switch回来的时候，中断却被打开了
   // 所以我们就给他手动再关上
   disable_interrupt();
+  // 换回来了，更新自己的动态优先级
+  task_update_dynamic_priority(task_current());
 }
 
 // 初始化任务系统
@@ -720,8 +813,7 @@ void task_init() {
   assert(TASK_TIME_SLICE_MS >= TICK_TIME_MS &&
          TASK_TIME_SLICE_MS % TICK_TIME_MS == 0);
   avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
-  avl_tree_init(&ready_queue, compare_task_by_dp, sizeof(ktask_t),
-                sizeof(struct avl_node));
+  list_init(&ready_queue);
   avl_tree_init(&ret_val_tree, compare_ret_val, sizeof(struct ret_val), 0);
 
   // 将当前的上下文设置为第一个任务
@@ -738,4 +830,8 @@ void task_init() {
   // 设置当前vm为kernelvm
   init->group->vm = &kernel_vm;
   current_vm = &kernel_vm;
+  // 从队列移除init
+  list_del(&init->ready_queue_head);
+  init->ready_queue_head.next = 0;
+  init->ready_queue_head.prev = 0;
 }
