@@ -160,6 +160,7 @@ void ktask0() {
     // mapregion要用的，必须free了
     virtual_memory_free(&kernel_vm, map_vma);
   }
+  task_inited = TASK_INITED_MAGIC;
   task_test();
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);

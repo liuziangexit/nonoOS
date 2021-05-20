@@ -709,7 +709,6 @@ void task_init() {
   add_task(init);
   current = init;
   load_esp0(0);
-  task_inited = TASK_INITED_MAGIC;
   // 设置当前vm为kernelvm
   init->group->vm = &kernel_vm;
   current_vm = &kernel_vm;
