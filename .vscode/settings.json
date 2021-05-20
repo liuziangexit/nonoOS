@@ -67,6 +67,7 @@
         "task.h": "c",
         "compare": "c",
         "cmath": "c",
-        "limits": "c"
+        "limits": "c",
+        "memory_barrier.h": "c"
     }
 }
