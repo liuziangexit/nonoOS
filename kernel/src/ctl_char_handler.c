@@ -14,10 +14,12 @@ void control_character_handler(int32_t *c, uint32_t *shift) {
     terminal_viewport_down(1);
     break;
   case KEY_LF:
+  case KEY_HOME:
     *c = -1;
     terminal_viewport_top();
     break;
   case KEY_RT:
+  case KEY_END:
     *c = -1;
     terminal_viewport_bottom();
     break;
