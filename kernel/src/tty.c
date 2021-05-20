@@ -11,7 +11,7 @@ static enum cga_color fg;
 static enum cga_color bg;
 
 // 现在viewport显示的页面
-static uint16_t viewport = 0;
+static uint32_t viewport = 0;
 
 //输入缓冲区
 #define TER_IN_BUF_LEN 512
@@ -21,29 +21,29 @@ struct ring_buffer input_buffer;
 //输出缓冲区
 //储存最近4页的输出内容，用来实现滚屏
 //必须是2的倍数并且大于2页，不然cut那里会有bug
-#define TER_OUT_BUF_LEN (CRT_SIZE * 16)
+#define TER_OUT_BUF_LEN (CRT_SIZE * 4096)
 static char output_buffer[TER_OUT_BUF_LEN];
 static unsigned char output_color[TER_OUT_BUF_LEN];
-static uint16_t ob_wpos = 0;
+static uint32_t ob_wpos = 0;
 
 static const char whitespace = ' ';
 
 //清屏
 static void viewport_clear() {
   SMART_CRITICAL_REGION
-  for (uint16_t i = 0; i < CRT_SIZE; i++) {
+  for (uint32_t i = 0; i < CRT_SIZE; i++) {
     cga_write(i, bg, fg, &whitespace, 1);
   }
 }
 
 //看看一个位置在不在viewport里
-static bool in_viewport(uint16_t pos) {
+static bool in_viewport(uint32_t pos) {
   if (pos < viewport)
     return false;
   if (pos == viewport)
     return true;
   if (pos > viewport)
-    return pos < viewport + CRT_SIZE;
+    return pos < viewport + (uint32_t)CRT_SIZE;
   __builtin_unreachable();
 }
 
@@ -72,8 +72,8 @@ static void viewport_update() {
   if (tail < end)
     end = tail;
   viewport_clear();
-  uint16_t write_idx = 0;
-  for (uint16_t it = viewport; it < end; it++, write_idx++) {
+  uint32_t write_idx = 0;
+  for (uint32_t it = viewport; it < end; it++, write_idx++) {
     cga_write(write_idx, output_color[it] << 4, output_color[it],
               output_buffer + it, 1);
   }
@@ -193,28 +193,33 @@ int terminal_read_line(char *dst, int len) {
 }
 
 // viewport向上移动一行
-void terminal_viewport_up() {
+void terminal_viewport_up(uint32_t line) {
   SMART_CRITICAL_REGION
   uint32_t written = ob_wpos;
   if (written < CRT_SIZE || viewport == 0) {
     return;
   }
-  viewport -= CRT_COLS;
+  if (viewport <= CRT_COLS * line) {
+    viewport = 0;
+  } else {
+    viewport -= CRT_COLS * line;
+  }
   viewport_update();
 }
 
 // viewport向下移动一行
-void terminal_viewport_down() {
+void terminal_viewport_down(uint32_t line) {
   SMART_CRITICAL_REGION
   uint32_t written = ob_wpos;
   if (written < CRT_SIZE) {
     return;
   }
-  uint32_t new_vp = viewport + CRT_COLS;
+  uint32_t new_vp = viewport + CRT_COLS * line;
   if (new_vp > written) {
-    return;
+    viewport = ROUNDDOWN(written, CRT_COLS);
+  } else {
+    viewport = new_vp;
   }
-  viewport = new_vp;
   viewport_update();
 }
 

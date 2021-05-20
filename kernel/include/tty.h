@@ -14,8 +14,8 @@ void terminal_default_color();
 struct ring_buffer *terminal_input_buffer();
 int terminal_read_line(char *dst, int len);
 
-void terminal_viewport_up();
-void terminal_viewport_down();
+void terminal_viewport_up(uint32_t line);
+void terminal_viewport_down(uint32_t line);
 void terminal_viewport_top();
 void terminal_viewport_bottom();
 #endif
