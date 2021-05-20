@@ -708,10 +708,11 @@ void task_switch(ktask_t *next) {
   current_vm = next->group->vm;
   prev->schd_out = clock_get_tick();
   // 切换寄存器，包括eip、esp和ebp
+  // switch_to里面会重新打开中断
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
-  // 切过去的时候对面的中断是否开启呢？这分为两种情况
-  // 1.切到一个首次执行的程序 FIXME 测试，按理说是不会开中断的
-  // 2.切到一个执行到一半的程序，这种情况下，它的eip也在现在这个位置，所以它会通过SMARTCR在栈上的值来重新开启中断
+  // 这里就有一个问题，因为当本线程别switch回来的时候，中断却被打开了
+  // 所以我们就给他手动再关上
+  disable_interrupt();
 }
 
 // 初始化任务系统
