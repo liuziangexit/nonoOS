@@ -76,6 +76,7 @@ void virtual_memory_clone(struct virtual_memory *vm,
       } else {
         // 4K页
         uint32_t *pt = (uint32_t *)(page_directory[pd_idx] & ~0xFFF);
+        pt = (uint32_t *)P2V((uintptr_t)pt);
         for (uint32_t pt_idx = 0; pt_idx < 1024; pt_idx++) {
           if (pt[pt_idx] & PTE_P) {
             uintptr_t page_frame = (uintptr_t)(pt[pt_idx] & ~0xFFF);
