@@ -196,6 +196,9 @@ void ktask0() {
   task_create_user((void *)_binary____program_schd_test_main_exe_start,
                    (uint32_t)_binary____program_schd_test_main_exe_size,
                    "schd_test 1", 0, DEFAULT_ENTRY, 0);
+  task_create_user((void *)_binary____program_schd_test_main_exe_start,
+                   (uint32_t)_binary____program_schd_test_main_exe_size,
+                   "schd_test 2", 0, DEFAULT_ENTRY, 0);
 
   printf("nonoOS:$ ");
 

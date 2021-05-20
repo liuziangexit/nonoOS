@@ -143,8 +143,9 @@ void task_init();
 
 // 对kernel接口
 // 寻找下一个可调度的task
-void task_schd();
+bool task_schd();
 // 在没有task可调时，hlt
+// 返回值指示是否切换了其他任务
 void task_idle();
 // 关闭抢占式调度
 extern bool task_preemptive;

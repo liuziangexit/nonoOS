@@ -513,16 +513,18 @@ void task_clean() {
 // 要维护的性质是
 // ready队列里面只能是created或yielded任务
 // 也就是说，一个任务运行时，一定不在ready队列里
-void task_schd() {
+bool task_schd() {
   make_sure_int_disabled();
   if (!task_preemptive)
-    return;
+    return false;
   // 如果调度队列有task
   ktask_t *t = ready_queue_get();
   if (t) {
     // 执行那个任务
     task_switch(t);
+    return true;
   }
+  return false;
 }
 
 void task_idle() {
@@ -539,7 +541,6 @@ void task_idle() {
         }
         t = avl_tree_next(&tasks, t);
       }
-      task_schd();
     }
     // printf("idle\n");
     hlt();
