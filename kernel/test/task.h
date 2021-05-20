@@ -62,7 +62,7 @@ void task_test() {
   task_args_add(args, "33", 0, false);
   pid_t t2 = task_create_kernel(task2, "kernel_test_proc", args);
   assert(t2);
-  pid_t t1 = task_current();
+  pid_t t1 = task_current()->id;
   assert(t1);
   task_display();
   printf("task1: switching to task2\n");

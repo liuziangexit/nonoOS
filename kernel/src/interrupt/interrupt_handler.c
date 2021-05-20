@@ -10,6 +10,7 @@
 #include <panic.h>
 #include <stdio.h>
 #include <string.h>
+#include <sync.h>
 #include <syscall.h>
 #include <task.h>
 #include <tty.h>
@@ -105,15 +106,6 @@ static inline void print_pgfault(struct trapframe *tf) {
 
 static struct trapframe switchk2u, *switchu2k;
 
-void clock_handler() {
-  // TODO 应该直接切到下一个进程，只有没有进程可以运行的时候才回到调度器
-  if (task_current() != 1) {
-    //切到调度器
-    ktask_t *schd = task_find(1);
-    task_switch(schd);
-  }
-}
-
 /* trap_dispatch - dispatch based on what type of trap occurred */
 void interrupt_handler(struct trapframe *tf) {
   switch (tf->tf_trapno) {
@@ -121,17 +113,22 @@ void interrupt_handler(struct trapframe *tf) {
     kbd_isr();
     break;
   case IRQ_OFFSET + IRQ_TIMER: {
+    SMART_CRITICAL_REGION
     uint64_t ticks = clock_count_tick();
     if (ticks % TICK_PER_SECOND == 0) {
       // printf("%lld ", ticks / TICK_PER_SECOND);
     }
-    clock_handler();
+    if (ticks * TICK_TIME_MS % TASK_TIME_SLICE_MS == 0) {
+      // 时间片到了，重新调度
+      task_schd();
+    }
   } break;
   case T_SYSCALL:
     syscall_dispatch(tf);
     break;
   case T_SWITCH_USER:
     if (tf->tf_cs != USER_CS) {
+      SMART_CRITICAL_REGION
       //将tf的内容拷贝到switchk2u，然后把寄存器们都改成用户权限
       *(struct trapframe_kernel *)&switchk2u = *(struct trapframe_kernel *)tf;
       switchk2u.tf_cs = USER_CS;
@@ -176,6 +173,9 @@ void interrupt_handler(struct trapframe *tf) {
     break;
   case T_SWITCH_KERNEL:
     if (tf->tf_cs != KERNEL_CS) {
+      SMART_CRITICAL_REGION
+      // 现在不给用这个
+      abort();
       tf->tf_cs = KERNEL_CS;
       tf->tf_ds = tf->tf_es = KERNEL_DS;
       tf->tf_eflags &= ~FL_IOPL_MASK;
@@ -197,12 +197,21 @@ void interrupt_handler(struct trapframe *tf) {
     panic(trapname(T_GPFLT));
   } break;
   case T_PGFLT: {
+    /* FIXME
+     这里有一个争用条件，考虑一个缺页已经发生，处理该缺页的isr还未来的及
+     关中断，时钟中断就引起了任务切换，切到另一个任务去了，另一个任务也发生了缺页
+     于是覆盖了cr2。当我们回到首个缺页的isr中时，我们想要的cr2值已经没了
+
+     解决方案似乎应该是在task_switch的时候将cr2视为上下文的一部分并进行储存
+     这样每个任务有他自己的cr2
+     */
+    SMART_CRITICAL_REGION
     uintptr_t addr = rcr2();
     if ((tf->tf_err & 1) == 0 && tf->tf_err & 4) {
       // 是用户态异常并且是not found
       assert(task_inited == TASK_INITED_MAGIC);
       // 找到task
-      ktask_t *task = task_find(task_current());
+      ktask_t *task = task_current();
       assert(!task->group->is_kernel);
       // 找到vma
       struct virtual_memory_area *vma =

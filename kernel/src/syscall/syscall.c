@@ -20,7 +20,7 @@ void syscall_dispatch(struct trapframe *tf) {
                      tf->tf_gprs.reg_ebx, tf->tf_gprs.reg_edi,
                      tf->tf_gprs.reg_esi};
   int no = tf->tf_gprs.reg_eax;
-  ktask_t *const task = task_find(task_current());
+  ktask_t *const task = task_current();
   assert(task && !task->group->is_kernel);
 
   switch (no) {

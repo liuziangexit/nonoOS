@@ -19,6 +19,8 @@
 #define USER_CODE_BEGIN 0x8000000
 // 用户栈的虚拟地址(3GB - 4K)
 #define USER_STACK_BEGIN (0xC0000000 - TASK_STACK_SIZE * 4096)
+// 时间片
+#define TASK_TIME_SLICE_MS 10
 
 #define TASK_INITED_MAGIC 9863479
 extern uint32_t task_inited;
@@ -78,6 +80,7 @@ CAUTION!
 task_group_head_retrieve
 依赖于此类型的内存布局
 */
+#define DPRIOR_MAX 100
 // 内核task
 struct ktask {
   struct avl_node global_head;
@@ -90,6 +93,19 @@ struct ktask {
   uintptr_t kstack;       // 内核栈
   struct registers regs;  // 寄存器
   struct task_args *args; // 命令行参数
+  /*
+   动态优先级，数值越高优先级越高
+
+   当本次周转时间(ctat)低于目标周转时间(etat)时，动态优先级下降，dynamic_priority-=(etat-ctat)*(priority>=0?(100+priority)/100的倒数:(100-priority)/100)
+   当本次周转时间(ctat)高于目标周转时间(etat)时，动态优先级上升，dynamic_priority+=(ctat-etat)*(priority>=0?(100+priority)/100:(100-priority)/100的倒数)
+
+   dynamic_priority的最大值和最小值分别为PRIOR_MAX和-PRIOR_MAX，
+   这表明在最坏情况下，最低优先级任务的周转时间（不考虑上下文切换）也不会超过PRIOR_MAX*2*(task_cnt-1)
+   (考虑一个任务具有最低dp也就是-DPRIOR_MAX，另有task_cnt-1个任务具有最高优先级也就是DPRIOR_MAX)
+   */
+  int32_t dynamic_priority; // [-DPRIOR_MAX, DPRIOR_MAX]
+  int32_t priority; // 优先级是用来影响动态优先级的[-500, 500]，0是默认优先级
+  uint64_t schd_out; // 上次被调走的时间(tick)
 };
 typedef struct ktask ktask_t;
 
@@ -124,13 +140,19 @@ void task_clean();
 void task_init();
 
 // 对kernel接口
-// 开始调度，此函数不会返回
+// 寻找下一个可调度的task
 void task_schd();
+// 在没有task可调时，hlt
+void task_idle();
+// 关闭抢占式调度
+extern bool task_preemptive;
+void task_disable_preemptive();
+void task_enable_preemptive();
 
 // 对kernel接口
 // 对task接口
 // 当前task
-pid_t task_current();
+ktask_t *task_current();
 
 // 对kernel接口
 // 创建内核线程

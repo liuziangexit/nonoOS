@@ -5,6 +5,7 @@
 #include <picirq.h>
 #include <ring_buffer.h>
 #include <stdio.h>
+#include <sync.h>
 #include <tty.h>
 
 static uint8_t shiftcode[256] = {
@@ -342,6 +343,7 @@ void kbd_init(void) {
 
 /* kbd_intr - try to feed input characters from keyboard */
 void kbd_isr(void) {
+  SMART_CRITICAL_REGION
   int c;
   while ((c = kbd_hw_read()) != EOF) {
     if (c != 0) {

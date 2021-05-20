@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <avlmini.h>
+#include <clock.h>
 #include <compiler_helper.h>
 #include <elf.h>
 #include <gdt.h>
@@ -26,10 +27,36 @@ static struct avl_tree tasks;
 static ktask_t *current;
 // id序列
 static pid_t id_seq;
+// 调度队列，在这个队列中的task都是可执行的，也就是它没有等待锁或者io或者sleep
+static struct avl_tree ready_queue;
+
+static int compare_task_by_dp(const void *a, const void *b) {
+  const ktask_t *ta = a;
+  const ktask_t *tb = b;
+  if (ta->dynamic_priority > tb->dynamic_priority)
+    return 1;
+  if (ta->dynamic_priority < tb->dynamic_priority)
+    return -1;
+  if (ta->dynamic_priority == tb->dynamic_priority)
+    return 0;
+  __builtin_unreachable();
+}
 
 struct virtual_memory *current_vm;
 struct virtual_memory *virtual_memory_current() {
   return current_vm;
+}
+
+static __always_inline uint32_t task_count() {
+  make_sure_int_disabled();
+  return tasks.count;
+}
+
+// 期望的周转时间
+static __always_inline uint64_t expect_turnaround_ms() {
+  make_sure_int_disabled();
+  assert(task_count() >= 1);
+  return TICK_TIME_MS * (task_count() - 1);
 }
 
 void task_args_init(struct task_args *dst) {
@@ -417,48 +444,38 @@ void task_clean() {
   }
 }
 
-// idle专用的调度函数，如果有其他task需要执行，那么执行。否则hlt
-// FIXME 这个是有问题的，因为task运行中可能会修改avl树
 void task_schd() {
-  while (true) {
-    // printf("task_schd: reschdule\n");
-    disable_interrupt();
-    ktask_t key;
-    key.id = 0;
-    ktask_t *p = avl_tree_nearest(&tasks, &key);
-    if (p) {
-      do {
-        if (p != current) {
-          // printf("task_schd: switch to %s\n", p->name);
-          task_switch(p);
-          disable_interrupt();
-          if (p->state == EXITED) {
-            // printf("task_schd: task %s quited\n", p->name);
-            ktask_t *n = avl_tree_next(&tasks, p);
-            avl_tree_remove(&tasks, p);
-            task_destory(p);
-            p = n;
-            continue;
-          }
-          // printf("task_schd: task %s yielded\n", p->name);
-        }
-        p = avl_tree_next(&tasks, p);
-      } while (p != 0);
-    }
-    // printf("task_schd: hlt\n");
-    enable_interrupt();
-    hlt();
-  }
-  __builtin_unreachable();
+  make_sure_int_disabled();
+  if (!task_preemptive)
+    return;
+  // 1.如果调度队列有task
+
+  // 2.取出第一个task，计算它的动态优先级，然后将它加回队列
+  // 3.执行task
 }
 
+void task_idle() {
+  while (true) {
+    // 还需要删除EXITED的线程
+    {
+      SMART_CRITICAL_REGION
+      task_schd();
+    }
+    hlt();
+  }
+}
+
+bool task_preemptive = false;
+void task_disable_preemptive() { task_preemptive = false; }
+void task_enable_preemptive() { task_preemptive = true; }
+
 // 当前进程
-pid_t task_current() {
+ktask_t *task_current() {
   SMART_CRITICAL_REGION
   if (!current) {
     return 0;
   } else {
-    return current->id;
+    return current;
   }
 }
 
@@ -640,11 +657,11 @@ void task_sleep(uint64_t millisecond) {
 // TODO 通知等待此线程的线程
 void task_exit(int32_t ret) {
 #ifdef VERBOSE
-  printf("task %lld returned %d\n", (int64_t)task_current(), ret);
+  printf("task %lld returned %d\n", (int64_t)task_current()->id, ret);
 #endif
   disable_interrupt();
   // 保存返回值供其他task查询
-  record_ret_val(task_current(), ret);
+  record_ret_val(task_current()->id, ret);
   // 找到idle task，它的pid是1
   ktask_t *schd = task_find(1);
   // 把current设置为EXITED
@@ -689,12 +706,18 @@ void task_switch(ktask_t *next) {
   ktask_t *prev = current;
   current = next;
   current_vm = next->group->vm;
+  prev->schd_out = clock_get_tick();
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
+  // 切过去的时候对面的中断是否开启呢？这分为两种情况
+  // 1.切到一个首次执行的程序 FIXME 测试，按理说是不会开中断的
+  // 2.切到一个执行到一半的程序，这种情况下，它的eip也在现在这个位置，所以它会通过SMARTCR在栈上的值来重新开启中断
 }
 
 // 初始化任务系统
 void task_init() {
+  assert(TASK_TIME_SLICE_MS >= TICK_TIME_MS &&
+         TASK_TIME_SLICE_MS % TICK_TIME_MS == 0);
   avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
   avl_tree_init(&ret_val_tree, compare_ret_val, sizeof(struct ret_val), 0);
 

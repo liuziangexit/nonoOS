@@ -192,8 +192,8 @@ void ktask0() {
 
   printf("nonoOS:$ ");
 
-  task_schd();
+  task_idle();
 
-  panic("task_schd returned?");
+  panic("task_idle returned?");
   __builtin_unreachable();
 }
