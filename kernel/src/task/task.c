@@ -690,7 +690,6 @@ void task_switch(ktask_t *next) {
   current = next;
   current_vm = next->group->vm;
   // 切换寄存器，包括eip、esp和ebp
-  // FIXME 过去以后没有开中断
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
 }
 
