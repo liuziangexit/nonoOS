@@ -49,25 +49,27 @@ inline static ktask_t *task_ready_queue_head_retrieve(list_entry_t *head) {
 static __always_inline uint64_t expect_turnaround_ms() {
   make_sure_int_disabled();
   assert(task_count() >= 1);
-  return TICK_TIME_MS * (task_count() - 1);
+  return TASK_TIME_SLICE_MS * (task_count() - 1);
 }
 
 static void task_update_dynamic_priority(ktask_t *t) {
   make_sure_int_disabled();
-  const uint64_t current_tick = clock_get_tick();
+  const uint64_t current_ms = clock_get_tick() * TICK_TIME_MS;
   if (t->schd_out == 0) {
     // 第一次执行这个task，不更新
     return;
   }
+  // 本次周转时间
+  const uint64_t current_tat_ms = current_ms - t->schd_out;
   /*
    当本次周转时间(ctat)低于目标周转时间(etat)时，动态优先级下降，dynamic_priority-=(etat-ctat)*(priority>=0?(100+priority)/100的倒数:(100-priority)/100)
    当本次周转时间(ctat)高于目标周转时间(etat)时，动态优先级上升，dynamic_priority+=(ctat-etat)*(priority>=0?(100+priority)/100:(100-priority)/100的倒数)
   */
   const int32_t prev_dp = t->dynamic_priority;
   uint32_t expect_diff;
-  if (current_tick > expect_turnaround_ms()) {
+  if (current_tat_ms < expect_turnaround_ms()) {
     // 本次周转时间低于目标周转时间，动态优先级下降
-    expect_diff = current_tick - expect_turnaround_ms();
+    expect_diff = expect_turnaround_ms() - current_tat_ms;
     int32_t delta;
     if (t->priority >= 0) {
       // 高优先级减得更慢
@@ -78,9 +80,9 @@ static void task_update_dynamic_priority(ktask_t *t) {
       delta = expect_diff * (100 - t->priority) / 100;
     }
     t->dynamic_priority -= delta;
-  } else if (current_tick < expect_turnaround_ms()) {
+  } else if (current_tat_ms > expect_turnaround_ms()) {
     // 本次周转时间高于目标周转时间，动态优先级上升
-    expect_diff = expect_turnaround_ms() - current_tick;
+    expect_diff = current_tat_ms - expect_turnaround_ms();
     int32_t delta;
     if (t->priority >= 0) {
       // 高优先级加得更快
@@ -92,17 +94,17 @@ static void task_update_dynamic_priority(ktask_t *t) {
     }
     t->dynamic_priority += delta;
   }
-  if (t->dynamic_priority < -DPRIOR_MAX) {
-    t->dynamic_priority = -DPRIOR_MAX;
+  if (t->dynamic_priority < DPRIOR_MAX * -1) {
+    t->dynamic_priority = DPRIOR_MAX * -1;
   }
   if (t->dynamic_priority > DPRIOR_MAX) {
     t->dynamic_priority = DPRIOR_MAX;
   }
 #ifdef VERBOSE
-  printf("change dp of %s(%lld) from %d to %d\n", t->name, (int64_t)t->id,
-         prev_dp, t->dynamic_priority);
+  printf("**%s(%lld) dp %d => %d, etat %lld, ctat %lld**\n", t->name,
+         (int64_t)t->id, prev_dp, t->dynamic_priority, expect_turnaround_ms(),
+         current_tat_ms);
 #endif
-  make_sure_int_disabled();
 }
 
 static ktask_t *ready_queue_get() {
@@ -813,7 +815,7 @@ void task_switch(ktask_t *next) {
     ready_queue_put(prev);
   }
   // 切换进去
-  prev->schd_out = clock_get_tick();
+  prev->schd_out = clock_get_tick() * TICK_TIME_MS;
   // 切换寄存器，包括eip、esp和ebp
   // switch_to里面会重新打开中断
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);

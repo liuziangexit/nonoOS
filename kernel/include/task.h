@@ -107,7 +107,7 @@ struct ktask {
    */
   int32_t dynamic_priority; // [-DPRIOR_MAX, DPRIOR_MAX]
   int32_t priority; // 优先级是用来影响动态优先级的[-500, 500]，0是默认优先级
-  uint64_t schd_out; // 上次被调走的时间(tick)
+  uint64_t schd_out; // 上次被调走的时间(ms)
 };
 typedef struct ktask ktask_t;
 
