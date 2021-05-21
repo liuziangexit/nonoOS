@@ -53,6 +53,7 @@ static __always_inline uint64_t expect_turnaround_ms() {
 }
 
 static void task_update_dynamic_priority(ktask_t *t) {
+  make_sure_int_disabled();
   const uint64_t current_tick = clock_get_tick();
   if (t->schd_out == 0) {
     // 第一次执行这个task，不更新
@@ -62,6 +63,7 @@ static void task_update_dynamic_priority(ktask_t *t) {
    当本次周转时间(ctat)低于目标周转时间(etat)时，动态优先级下降，dynamic_priority-=(etat-ctat)*(priority>=0?(100+priority)/100的倒数:(100-priority)/100)
    当本次周转时间(ctat)高于目标周转时间(etat)时，动态优先级上升，dynamic_priority+=(ctat-etat)*(priority>=0?(100+priority)/100:(100-priority)/100的倒数)
   */
+  const int32_t prev_dp = t->dynamic_priority;
   uint32_t expect_diff;
   if (current_tick > expect_turnaround_ms()) {
     // 本次周转时间低于目标周转时间，动态优先级下降
@@ -96,6 +98,11 @@ static void task_update_dynamic_priority(ktask_t *t) {
   if (t->dynamic_priority > DPRIOR_MAX) {
     t->dynamic_priority = DPRIOR_MAX;
   }
+#ifdef VERBOSE
+  printf("change dp of %s(%lld) from %d to %d\n", t->name, (int64_t)t->id,
+         prev_dp, t->dynamic_priority);
+#endif
+  make_sure_int_disabled();
 }
 
 static ktask_t *ready_queue_get() {
