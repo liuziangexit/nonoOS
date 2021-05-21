@@ -11,8 +11,8 @@ void abort();
 void exit(int);
 
 //将数字转为其字符串表示
-int itoa(uint32_t num, char *str, uint32_t len, uint32_t base);
-int ltoa(uint64_t num, char *str, uint32_t len, uint32_t base);
+int itoa(int32_t num, char *str, uint32_t len, uint32_t base);
+int ltoa(int64_t num, char *str, uint32_t len, uint32_t base);
 
 //堆内存
 void *malloc(size_t size);

@@ -36,7 +36,7 @@ int printf_impl(const char *restrict format, va_list *parameters) {
         amount++;
       if (maxrem < amount) {
         // TODO: Set errno to EOVERFLOW.
-        return -1;
+        abort();
       }
       print(format, amount);
       format += amount;
@@ -51,7 +51,7 @@ int printf_impl(const char *restrict format, va_list *parameters) {
       char c = (char)GET_ARG(int);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
-        return -1;
+        abort();
       }
       print(&c, sizeof(c));
       written++;
@@ -61,7 +61,7 @@ int printf_impl(const char *restrict format, va_list *parameters) {
       size_t len = strlen(str);
       if (maxrem < len) {
         // TODO: Set errno to EOVERFLOW.
-        return -1;
+        abort();
       }
       print(str, len);
       written += len;
@@ -71,11 +71,11 @@ int printf_impl(const char *restrict format, va_list *parameters) {
       int64_t v = GET_ARG(uint64_t);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
-        return -1;
+        abort();
       }
       static char sv[30];
       if (ltoa(v, sv, 30, 10))
-        return -1; // itoa failed
+        abort(); // itoa failed
       size_t len = strlen(sv);
       print(sv, len);
       written += len;
@@ -84,11 +84,11 @@ int printf_impl(const char *restrict format, va_list *parameters) {
       int32_t v = GET_ARG(int32_t);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
-        return -1;
+        abort();
       }
       static char sv[10];
       if (itoa(v, sv, 10, 10))
-        return -1; // itoa failed
+        abort(); // itoa failed
       size_t len = strlen(sv);
       print(sv, len);
       written += len;
@@ -102,11 +102,11 @@ int printf_impl(const char *restrict format, va_list *parameters) {
       int32_t v = GET_ARG(int32_t);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
-        return -1;
+        abort();
       }
       static char sv[11];
       if (itoa(v, sv, 11, 16))
-        return -1; // itoa failed
+        abort(); // itoa failed
       size_t len = strlen(sv);
       if (len < digit_cnt) {
         int ph_add = digit_cnt - len;
@@ -130,11 +130,11 @@ int printf_impl(const char *restrict format, va_list *parameters) {
       int64_t v = GET_ARG(int64_t);
       if (!maxrem) {
         // TODO: Set errno to EOVERFLOW.
-        return -1;
+        abort();
       }
       static char sv[24];
       if (ltoa(v, sv, 24, 16))
-        return -1; // itoa failed
+        abort(); // itoa failed
       size_t len = strlen(sv);
       if (len < digit_cnt) {
         int ph_add = digit_cnt - len;
@@ -152,7 +152,7 @@ int printf_impl(const char *restrict format, va_list *parameters) {
       size_t len = strlen(format);
       if (maxrem < len) {
         // TODO: Set errno to EOVERFLOW.
-        return -1;
+        abort();
       }
       print(format, len);
       written += len;
