@@ -4,6 +4,18 @@
 #include <defs.h>
 #include <panic.h>
 
+/*
+参考https://www.cl.cam.ac.uk/~pes20/cpp/cpp0xmappings.html
+看看还有哪里不对
+
+增加注释，引用一些文档节选来说明正确性
+
+看明白这些问题
+https://stackoverflow.com/questions/20316124/does-it-make-any-sense-to-use-the-lfence-instruction-on-x86-x86-64-processors
+https://stackoverflow.com/questions/27595595/when-are-x86-lfence-sfence-and-mfence-instructions-required
+
+*/
+
 enum memory_order {
   RELAXED = 0,       // 没有顺序制约
   COMPILER_ONLY = 1, // 仅编译器fence
