@@ -100,14 +100,14 @@ static uint32_t list_size(list_entry_t *head) {
 #endif
 
 void kmem_page_debug() {
-  printf("kmem_page_debug\n");
+  printf("\n\nkmem_page_debug\n");
   printf("******************************************\n");
   for (uint32_t i = 0; i < sizeof(normal_region_zones) / sizeof(struct zone);
        i++) {
     if (normal_region_zones[i].cnt)
       printf("zone for 2^%d contains %d\n", i, normal_region_zones[i].cnt);
   }
-  printf("******************************************\n");
+  printf("******************************************\n\n");
 }
 
 void kmem_page_init() {

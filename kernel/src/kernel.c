@@ -161,7 +161,7 @@ void ktask0() {
     virtual_memory_free(&kernel_vm, map_vma);
   }
   task_inited = TASK_INITED_MAGIC;
-  task_test();
+  // task_test();
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
   putchar(1);

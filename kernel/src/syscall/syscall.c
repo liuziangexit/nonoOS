@@ -7,7 +7,7 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
-#define VERBOSE
+//#define VERBOSE
 
 int printf_impl(void *format, void *parameters);
 

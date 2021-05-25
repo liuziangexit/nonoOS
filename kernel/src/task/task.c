@@ -18,7 +18,7 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
-#define VERBOSE
+//#define VERBOSE
 
 uint32_t task_inited;
 
@@ -338,7 +338,7 @@ static void task_destory(ktask_t *t) {
     kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
     free(ut->program);
   }
-#ifndef NDEBUG
+#ifdef VERBOSE
   printf("task_destory: destroy task %s(%lld)\n", t->name, (int64_t)t->id);
 #endif
   free(t);
@@ -718,6 +718,7 @@ void task_yield() {
 
 // 将当前进程挂起一定毫秒数
 void task_sleep(uint64_t millisecond) {
+  assert(task_current()->id != 1);
   {
     SMART_NOINT_REGION
     task_current()->tslice++;
