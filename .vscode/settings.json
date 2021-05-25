@@ -68,6 +68,7 @@
         "compare": "c",
         "cmath": "c",
         "limits": "c",
-        "memory_barrier.h": "c"
+        "memory_barrier.h": "c",
+        "typeinfo": "c"
     }
 }

@@ -8,7 +8,7 @@ int main(int argc, char **argv) {
   UNUSED(argc);
   UNUSED(argv);
   printf("schd test %lld online!\n", (int64_t)get_pid());
-  int32_t cnt = 9999;
+  int32_t cnt = 1200;
 
   while (--cnt) {
     printf("schd_test pid %lld: %d\n", (int64_t)get_pid(), cnt);
