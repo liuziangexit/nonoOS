@@ -364,6 +364,8 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     }
     return 0;
   }
+  if (task_current())
+    new_task->tslice = task_current()->tslice;
 
   // 内核栈
   new_task->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
@@ -472,10 +474,13 @@ bool task_schd() {
 }
 
 void task_idle() {
+  printf("idle: begin\n");
   task_preemptive_set(false);
   while (true) {
+    // printf("idle: schd\n");
     while (task_schd()) {
       task_preemptive_set(false);
+      printf("idle: back\n");
       // FIXME 有时候切回idle并没有人exited，这样很耗性能
       // 1.减少找到exited线程的花费2.只有确实有人ecited了才去找
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
@@ -488,9 +493,9 @@ void task_idle() {
         }
         t = avl_tree_next(&tasks, t);
       }
-      printf("idle back\n");
-      //task_display();
+      // task_display();
     }
+    // printf("idle: hlt\n");
     // sleep
     hlt();
   }

@@ -187,7 +187,7 @@ void ktask0() {
   print_cur_status();
   printf("\n\n");
 
-  task_preemptive_set(true);
+  task_preemptive_set(false);
   clock_init();
   enable_interrupt();
 
@@ -201,6 +201,7 @@ void ktask0() {
                    "schd_test 2", 0, DEFAULT_ENTRY, 0);
 
   printf("nonoOS:$ ");
+  // task_display();
 
   task_idle();
 
