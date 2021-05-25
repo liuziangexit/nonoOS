@@ -121,8 +121,9 @@ void interrupt_handler(struct trapframe *tf) {
     if (ticks * TICK_TIME_MS % TASK_TIME_SLICE_MS == 0) {
       // 时间片到了，重新调度
       task_current()->tslice++;
+      task_handle_wait();
       if (task_preemptive_enabled())
-        task_schd();
+        task_schd(YIELDED);
     }
   } break;
   case T_SYSCALL:

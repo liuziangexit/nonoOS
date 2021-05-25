@@ -62,7 +62,8 @@ kernel: $(KERNEL_OBJS) crt
 	-nostdlib -L../libno/kernel_build -lno -L../driver -ldriver -static-libgcc -lgcc \
 	crt/crtend.o crt/crtn.o \
 	-Wl,-b -Wl,binary -Wl,../program/hello_world/hello.exe \
-	-Wl,-b -Wl,binary -Wl,../program/schd_test/main.exe
+	-Wl,-b -Wl,binary -Wl,../program/schd_test/main.exe \
+	-Wl,-b -Wl,binary -Wl,../program/count_down/main.exe
 	
 
 crt: crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o

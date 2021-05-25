@@ -28,9 +28,19 @@ extern uint32_t task_inited;
 enum task_state {
   CREATED, // 已创建
   YIELDED, // 被调走
-  // WAITING, // 正在等待同步或IO
+  WAITING, // 等待资源
   RUNNING, // 运行中
   EXITED   // 已退出
+};
+
+enum task_wait_type { SLEEP, MUTEX };
+struct sleep_ctx {
+  uint64_t after; // 当ticks * TICK_TIME_MS >= after，就等到了
+};
+struct mutex_ctx {};
+union task_wait_ctx {
+  struct sleep_ctx sleep;
+  struct mutex_ctx mutex;
 };
 
 const char *task_state_str(enum task_state);
@@ -63,6 +73,7 @@ struct task_arg {
 void task_args_init(struct task_args *dst);
 void task_args_add(struct task_args *dst, const char *str,
                    struct virtual_memory *vm, bool use_umalloc);
+void task_args_destroy(struct task_args *dst, bool free_data);
 
 struct registers {
   uint32_t eip;
@@ -94,8 +105,11 @@ struct ktask {
   uintptr_t kstack;       // 内核栈
   struct registers regs;  // 寄存器
   struct task_args *args; // 命令行参数
-  // 调度相关
-  uint64_t tslice; // 已使用的时间片
+  uint64_t tslice;        // 已使用的时间片
+  enum task_wait_type
+      wait_type; // 等待类型，只有在当前state==WAITING时此字段才有意义
+  union task_wait_ctx
+      wait_ctx; // 等待上下文，只有在当前state==WAITING时此字段才有意义
 };
 typedef struct ktask ktask_t;
 
@@ -123,6 +137,8 @@ void task_display();
 
 void task_clean();
 
+void task_handle_wait();
+
 // 对外接口
 
 // 对kernel接口
@@ -131,7 +147,7 @@ void task_init();
 
 // 对kernel接口
 // 寻找下一个可调度的task
-bool task_schd();
+bool task_schd(enum task_state tostate);
 // 在没有task可调时，hlt
 // 返回值指示是否切换了其他任务
 void task_idle();
@@ -178,6 +194,6 @@ void task_exit(int32_t ret);
 
 // 对kernel接口
 // 切换到另一个task
-void task_switch(ktask_t *, bool);
+void task_switch(ktask_t *, bool, enum task_state tostate);
 
 #endif

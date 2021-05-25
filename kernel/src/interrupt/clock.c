@@ -51,7 +51,7 @@ uint64_t clock_count_tick() {
   return val;
 }
 
-uint64_t clock_get_tick() {
+uint64_t clock_get_ticks() {
   SMART_CRITICAL_REGION
   uint64_t val = ticks;
   memory_barrier(ACQUIRE);

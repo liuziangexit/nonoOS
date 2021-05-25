@@ -21,7 +21,7 @@ int task2(int argc, char **argv) {
   task_display();
   printf("task2: switching back...\n");
   disable_interrupt();
-  task_switch(task_find(1), false);
+  task_switch(task_find(1), false, YIELDED);
   printf("task2: i cant believe im still alive!\n");
   task_display();
   printf("task2: exiting\n");
@@ -37,18 +37,19 @@ void utask_test() {
   extern char _binary____program_hello_world_hello_exe_start[],
       _binary____program_hello_world_hello_exe_size[];
 
-  struct task_args *args = (struct task_args *)malloc(sizeof(struct task_args));
-  task_args_init(args);
-  task_args_add(args, "1", 0, false);
-  task_args_add(args, "2", 0, false);
-  task_args_add(args, "3", 0, false);
+  struct task_args args;
+  task_args_init(&args);
+  task_args_add(&args, "1", 0, false);
+  task_args_add(&args, "2", 0, false);
+  task_args_add(&args, "3", 0, false);
   pid_t upid =
       task_create_user(_binary____program_hello_world_hello_exe_start,
                        (uintptr_t)_binary____program_hello_world_hello_exe_size,
-                       "user_test_proc", 0, DEFAULT_ENTRY, args);
+                       "user_test_proc", 0, DEFAULT_ENTRY, &args);
+  task_args_destroy(&args, true);
   printf("switch to user process...\n");
   disable_interrupt();
-  task_switch(task_find(upid), false);
+  task_switch(task_find(upid), false, YIELDED);
   printf("kernel task back!\n");
 }
 
@@ -67,12 +68,12 @@ void task_test() {
   task_display();
   printf("task1: switching to task2\n");
   disable_interrupt();
-  task_switch(task_find(t2), false);
+  task_switch(task_find(t2), false, YIELDED);
   printf("task1: switched back\n");
   task_display();
   printf("task1: switching to task2 second time\n");
   disable_interrupt();
-  task_switch(task_find(t2), false);
+  task_switch(task_find(t2), false, YIELDED);
   printf("task1: switched back second time, cool!\n");
   task_display();
 

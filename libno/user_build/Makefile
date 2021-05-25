@@ -24,7 +24,8 @@ OBJS=\
 ../src/malloc.o\
 ../src/syscall.o\
 ../src/list.o\
-../src/task.o
+../src/task.o\
+../src/unistd.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

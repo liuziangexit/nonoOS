@@ -66,6 +66,13 @@ void syscall_dispatch(struct trapframe *tf) {
     int ret = printf_impl((void *)arg[0], (void *)arg[1]);
     syscall_return(tf, ret);
   } break;
+  case SYSCALL_SLEEP: {
+    uint64_t ms = arg[0];
+    ms <<= 32;
+    ms |= arg[1];
+    task_sleep(ms);
+    syscall_return(tf, 0);
+  } break;
   default: {
     printf("unknown systeam call %d with args:  %d, %d, %d, %d, %d\n", no,
            arg[0], arg[1], arg[2], arg[3], arg[4]);

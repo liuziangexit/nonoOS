@@ -72,6 +72,34 @@ static void ready_queue_put(ktask_t *t) {
                 sizeof(struct avl_node));
 }
 
+// 每个调度周期调一次
+void task_handle_wait() {
+  // 遍历全部任务，如果有WAITING状态的任务等到了他要的东西，就把它放到readyqueue
+  for (ktask_t *t = avl_tree_first(&tasks); t != 0;
+       t = avl_tree_next(&tasks, t)) {
+    if (t->state == WAITING) {
+      assert(t->ready_queue_head.next == 0 && t->ready_queue_head.prev == 0);
+      switch (t->wait_type) {
+      case SLEEP:
+        if (clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.sleep.after) {
+          goto PUTBACK;
+        }
+        continue;
+      case MUTEX:
+        if (false) {
+          goto PUTBACK;
+        }
+        continue;
+      default:
+        panic("unhandled wait");
+      }
+    PUTBACK:
+      t->state = YIELDED;
+      ready_queue_put(t);
+    }
+  }
+}
+
 struct virtual_memory *current_vm;
 struct virtual_memory *virtual_memory_current() {
   return current_vm;
@@ -147,7 +175,7 @@ static void task_args_pack(struct task_args *dst, struct virtual_memory *vm,
 }
 
 // 对于umalloc出来的内存，这里不作处理，等进程销毁时自动处理
-static void task_args_destroy(struct task_args *dst, bool free_data) {
+void task_args_destroy(struct task_args *dst, bool free_data) {
   uint32_t verify = 0;
   for (list_entry_t *p = list_next(&dst->args); p != &dst->args;) {
     verify++;
@@ -459,14 +487,14 @@ void task_clean() {
 // 要维护的性质是
 // ready队列里面只能是created或yielded任务
 // 也就是说，一个任务运行时，一定不在ready队列里
-bool task_schd() {
+bool task_schd(enum task_state tostate) {
   SMART_NOINT_REGION
   // 如果调度队列有task
   ktask_t *t = ready_queue_get();
   if (t) {
     if (t->tslice < task_current()->tslice) {
       // 如果t不如当前任务的时间片，就执行它
-      task_switch(t, true);
+      task_switch(t, true, tostate);
       return true;
     }
   }
@@ -474,15 +502,13 @@ bool task_schd() {
 }
 
 void task_idle() {
-  printf("idle: begin\n");
   task_preemptive_set(false);
   while (true) {
-    // printf("idle: schd\n");
-    while (task_schd()) {
+    // 把idle的时间片设置到很大，这样它永远是最低优先级的
+    task_current()->tslice = 0x8000000000000000;
+    while (task_schd(YIELDED)) {
       task_preemptive_set(false);
-      printf("idle: back\n");
-      // FIXME 有时候切回idle并没有人exited，这样很耗性能
-      // 1.减少找到exited线程的花费2.只有确实有人ecited了才去找
+      // printf("idle: back\n");
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
         if (t->state == EXITED) {
           ktask_t *n = avl_tree_next(&tasks, t);
@@ -493,10 +519,7 @@ void task_idle() {
         }
         t = avl_tree_next(&tasks, t);
       }
-      // task_display();
     }
-    // printf("idle: hlt\n");
-    // sleep
     hlt();
   }
 }
@@ -620,6 +643,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   *(uintptr_t *)(new_task->base.regs.esp + 8) =
       new_task->vustack + _4K * TASK_STACK_SIZE;
   if (args) {
+    // 拷贝参数
     new_task->base.args = malloc(sizeof(struct task_args));
     assert(new_task->base.args);
     task_args_init(new_task->base.args);
@@ -634,10 +658,6 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
         new_task->base.args->cnt; // argc
     *(uintptr_t *)(new_task->base.regs.esp) =
         new_task->base.args->vpacked; // argv
-
-    // 销毁外面传进来的args
-    task_args_destroy(args, 0);
-    free(args);
   } else {
     new_task->base.args = 0;
     *(uintptr_t *)(new_task->base.regs.esp + 4) = (uintptr_t)0; // argc
@@ -657,6 +677,7 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name,
   if (!new_task)
     return 0;
 
+  // 在task_destroy时候销毁args
   if (args) {
     task_args_pack(args, 0, false);
     new_task->args = args;
@@ -689,12 +710,27 @@ int32_t task_join(pid_t pid) {
 }
 
 // 放弃当前进程时间片
-void task_yield() { panic("not implemented"); }
+void task_yield() {
+  SMART_NOINT_REGION
+  task_current()->tslice++;
+  task_schd(YIELDED);
+}
 
-// 将当前进程挂起一段时间
+// 将当前进程挂起一定毫秒数
 void task_sleep(uint64_t millisecond) {
-  UNUSED(millisecond);
-  panic("not implemented");
+  {
+    SMART_NOINT_REGION
+    task_current()->tslice++;
+    task_current()->wait_type = SLEEP;
+    task_current()->wait_ctx.sleep.after =
+        clock_get_ticks() * TICK_TIME_MS + millisecond;
+    if (!task_schd(WAITING)) {
+      // 没有任务做了，切到idle
+      task_switch(task_find(1), true, WAITING);
+    }
+    assert(clock_get_ticks() * TICK_TIME_MS >=
+           task_current()->wait_ctx.sleep.after);
+  }
 }
 
 // 退出当前进程
@@ -708,14 +744,12 @@ void task_exit(int32_t ret) {
   record_ret_val(task_current()->id, ret);
   // 找到idle task，它的pid是1
   ktask_t *schd = task_find(1);
-  // 把current设置为EXITED
-  current->state = EXITED;
   // 切换到schd
-  task_switch(schd, task_preemptive_enabled());
+  task_switch(schd, task_preemptive_enabled(), EXITED);
 }
 
 //切换到另一个task
-void task_switch(ktask_t *next, bool schd) {
+void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   SMART_NOINT_REGION
   assert(current);
   assert(next && (next->state == CREATED || next->state == YIELDED));
@@ -723,9 +757,7 @@ void task_switch(ktask_t *next, bool schd) {
     panic("task_switch");
   }
   extern uint32_t kernel_pd[];
-  if (current->state != EXITED) {
-    current->state = YIELDED;
-  }
+  current->state = tostate;
   if (!current->group->is_kernel || !next->group->is_kernel) {
     //不是内核到内核的切换
     // 1. 切换页表
@@ -762,6 +794,7 @@ void task_switch(ktask_t *next, bool schd) {
     ready_queue_put(prev);
   }
   task_preemptive_set(schd);
+  // printf("switch from %s to %s\n", prev->name, next->name);
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);

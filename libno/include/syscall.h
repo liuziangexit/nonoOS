@@ -20,6 +20,9 @@
 // void SYSCALL_SCANF(fmt, va_list*)
 #define SYSCALL_SCANF 5
 
+// void SYSCALL_SLEEP(hi, lo)
+#define SYSCALL_SLEEP 6
+
 #ifdef LIBNO_USER
 uint32_t syscall(int call, int cnt, ...);
 #endif

@@ -7,6 +7,6 @@
 
 void clock_init();
 uint64_t clock_count_tick();
-uint64_t clock_get_tick();
+uint64_t clock_get_ticks();
 
 #endif
