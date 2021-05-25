@@ -69,6 +69,7 @@
         "cmath": "c",
         "limits": "c",
         "memory_barrier.h": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "unistd.h": "c"
     }
 }
