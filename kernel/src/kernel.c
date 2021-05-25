@@ -187,9 +187,9 @@ void ktask0() {
   print_cur_status();
   printf("\n\n");
 
-  task_enable_preemptive();
+  task_preemptive_set(true);
   clock_init();
-  sti();
+  enable_interrupt();
 
   extern char _binary____program_schd_test_main_exe_start[],
       _binary____program_schd_test_main_exe_size[];

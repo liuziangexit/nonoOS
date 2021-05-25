@@ -6,6 +6,7 @@
 #include <gdt.h>
 #include <list.h>
 #include <memlayout.h>
+#include <memory_barrier.h>
 #include <memory_manager.h>
 #include <mmu.h>
 #include <panic.h>
@@ -31,7 +32,7 @@ static pid_t id_seq;
 static list_entry_t ready_queue;
 
 static __always_inline uint32_t task_count() {
-  make_sure_int_disabled();
+  make_sure_schd_disabled();
   return tasks.count;
 }
 
@@ -45,70 +46,7 @@ inline static ktask_t *task_ready_queue_head_retrieve(list_entry_t *head) {
   return (ktask_t *)(((void *)head) - sizeof(struct avl_node));
 }
 
-// 期望的周转时间
-static __always_inline uint64_t expect_turnaround_ms() {
-  make_sure_int_disabled();
-  assert(task_count() >= 1);
-  return TASK_TIME_SLICE_MS * (task_count() - 1);
-}
-
-static void task_update_dynamic_priority(ktask_t *t) {
-  make_sure_int_disabled();
-  const uint64_t current_ms = clock_get_tick() * TICK_TIME_MS;
-  if (t->schd_out == 0) {
-    // 第一次执行这个task，不更新
-    return;
-  }
-  // 本次周转时间
-  const uint64_t current_tat_ms = current_ms - t->schd_out;
-  /*
-   当本次周转时间(ctat)低于目标周转时间(etat)时，动态优先级下降，dynamic_priority-=(etat-ctat)*(priority>=0?(100+priority)/100的倒数:(100-priority)/100)
-   当本次周转时间(ctat)高于目标周转时间(etat)时，动态优先级上升，dynamic_priority+=(ctat-etat)*(priority>=0?(100+priority)/100:(100-priority)/100的倒数)
-  */
-  const int32_t prev_dp = t->dynamic_priority;
-  uint32_t expect_diff;
-  if (current_tat_ms < expect_turnaround_ms()) {
-    // 本次周转时间低于目标周转时间，动态优先级下降
-    expect_diff = expect_turnaround_ms() - current_tat_ms;
-    int32_t delta;
-    if (t->priority >= 0) {
-      // 高优先级减得更慢
-      delta = expect_diff *
-              ((double)1 / (((double)100 + (double)t->priority) / (double)100));
-    } else {
-      // 低优先级减得更快
-      delta = expect_diff * (100 - t->priority) / 100;
-    }
-    t->dynamic_priority -= delta;
-  } else if (current_tat_ms > expect_turnaround_ms()) {
-    // 本次周转时间高于目标周转时间，动态优先级上升
-    expect_diff = current_tat_ms - expect_turnaround_ms();
-    int32_t delta;
-    if (t->priority >= 0) {
-      // 高优先级加得更快
-      delta = expect_diff * (100 + t->priority) / 100;
-    } else {
-      // 低优先级加得更慢
-      delta = expect_diff *
-              ((double)1 / (((double)100 - (double)t->priority) / (double)100));
-    }
-    t->dynamic_priority += delta;
-  }
-  if (t->dynamic_priority < DPRIOR_MAX * -1) {
-    t->dynamic_priority = DPRIOR_MAX * -1;
-  }
-  if (t->dynamic_priority > DPRIOR_MAX) {
-    t->dynamic_priority = DPRIOR_MAX;
-  }
-#ifdef VERBOSE
-  printf("**%s(%lld) dp %d => %d, etat %lld, ctat %lld**\n", t->name,
-         (int64_t)t->id, prev_dp, t->dynamic_priority, expect_turnaround_ms(),
-         current_tat_ms);
-#endif
-}
-
 static ktask_t *ready_queue_get() {
-  make_sure_int_disabled();
   list_entry_t *entry = list_next(&ready_queue);
   if (entry == &ready_queue) {
     return 0;
@@ -116,23 +54,21 @@ static ktask_t *ready_queue_get() {
   return task_ready_queue_head_retrieve(entry);
 }
 
-// 为了实现降序排列，这里和一般的比较函数语义是相反的
-static int compare_task_by_dp(const void *a, const void *b) {
+static int compare_task_by_ts(const void *a, const void *b) {
   const ktask_t *ta = a;
   const ktask_t *tb = b;
-  if (ta->dynamic_priority < tb->dynamic_priority)
+  if (ta->tslice > tb->tslice)
     return 1;
-  if (ta->dynamic_priority > tb->dynamic_priority)
+  if (ta->tslice < tb->tslice)
     return -1;
-  if (ta->dynamic_priority == tb->dynamic_priority)
+  if (ta->tslice == tb->tslice)
     return 0;
   __builtin_unreachable();
 }
 
 static void ready_queue_put(ktask_t *t) {
-  make_sure_int_disabled();
   list_init(&t->ready_queue_head);
-  list_sort_add(&ready_queue, &t->ready_queue_head, compare_task_by_dp,
+  list_sort_add(&ready_queue, &t->ready_queue_head, compare_task_by_ts,
                 sizeof(struct avl_node));
 }
 
@@ -282,7 +218,7 @@ static int32_t get_ret_val(pid_t id) {
 
 static void add_task(ktask_t *new_task) {
   avl_node_init(&new_task->global_head);
-  make_sure_int_disabled();
+  make_sure_schd_disabled();
   void *prev = avl_tree_add(&tasks, &new_task->global_head);
   if (prev) {
     abort();
@@ -345,7 +281,7 @@ static void task_group_remove(ktask_t *t) {
 
 // 生成ID
 static pid_t gen_pid() {
-  make_sure_int_disabled();
+  make_sure_schd_disabled();
   pid_t result;
   const pid_t begins = id_seq;
   do {
@@ -382,7 +318,7 @@ static void task_destory(ktask_t *t) {
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
                                  task_group_t *group) {
-  make_sure_int_disabled();
+  make_sure_schd_disabled();
   if (current && kernel && !current->group->is_kernel) {
     return 0; //只有supervisor才能创造一个supervisor
   }
@@ -473,11 +409,10 @@ void task_display() {
          "******\n");
   for (ktask_t *p = avl_tree_first(&tasks); p != 0;
        p = avl_tree_next(&tasks, p)) {
-    printf("State:%s ID:%d K:%s Group:0x%08llx P:%d DP:%d Name:%s\n",
+    printf("State:%s ID:%d K:%s Group:0x%08llx TS:%lld Name:%s\n",
            task_state_str(p->state), (int)p->id,
            p->group->is_kernel ? "T" : "F",
-           (int64_t)(uint64_t)(uintptr_t)p->group, p->priority,
-           p->dynamic_priority, p->name);
+           (int64_t)(uint64_t)(uintptr_t)p->group, p->tslice, p->name);
   }
 
   printf("*********************************************************************"
@@ -519,33 +454,30 @@ void task_clean() {
   }
 }
 
-/*
-FIXME
-看起来动态优先级还不工作
-为什么schd test5创建了那么久才被执行？
-*/
-
 // 要维护的性质是
 // ready队列里面只能是created或yielded任务
 // 也就是说，一个任务运行时，一定不在ready队列里
 bool task_schd() {
-  SMART_CRITICAL_REGION
-  if (!task_preemptive)
-    return false;
+  SMART_NOINT_REGION
   // 如果调度队列有task
   ktask_t *t = ready_queue_get();
   if (t) {
-    // 执行那个任务
-    task_switch(t);
-    return true;
+    if (t->tslice < task_current()->tslice) {
+      // 如果t不如当前任务的时间片，就执行它
+      task_switch(t, true);
+      return true;
+    }
   }
   return false;
 }
 
 void task_idle() {
+  task_preemptive_set(false);
   while (true) {
     while (task_schd()) {
-      SMART_CRITICAL_REGION
+      task_preemptive_set(false);
+      // FIXME 有时候切回idle并没有人exited，这样很耗性能
+      // 1.减少找到exited线程的花费2.只有确实有人ecited了才去找
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
         if (t->state == EXITED) {
           ktask_t *n = avl_tree_next(&tasks, t);
@@ -556,15 +488,25 @@ void task_idle() {
         }
         t = avl_tree_next(&tasks, t);
       }
-      printf("idle\n");
+      printf("idle back\n");
+      //task_display();
     }
+    // sleep
     hlt();
   }
 }
 
-bool task_preemptive = false;
-void task_disable_preemptive() { task_preemptive = false; }
-void task_enable_preemptive() { task_preemptive = true; }
+// 这个volatile是为了task_disable_preemptive里的copy不被优化掉
+static volatile bool task_preemptive = false;
+bool task_preemptive_enabled() {
+  bool copy = task_preemptive;
+  memory_barrier(ACQUIRE);
+  return copy;
+}
+void task_preemptive_set(bool val) {
+  memory_barrier(RELEASE);
+  task_preemptive = val;
+}
 
 // 当前进程
 ktask_t *task_current() {
@@ -764,12 +706,12 @@ void task_exit(int32_t ret) {
   // 把current设置为EXITED
   current->state = EXITED;
   // 切换到schd
-  task_switch(schd);
+  task_switch(schd, task_preemptive_enabled());
 }
 
 //切换到另一个task
-void task_switch(ktask_t *next) {
-  make_sure_int_disabled();
+void task_switch(ktask_t *next, bool schd) {
+  SMART_NOINT_REGION
   assert(current);
   assert(next && (next->state == CREATED || next->state == YIELDED));
   if (next == current) {
@@ -814,16 +756,10 @@ void task_switch(ktask_t *next) {
   if (prev->state == YIELDED) {
     ready_queue_put(prev);
   }
-  // 切换进去
-  prev->schd_out = clock_get_tick() * TICK_TIME_MS;
+  task_preemptive_set(schd);
   // 切换寄存器，包括eip、esp和ebp
-  // switch_to里面会重新打开中断
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
-  // 这里就有一个问题，因为当本线程别switch回来的时候，中断却被打开了
-  // 所以我们就给他手动再关上
-  disable_interrupt();
-  // 换回来了，更新自己的动态优先级
-  task_update_dynamic_priority(task_current());
+  assert((reflags() & FL_IF) == 0);
 }
 
 // 初始化任务系统

@@ -81,7 +81,6 @@ task_group_head_retrieve
 tree
 依赖于此类型的内存布局
 */
-#define DPRIOR_MAX 100
 // 内核task
 struct ktask {
   struct avl_node global_head;
@@ -95,19 +94,8 @@ struct ktask {
   uintptr_t kstack;       // 内核栈
   struct registers regs;  // 寄存器
   struct task_args *args; // 命令行参数
-  /*
-   动态优先级，数值越高优先级越高
-
-   当本次周转时间(ctat)低于目标周转时间(etat)时，动态优先级下降，dynamic_priority-=(etat-ctat)*(priority>=0?(100+priority)/100的倒数:(100-priority)/100)
-   当本次周转时间(ctat)高于目标周转时间(etat)时，动态优先级上升，dynamic_priority+=(ctat-etat)*(priority>=0?(100+priority)/100:(100-priority)/100的倒数)
-
-   dynamic_priority的最大值和最小值分别为PRIOR_MAX和-PRIOR_MAX，
-   这表明在最坏情况下，最低优先级任务的周转时间（不考虑上下文切换）也不会超过PRIOR_MAX*2*(task_cnt-1)
-   (考虑一个任务具有最低dp也就是-DPRIOR_MAX，另有task_cnt-1个任务具有最高优先级也就是DPRIOR_MAX)
-   */
-  int32_t dynamic_priority; // [-DPRIOR_MAX, DPRIOR_MAX]
-  int32_t priority; // 优先级是用来影响动态优先级的[-500, 500]，0是默认优先级
-  uint64_t schd_out; // 上次被调走的时间(ms)
+  // 调度相关
+  uint64_t tslice; // 已使用的时间片
 };
 typedef struct ktask ktask_t;
 
@@ -147,10 +135,10 @@ bool task_schd();
 // 在没有task可调时，hlt
 // 返回值指示是否切换了其他任务
 void task_idle();
-// 关闭抢占式调度
-extern bool task_preemptive;
-void task_disable_preemptive();
-void task_enable_preemptive();
+
+// 开关抢占式调度
+bool task_preemptive_enabled();
+void task_preemptive_set(bool val);
 
 // 对kernel接口
 // 对task接口
@@ -190,6 +178,6 @@ void task_exit(int32_t ret);
 
 // 对kernel接口
 // 切换到另一个task
-void task_switch(ktask_t *);
+void task_switch(ktask_t *, bool);
 
 #endif

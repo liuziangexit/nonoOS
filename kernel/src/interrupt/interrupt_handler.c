@@ -113,14 +113,16 @@ void interrupt_handler(struct trapframe *tf) {
     kbd_isr();
     break;
   case IRQ_OFFSET + IRQ_TIMER: {
-    SMART_CRITICAL_REGION
-    uint64_t ticks = clock_count_tick();
+    SMART_NOINT_REGION
+    const uint64_t ticks = clock_count_tick();
     if (ticks % TICK_PER_SECOND == 0) {
       // printf("%lld ", ticks / TICK_PER_SECOND);
     }
     if (ticks * TICK_TIME_MS % TASK_TIME_SLICE_MS == 0) {
       // 时间片到了，重新调度
-      task_schd();
+      task_current()->tslice++;
+      if (task_preemptive_enabled())
+        task_schd();
     }
   } break;
   case T_SYSCALL:

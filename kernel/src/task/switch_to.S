@@ -37,5 +37,4 @@ restore:
     movl 8(%eax), %ebx
     movl 4(%eax), %esp
     pushl 0(%eax)               # push eip
-    sti                         # 重新开中断
     ret

@@ -13,7 +13,7 @@ void spin_init(spinlock_t *l) { l->val = 0; }
 
 void spin_lock(spinlock_t *l) {
 #ifndef NDEBUG
-  make_sure_int_disabled();
+  make_sure_schd_disabled();
 #endif
   uint32_t expected = 0;
   while (!atomic_compare_exchange(&l->val, &expected, 1)) {
