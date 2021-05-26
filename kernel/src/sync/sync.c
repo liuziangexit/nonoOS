@@ -1,3 +1,4 @@
+#include <memory_barrier.h>
 #include <mmu.h>
 #include <sync.h>
 #include <task.h>
@@ -16,9 +17,11 @@ void enter_critical_region(uint32_t *save) {
   } else {
     *save = 0;
   }
+  memory_barrier(SEQ_CST);
 }
 
 void leave_critical_region(uint32_t *save) {
+  memory_barrier(SEQ_CST);
   if (*save) {
     task_preemptive_set(true);
   }
@@ -32,9 +35,11 @@ void enter_noint_region(uint32_t *save) {
   } else {
     *save = 0;
   }
+  memory_barrier(SEQ_CST);
 }
 // 如果此前关闭了中断，开启中断
 void leave_noint_region(uint32_t *save) {
+  memory_barrier(SEQ_CST);
   if (*save) {
     enable_interrupt();
   }

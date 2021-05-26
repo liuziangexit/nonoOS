@@ -56,6 +56,7 @@ OK-yield
 -unlock
 -wait
 -notify
+-实现锁了之后有的SMART REGION要换成锁，这样粒度小很多
 -每个进程的cpu占用率计算
 
 -实现系统调用scanf
