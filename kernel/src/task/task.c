@@ -509,7 +509,9 @@ void task_idle() {
     task_current()->tslice = 0x8000000000000000;
     while (task_schd(YIELDED)) {
       task_preemptive_set(false);
-      // printf("idle: back\n");
+#ifdef VERBOSE
+      printf("idle: back\n");
+#endif
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
         if (t->state == EXITED) {
           ktask_t *n = avl_tree_next(&tasks, t);
@@ -520,6 +522,9 @@ void task_idle() {
         }
         t = avl_tree_next(&tasks, t);
       }
+#ifdef VERBOSE
+      task_display();
+#endif
     }
     hlt();
   }

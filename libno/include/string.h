@@ -1,7 +1,7 @@
 #ifndef __LIBNO_STRING_H__
 #define __LIBNO_STRING_H__
 
-#include <defs.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
