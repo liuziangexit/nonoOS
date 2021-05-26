@@ -10,6 +10,7 @@
 void virtual_memory_check();
 
 enum virtual_memory_area_type {
+  SHM,     // 共享内存
   UCODE,   // 用户代码
   USTACK,  // 用户栈
   UMALLOC, // 用户malloc内存块
@@ -23,6 +24,8 @@ enum virtual_memory_area_type {
 
 static __always_inline const char *
 vma_type_str(enum virtual_memory_area_type e) {
+  if (e == SHM)
+    return "SHM    ";
   if (e == UCODE)
     return "UCODE  ";
   if (e == USTACK)
@@ -58,6 +61,7 @@ struct virtual_memory_area {
   uint32_t size;   // 虚拟内存大小(字节)
   uint16_t flags;  // 页表里的flags
   enum virtual_memory_area_type type;
+  // TODO 下面应该改成union
   // malloc类型时用的额外信息
   list_entry_t list_node; // 串在virtual_memory.partial或full
   list_entry_t
@@ -67,6 +71,8 @@ struct virtual_memory_area {
   uint32_t max_free_area_len;          // 最大的freearea是多大
   struct avl_tree allocated_free_area; // 已分配的free_area信息
   uintptr_t physical;                  // 物理页地址
+  // 共享内存类型时用的额外信息
+  uint32_t shid; // shared memory id
 };
 
 struct virtual_memory {
@@ -131,7 +137,6 @@ CAUTION!
 compare_free_area
 依赖于此类型的内存布局
 */
-//存在物理页首部的链表头
 struct umalloc_free_area {
   struct avl_node avl_head;
   list_entry_t list_head;
@@ -144,5 +149,29 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
                   uintptr_t *out_physical);
 void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma);
 void ufree(struct virtual_memory *vm, uintptr_t addr);
+
+// 共享内存
+// 使用引用计数标记有多少个进程正在访问，当此值归0时(进程退出或显式调用shmunmap)，共享内存被删除
+// 目前不支持设置访问权限等复杂的功能，每个共享内存都可能被任何权限的任何进程访问
+// 不考虑攻击者恶意利用共享内存的情况
+
+struct shared_memory {
+  struct avl_node head;
+  uint32_t id;
+  uint32_t ref; // 引用计数
+  uintptr_t physical;
+  uint32_t pgcnt;
+};
+
+uint32_t shared_memory_gen_id();
+void shared_memory_init();
+// 创建共享内存，返回共享内存id
+// 若返回0表示失败
+uint32_t shared_memory_create(size_t size);
+// 获得共享内存的上下文
+struct shared_memory *shared_memory_ctx(uint32_t id);
+// map共享内存到当前地址空间
+bool shared_memory_map(uint32_t id, void *addr, void **actual_addr);
+void shared_memory_unmap(void *addr);
 
 #endif

@@ -1,6 +1,7 @@
 #include "../../include/task.h"
 #include <atomic.h>
 #include <avlmini.h>
+#include <defs.h>
 #include <memlayout.h>
 #include <memory_manager.h>
 #include <mmu.h>
@@ -929,11 +930,100 @@ uint32_t shared_memory_gen_id() {
   } while (task_find(result));
   return result;
 }
+
+static struct avl_tree shtree;
+static int shcmp(const void *a, const void *b) {
+  const struct shared_memory *ta = (const struct shared_memory *)a;
+  const struct shared_memory *tb = (const struct shared_memory *)b;
+  if (ta->id > tb->id)
+    return 1;
+  if (ta->id < tb->id)
+    return -1;
+  if (ta->id == tb->id)
+    return 0;
+  __builtin_unreachable();
+}
+void shared_memory_init() {
+  avl_tree_init(&shtree, shcmp, sizeof(struct shared_memory), 0);
+}
+
 // 创建共享内存，返回共享内存id
 // 若返回0表示失败
-uint32_t shared_memory_create(size_t size);
-// 获得共享内存的内核地址
-uintptr_t shared_memory_kaddr(uint32_t key);
+uint32_t shared_memory_create(size_t size) {
+  struct shared_memory *sh = malloc(sizeof(struct shared_memory));
+  if (!sh)
+    return 0;
+  sh->pgcnt = ROUNDUP(size, _4K) / _4K;
+  sh->physical = free_region_page_alloc(sh->pgcnt);
+  if (!sh->physical) {
+    free(sh);
+    return 0;
+  }
+  sh->ref = 0;
+  avl_node_init(&sh->head);
+  SMART_CRITICAL_REGION
+  sh->id = shared_memory_gen_id();
+  void *prev = avl_tree_add(&shtree, sh);
+  if (prev)
+    panic("shared_memory_create");
+  return sh->id;
+}
+
+// 获得共享内存的上下文
+struct shared_memory *shared_memory_ctx(uint32_t id) {
+  struct shared_memory sh;
+  sh.id = id;
+  SMART_CRITICAL_REGION
+  return (struct shared_memory *)avl_tree_find(&shtree, &sh);
+}
+
 // map共享内存到当前地址空间
-bool shared_memory_map(uint32_t key, void *addr);
-bool shared_memory_unmap(void *addr);
+// 当addr为0时表示自动选择映射到的地址
+bool shared_memory_map(uint32_t id, void *addr, void **actual_addr) {
+  struct virtual_memory *vm = virtual_memory_current();
+  struct shared_memory *sh = shared_memory_ctx(id);
+  assert(sh && vm);
+  if (!addr) {
+    // 自动寻找地址
+    addr = (void *)virtual_memory_find_fit(vm, sh->pgcnt * _4K, USER_CODE_BEGIN,
+                                           USER_STACK_BEGIN,
+                                           PTE_P | PTE_U | PTE_W, SHM);
+    if (!addr)
+      return false;
+  }
+  {
+    // 这个加锁是为了ref，不是为了vm
+    // 之后要加vm锁时候重新考虑这
+    SMART_CRITICAL_REGION
+    virtual_memory_alloc(vm, (uintptr_t)addr, sh->pgcnt * _4K,
+                         PTE_P | PTE_U | PTE_W, SHM, false);
+    virtual_memory_map(vm, 0, (uintptr_t)addr, sh->pgcnt * _4K, sh->physical);
+    sh->ref++;
+  }
+  *actual_addr = addr;
+  return true;
+}
+
+void shared_memory_unmap(void *addr) {
+  struct virtual_memory *vm = virtual_memory_current();
+  assert(vm);
+  struct virtual_memory_area *vma = virtual_memory_get_vma(vm, (uintptr_t)addr);
+  assert(vma);
+  if (vma->type != SHM)
+    panic("vma->type != SHM");
+  struct shared_memory *sh = shared_memory_ctx(vma->shid);
+  assert(sh);
+  {
+    // 这个加锁是为了ref，不是为了vm
+    // 之后要加vm锁时候重新考虑这
+    SMART_CRITICAL_REGION
+    virtual_memory_unmap(vm, vma->start, vma->size);
+    virtual_memory_free(vm, vma);
+    if (--sh->ref == 0) {
+      // 引用计数完了，现在也要删除这sh
+      avl_tree_remove(&shtree, sh);
+      free_region_page_free(sh->physical, sh->pgcnt);
+      free(sh);
+    }
+  }
+}

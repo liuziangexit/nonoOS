@@ -92,6 +92,7 @@ void kmain() {
   kmem_cache_init();
   free_region_init(e820map);
   virtual_memory_check();
+  shared_memory_init();
   printf("\n");
   {
     extern uint32_t kernel_pd[];
@@ -210,7 +211,7 @@ void ktask0() {
                      "count_down", 0, DEFAULT_ENTRY, &args);
     task_args_destroy(&args, true);
   }
-  
+
   {
     extern char _binary____program_schd_test_main_exe_start[],
         _binary____program_schd_test_main_exe_size[];
