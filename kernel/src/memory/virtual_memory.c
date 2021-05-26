@@ -949,6 +949,7 @@ void shared_memory_init() {
 
 // 创建共享内存，返回共享内存id
 // 若返回0表示失败
+// 小心，如果从未有进程shared_memory_map一个共享内存，这共享内存会内存泄漏，也就是永远没人释放
 uint32_t shared_memory_create(size_t size) {
   struct shared_memory *sh = malloc(sizeof(struct shared_memory));
   if (!sh)
