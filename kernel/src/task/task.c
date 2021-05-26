@@ -460,6 +460,8 @@ const char *task_state_str(enum task_state s) {
     return "RUNNING";
   case EXITED:
     return "EXITED ";
+  case WAITING:
+    return "WAITING";
   default:
     panic("zhu ni zhong qiu jie kuai le!");
   }
