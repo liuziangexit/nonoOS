@@ -920,7 +920,7 @@ uint32_t shared_memory_gen_id() {
   uint32_t result;
   const pid_t begins = atomic_load(&id_seq);
   do {
-    result = atomic_fetch_add(&id_seq, 1);
+    result = atomic_add(&id_seq, 1);
     if (result == begins) {
       panic("running out of pid");
     }
