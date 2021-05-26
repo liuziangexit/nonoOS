@@ -192,6 +192,14 @@ void ktask0() {
   enable_interrupt();
 
   {
+    extern char _binary____program_task_test_main_exe_start[],
+        _binary____program_task_test_main_exe_size[];
+    task_create_user((void *)_binary____program_task_test_main_exe_start,
+                     (uint32_t)_binary____program_task_test_main_exe_size,
+                     "task_test", 0, DEFAULT_ENTRY, 0);
+  }
+
+  {
     struct task_args args;
     task_args_init(&args);
     task_args_add(&args, "I AM KERNEL!\n", 0, false);
@@ -199,7 +207,7 @@ void ktask0() {
         _binary____program_count_down_main_exe_size[];
     task_create_user((void *)_binary____program_count_down_main_exe_start,
                      (uint32_t)_binary____program_count_down_main_exe_size,
-                     "count down", 0, DEFAULT_ENTRY, &args);
+                     "count_down", 0, DEFAULT_ENTRY, &args);
     task_args_destroy(&args, true);
   }
   extern char _binary____program_schd_test_main_exe_start[],

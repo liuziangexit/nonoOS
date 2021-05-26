@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <atomic.h>
 #include <avlmini.h>
 #include <clock.h>
 #include <compiler_helper.h>
@@ -311,9 +312,9 @@ static void task_group_remove(ktask_t *t) {
 static pid_t gen_pid() {
   make_sure_schd_disabled();
   pid_t result;
-  const pid_t begins = id_seq;
+  const pid_t begins = atomic_load(&id_seq);
   do {
-    result = ++id_seq;
+    result = atomic_fetch_add(&id_seq, 1);
     if (result == begins) {
       panic("running out of pid");
     }

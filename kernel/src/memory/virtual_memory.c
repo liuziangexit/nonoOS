@@ -1,4 +1,5 @@
 #include "../../include/task.h"
+#include <atomic.h>
 #include <avlmini.h>
 #include <memlayout.h>
 #include <memory_manager.h>
@@ -911,3 +912,28 @@ void ufree(struct virtual_memory *vm, uintptr_t addr) {
   terminal_default_color();
 #endif
 }
+
+static uint32_t id_seq;
+uint32_t shared_memory_gen_id() {
+  make_sure_schd_disabled();
+  uint32_t result;
+  const pid_t begins = atomic_load(&id_seq);
+  do {
+    result = atomic_fetch_add(&id_seq, 1);
+    if (result == begins) {
+      panic("running out of pid");
+    }
+    if (result == 0) {
+      continue;
+    }
+  } while (task_find(result));
+  return result;
+}
+// 创建共享内存，返回共享内存id
+// 若返回0表示失败
+uint32_t shared_memory_create(size_t size);
+// 获得共享内存的内核地址
+uintptr_t shared_memory_kaddr(uint32_t key);
+// map共享内存到当前地址空间
+bool shared_memory_map(uint32_t key, void *addr);
+bool shared_memory_unmap(void *addr);
