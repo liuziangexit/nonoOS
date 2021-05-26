@@ -192,15 +192,42 @@ void ktask0() {
   clock_init();
   enable_interrupt();
 
-  {
+  if (false) {
+    // 创建共享内存，把countdown程序的代码拷贝进去，让task_test来启动它
+    extern char _binary____program_count_down_main_exe_start[],
+        _binary____program_count_down_main_exe_size[];
+    // 创建共享内存
+    uint32_t shid = shared_memory_create(
+        (uint32_t)_binary____program_count_down_main_exe_size);
+    // 拷贝countdown程序
+    struct shared_memory *sh = shared_memory_ctx(shid);
+    void *access = free_region_access(sh->physical, sh->pgcnt * _4K);
+    // memcpy(access, _binary____program_count_down_main_exe_start,
+    //        (uint32_t)_binary____program_count_down_main_exe_size);
+    memcpy(access, "this string located inside a shared memory",
+           sizeof("this string located inside a shared memory"));
+    free_region_no_access(access);
+
+    // 通过程序参数传进去共享内存的id
+    union {
+      uint32_t id;
+      unsigned char str[5];
+    } punning;
+    punning.id = shid;
+    punning.str[5] = '\0';
+    struct task_args args;
+    task_args_init(&args);
+    task_args_add(&args, (const char *)&punning.str, 0, false);
     extern char _binary____program_task_test_main_exe_start[],
         _binary____program_task_test_main_exe_size[];
     task_create_user((void *)_binary____program_task_test_main_exe_start,
                      (uint32_t)_binary____program_task_test_main_exe_size,
-                     "task_test", 0, DEFAULT_ENTRY, 0);
+                     "task_test", 0, DEFAULT_ENTRY, &args);
+    task_args_destroy(&args, true);
   }
 
-  {
+  // 这问题看起来像是跟args的生命周期有关
+  if (true) {
     struct task_args args;
     task_args_init(&args);
     task_args_add(&args, "I AM KERNEL!\n", 0, false);
@@ -208,20 +235,26 @@ void ktask0() {
         _binary____program_count_down_main_exe_size[];
     task_create_user((void *)_binary____program_count_down_main_exe_start,
                      (uint32_t)_binary____program_count_down_main_exe_size,
-                     "count_down", 0, DEFAULT_ENTRY, &args);
+                     "count_down_1", 0, DEFAULT_ENTRY, &args);
+    task_create_user((void *)_binary____program_count_down_main_exe_start,
+                     (uint32_t)_binary____program_count_down_main_exe_size,
+                     "count_down_2", 0, DEFAULT_ENTRY, &args);
+    task_create_user((void *)_binary____program_count_down_main_exe_start,
+                     (uint32_t)_binary____program_count_down_main_exe_size,
+                     "count_down_3", 0, DEFAULT_ENTRY, &args);
     task_args_destroy(&args, true);
   }
 
-  {
-    extern char _binary____program_schd_test_main_exe_start[],
-        _binary____program_schd_test_main_exe_size[];
-    task_create_user((void *)_binary____program_schd_test_main_exe_start,
-                     (uint32_t)_binary____program_schd_test_main_exe_size,
-                     "schd_test 1", 0, DEFAULT_ENTRY, 0);
-    task_create_user((void *)_binary____program_schd_test_main_exe_start,
-                     (uint32_t)_binary____program_schd_test_main_exe_size,
-                     "schd_test 2", 0, DEFAULT_ENTRY, 0);
-  }
+  // if (true) {
+  //   extern char _binary____program_schd_test_main_exe_start[],
+  //       _binary____program_schd_test_main_exe_size[];
+  //   task_create_user((void *)_binary____program_schd_test_main_exe_start,
+  //                    (uint32_t)_binary____program_schd_test_main_exe_size,
+  //                    "schd_test_1", 0, DEFAULT_ENTRY, 0);
+  //   task_create_user((void *)_binary____program_schd_test_main_exe_start,
+  //                    (uint32_t)_binary____program_schd_test_main_exe_size,
+  //                    "schd_test_2", 0, DEFAULT_ENTRY, 0);
+  // }
 
   printf("nonoOS:$ ");
   // task_display();
