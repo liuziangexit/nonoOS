@@ -927,7 +927,7 @@ uint32_t shared_memory_gen_id() {
     if (result == 0) {
       continue;
     }
-  } while (task_find(result));
+  } while (shared_memory_ctx(result));
   return result;
 }
 
