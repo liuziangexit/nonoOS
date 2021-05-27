@@ -666,6 +666,22 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
         new_task->base.args->cnt; // argc
     *(uintptr_t *)(new_task->base.regs.esp) =
         new_task->base.args->vpacked; // argv
+#ifdef VERBOSE
+    printf("checking args for pid %lld\n", (int64_t)new_task->base.id);
+    void *access = free_region_access(new_task->base.args->packed,
+                                      new_task->base.args->cnt);
+    assert(access);
+    for (uint32_t i = 0; i < new_task->base.args->cnt; i++) {
+      char *arg_access = free_region_access(
+          linear2physical(new_task->base.group->vm->page_directory,
+                          *(uint32_t *)(access + i * 4)),
+          4096);
+      printf("%d points to 0x%08llx which is \"%s\"\n", i,
+             (int64_t) * (uint32_t *)(access + i * 4), arg_access);
+      free_region_no_access(arg_access);
+    }
+    free_region_no_access(access);
+#endif
   } else {
     new_task->base.args = 0;
     *(uintptr_t *)(new_task->base.regs.esp + 4) = (uintptr_t)0; // argc

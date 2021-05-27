@@ -73,6 +73,7 @@
 #include <assert.h>
 #include <compiler_helper.h>
 #include <defs.h>
+#include <memlayout.h>
 // Segment Descriptor
 struct segdesc {
   uint32_t lim_15_0 : 16;  // Low bits of segment limit
@@ -399,12 +400,12 @@ static __always_inline uintptr_t linear2physical(const void *_pd,
     return page_frame + (linear % _4M);
   }
   // 4K页
-  uint32_t *pt = (uint32_t *)(pd[pd_idx] & ~0xFFF);
-  if ((pt[pt_idx] & PTE_P) == 0) {
+  uint32_t *pt = (uint32_t *)P2V((uintptr_t)(pd[pd_idx] & ~0xFFF));
+  uint32_t pte = pt[pt_idx];
+  if ((pte & PTE_P) == 0) {
     return 0;
   }
-  uintptr_t page_frame = (uintptr_t)(pt[pt_idx] & 0xFFC00000);
-  return page_frame + (linear % _4K);
+  return pte & ~0xFFF;
 }
 
 void page_directory_debug(const uint32_t *pd);
