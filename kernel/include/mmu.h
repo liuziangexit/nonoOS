@@ -405,7 +405,7 @@ static __always_inline uintptr_t linear2physical(const void *_pd,
   if ((pte & PTE_P) == 0) {
     return 0;
   }
-  return pte & ~0xFFF;
+  return (pte & ~0xFFF) + linear % _4K;
 }
 
 void page_directory_debug(const uint32_t *pd);
