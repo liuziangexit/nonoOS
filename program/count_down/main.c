@@ -2,13 +2,12 @@
 #include <task.h>
 #include <unistd.h>
 
-#define SECONDS 0
+#define SECONDS 5
 
 int main(int argc, char **argv) {
   if (argc == 0) {
     return -1;
   }
-  printf("TEST 0x8400000: %s\n", (const char *)0x8400000);
   printf("parameter from kernel:\n");
   printf("argc: %d  argv: 0x%08llx\n", argc, (int64_t)(uintptr_t)argv);
   for (uint32_t i = 0; i < (uint32_t)argc; i++) {

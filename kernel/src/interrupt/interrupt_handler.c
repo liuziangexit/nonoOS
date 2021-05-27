@@ -97,9 +97,12 @@ static inline void print_pgfault(struct trapframe *tf) {
    * */
   uintptr_t physical = linear2physical((const void *)P2V(rcr3()), rcr2());
   terminal_fgcolor(CGA_COLOR_RED);
-  printf("\n\nunhandled page fault\n************************************\ncurrent pd: 0x%08llx\n", (int64_t)rcr3());
-  printf("page fault at virtual 0x%08x / physical 0x%08x: %c/%c [%s]\n************************************\n\n",
-         rcr2(), physical, (tf->tf_err & 4) ? 'U' : 'K',
+  printf("\n\nunhandled page "
+         "fault\n************************************\ncurrent pd: 0x%08llx\n",
+         (int64_t)rcr3());
+  printf("page fault at virtual 0x%08llx / physical 0x%08llx: %c/%c "
+         "[%s]\n************************************\n\n",
+         (int64_t)rcr2(), (int64_t)physical, (tf->tf_err & 4) ? 'U' : 'K',
          (tf->tf_err & 2) ? 'W' : 'R',
          (tf->tf_err & 1) ? "protection fault" : "no page found");
   terminal_default_color();
