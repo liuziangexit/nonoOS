@@ -24,6 +24,7 @@ static void print(const char *data, size_t length) {
 
 #define GET_ARG(TYPE) (va_arg(*parameters, TYPE))
 // TODO 瞎xx写的printf，以后重构掉或者抄一个来
+// 现在都不支持\"这样的转义字符
 int printf_impl(const char *restrict format, va_list *parameters) {
   int written = 0;
   while (*format != '\0') {
