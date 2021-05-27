@@ -14,6 +14,7 @@ int main(int argc, char **argv) {
     } punning;
     memcpy(&punning.str, argv[0], 4);
     printf("task_test: shared memory id is %lld\n", (int64_t)punning.id);
+    // TODO 实现共享内存的系统调用，然后在这里拿共享内存
   }
   // struct task_args args;
   // task_args_init(&args);
