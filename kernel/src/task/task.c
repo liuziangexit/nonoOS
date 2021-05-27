@@ -685,6 +685,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     }
     free_region_no_access(access);
 #endif
+    printf("\n");
   } else {
     new_task->base.args = 0;
     *(uintptr_t *)(new_task->base.regs.esp + 4) = (uintptr_t)0; // argc

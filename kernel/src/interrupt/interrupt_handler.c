@@ -97,8 +97,8 @@ static inline void print_pgfault(struct trapframe *tf) {
    * */
   uintptr_t physical = linear2physical((const void *)P2V(rcr3()), rcr2());
   terminal_fgcolor(CGA_COLOR_RED);
-  printf("current pd: 0x%08llx\n", (int64_t)rcr3());
-  printf("page fault at virtual 0x%08x / physical 0x%08x: %c/%c [%s].\n",
+  printf("\n\nunhandled page fault\n************************************\ncurrent pd: 0x%08llx\n", (int64_t)rcr3());
+  printf("page fault at virtual 0x%08x / physical 0x%08x: %c/%c [%s]\n************************************\n\n",
          rcr2(), physical, (tf->tf_err & 4) ? 'U' : 'K',
          (tf->tf_err & 2) ? 'W' : 'R',
          (tf->tf_err & 1) ? "protection fault" : "no page found");
@@ -225,6 +225,14 @@ void interrupt_handler(struct trapframe *tf) {
         upfault(task->group->vm, vma);
         break;
       }
+    }
+    if (task_inited == TASK_INITED_MAGIC && !task_current()->group->is_kernel) {
+      // 如果是未处理的用户异常，那么杀进程
+      // TODO 要杀整个进程里所有的线程，而不仅仅是这一个线程
+      print_pgfault(tf);
+      task_exit(-1);
+      abort();
+      __builtin_unreachable();
     }
     print_pgfault(tf);
     panic(trapname(T_PGFLT));
