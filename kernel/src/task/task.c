@@ -667,6 +667,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     *(uintptr_t *)(new_task->base.regs.esp) =
         new_task->base.args->vpacked; // argv
 #ifdef VERBOSE
+    printf("pid %lld pd is 0x%08llx\n", (int64_t)new_task->base.id,
+           (int64_t)V2P((uintptr_t)new_task->base.group->vm->page_directory));
     printf("checking args for pid %lld\n", (int64_t)new_task->base.id);
     void *access = free_region_access(new_task->base.args->packed,
                                       new_task->base.args->cnt);
@@ -676,7 +678,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
           linear2physical(new_task->base.group->vm->page_directory,
                           *(uint32_t *)(access + i * 4)),
           4096);
-      printf("%d points to 0x%08llx which is \"%s\"\n", i,
+      printf("%d ap:0x%08llx va:0x%08llx str:%s\n", i,
+             (int64_t)(uintptr_t)arg_access,
              (int64_t) * (uint32_t *)(access + i * 4), arg_access);
       free_region_no_access(arg_access);
     }

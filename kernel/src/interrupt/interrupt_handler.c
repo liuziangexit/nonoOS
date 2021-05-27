@@ -97,6 +97,7 @@ static inline void print_pgfault(struct trapframe *tf) {
    * */
   uintptr_t physical = linear2physical((const void *)P2V(rcr3()), rcr2());
   terminal_fgcolor(CGA_COLOR_RED);
+  printf("current pd: 0x%08llx\n", (int64_t)rcr3());
   printf("page fault at virtual 0x%08x / physical 0x%08x: %c/%c [%s].\n",
          rcr2(), physical, (tf->tf_err & 4) ? 'U' : 'K',
          (tf->tf_err & 2) ? 'W' : 'R',
