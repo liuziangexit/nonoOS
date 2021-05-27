@@ -226,11 +226,11 @@ void ktask0() {
     task_args_destroy(&args, true);
   }
 
-  // 这问题看起来像是跟args的生命周期有关
   if (true) {
     struct task_args args;
     task_args_init(&args);
-    task_args_add(&args, "I AM KERNEL!\n", 0, false);
+    task_args_add(&args, "I AM KERNEL! (1)", 0, false);
+    task_args_add(&args, "I AM KERNEL! (2)", 0, false);
     extern char _binary____program_count_down_main_exe_start[],
         _binary____program_count_down_main_exe_size[];
     task_create_user((void *)_binary____program_count_down_main_exe_start,

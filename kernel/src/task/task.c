@@ -132,7 +132,7 @@ void task_args_add(struct task_args *dst, const char *str,
   // 这data是在free region所以需要临时map到内核来才能访问
   char *data_access;
   if (use_umalloc) {
-    data_access = free_region_access(holder->data, holder->strlen);
+    data_access = free_region_access(holder->data, holder->strlen + 1);
   } else {
     data_access = (char *)holder->data;
   }
@@ -666,7 +666,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
         new_task->base.args->cnt; // argc
     *(uintptr_t *)(new_task->base.regs.esp) =
         new_task->base.args->vpacked; // argv
-#ifdef VERBOSE
+                                      //#ifdef VERBOSE
     printf("pid %lld pd is 0x%08llx\n", (int64_t)new_task->base.id,
            (int64_t)V2P((uintptr_t)new_task->base.group->vm->page_directory));
     printf("checking args for pid %lld\n", (int64_t)new_task->base.id);
@@ -674,18 +674,17 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                                       new_task->base.args->cnt);
     assert(access);
     for (uint32_t i = 0; i < new_task->base.args->cnt; i++) {
-      char *arg_access = free_region_access(
-          linear2physical(new_task->base.group->vm->page_directory,
-                          *(uint32_t *)(access + i * 4)),
-          4096);
-      printf("%d ap:0x%08llx va:0x%08llx str:%s\n", i,
+      uintptr_t pa = linear2physical(new_task->base.group->vm->page_directory,
+                                     *(uint32_t *)(access + i * 4));
+      char *arg_access = free_region_access(pa, 4096);
+      printf("%d ap:0x%08llx va:0x%08llx pa:0x%08llx str:%s\n", i,
              (int64_t)(uintptr_t)arg_access,
-             (int64_t) * (uint32_t *)(access + i * 4), arg_access);
+             (int64_t) * (uint32_t *)(access + i * 4), (int64_t)pa, arg_access);
       free_region_no_access(arg_access);
     }
     free_region_no_access(access);
-#endif
     printf("\n");
+    //#endif
   } else {
     new_task->base.args = 0;
     *(uintptr_t *)(new_task->base.regs.esp + 4) = (uintptr_t)0; // argc
