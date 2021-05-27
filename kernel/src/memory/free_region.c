@@ -84,6 +84,7 @@ void *free_region_access(uintptr_t physical, size_t length) {
     return 0;
   virtual_memory_map(current_vm, vma, vaddr, ROUNDUP(length, _4K),
                      ROUNDDOWN(physical, _4K));
+  lcr3(rcr3());
   uintptr_t round_diff = physical - ROUNDDOWN(physical, _4K);
   return (void *)vaddr + round_diff;
 }
@@ -95,5 +96,6 @@ void free_region_no_access(void *virtual) {
       virtual_memory_get_vma(current_vm, (uintptr_t) virtual);
   assert(vma && vma->type == KMAP);
   virtual_memory_unmap(current_vm, vma->start, vma->size);
+  lcr3(rcr3());
   virtual_memory_free(current_vm, vma);
 }
