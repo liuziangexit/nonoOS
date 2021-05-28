@@ -1,4 +1,5 @@
 #include <compiler_helper.h>
+#include <shared_memory.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,13 +9,18 @@
 int main(int argc, char **argv) {
   printf("task_test: begin\n");
   if (argc > 0) {
+    // 测一下内核传进来的共享内存
     union {
       uint32_t id;
       unsigned char str[4];
     } punning;
     memcpy(&punning.str, argv[0], 4);
     printf("task_test: shared memory id is %lld\n", (int64_t)punning.id);
-    // TODO 实现共享内存的系统调用，然后在这里拿共享内存
+    void *vaddr = shared_memory_map(punning.id, 0);
+    printf("task_test: shared memory map to 0x%08llx\n",
+           (int64_t)(uintptr_t)vaddr);
+    printf("task_test: shared memory content: %s\n", vaddr);
+    // shared_memory_unmap(vaddr);
   }
   // struct task_args args;
   // task_args_init(&args);

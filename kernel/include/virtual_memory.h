@@ -155,6 +155,10 @@ void ufree(struct virtual_memory *vm, uintptr_t addr);
 // 目前不支持设置访问权限等复杂的功能，每个共享内存都可能被任何权限的任何进程访问
 // 不考虑攻击者恶意利用共享内存的情况
 
+// FIXME
+// 这里有一个设计问题，如果从未有进程shared_memory_map一个共享内存，这共享内存会内存泄漏，也就是永远没人释放。
+// 考虑如何解决，看看linux的设计是什么呢
+
 struct shared_memory {
   struct avl_node head;
   uint32_t id;
@@ -171,7 +175,7 @@ uint32_t shared_memory_create(size_t size);
 // 获得共享内存的上下文
 struct shared_memory *shared_memory_ctx(uint32_t id);
 // map共享内存到当前地址空间
-void* shared_memory_map(uint32_t id, void *addr);
-void shared_memory_unmap(void *addr);
+void *shared_memory_map(uint32_t id, void *addr);
+void shared_memory_unmap(struct virtual_memory_area *vma, void *addr);
 
 #endif

@@ -107,8 +107,20 @@ static void malloc_vma_destroy(struct virtual_memory_area *vma) {
 static struct virtual_memory *__vm;
 static void vm_clear_tree_callback(void *data) {
   struct virtual_memory_area *tdata = (struct virtual_memory_area *)data;
-  if (tdata->type == UMALLOC)
+  switch (tdata->type) {
+  case UMALLOC: {
     malloc_vma_destroy(tdata);
+  } break;
+  case SHM: {
+    shared_memory_unmap(tdata, (void *)tdata->start);
+  } break;
+  case UKERNEL:
+  case UCODE:
+  case USTACK:
+    break;
+  default:
+    panic("missing switch branch!");
+  }
   virtual_memory_free(__vm, tdata);
 }
 
@@ -128,8 +140,12 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
   kmem_page_free(vm->page_directory, 1);
   //遍历二叉树，释放掉节点
   //本来我还以为要自己写后序遍历，没想到云老师已经做了这个需求，祝他长命百岁
-  __vm = vm;
-  avl_tree_clear(&vm->vma_tree, vm_clear_tree_callback);
+  {
+    // 因为这里用一个static变量来模拟参数绑定，所以要关调度
+    SMART_CRITICAL_REGION
+    __vm = vm;
+    avl_tree_clear(&vm->vma_tree, vm_clear_tree_callback);
+  }
   //最后释放vm结构
   free(vm);
 }
@@ -949,7 +965,6 @@ void shared_memory_init() {
 
 // 创建共享内存，返回共享内存id
 // 若返回0表示失败
-// 小心，如果从未有进程shared_memory_map一个共享内存，这共享内存会内存泄漏，也就是永远没人释放
 uint32_t shared_memory_create(size_t size) {
   struct shared_memory *sh = malloc(sizeof(struct shared_memory));
   if (!sh)
@@ -996,31 +1011,51 @@ void *shared_memory_map(uint32_t id, void *addr) {
     // 这个加锁是为了ref，不是为了vm
     // 之后要加vm锁时候重新考虑这
     SMART_CRITICAL_REGION
-    virtual_memory_alloc(vm, (uintptr_t)addr, sh->pgcnt * _4K,
-                         PTE_P | PTE_U | PTE_W, SHM, false);
+    struct virtual_memory_area *vma =
+        virtual_memory_alloc(vm, (uintptr_t)addr, sh->pgcnt * _4K,
+                             PTE_P | PTE_U | PTE_W, SHM, false);
     virtual_memory_map(vm, 0, (uintptr_t)addr, sh->pgcnt * _4K, sh->physical);
     sh->ref++;
+    vma->shid = id;
   }
+  lcr3(rcr3());
   return addr;
 }
 
-void shared_memory_unmap(void *addr) {
-  struct virtual_memory *vm = virtual_memory_current();
-  assert(vm);
-  struct virtual_memory_area *vma = virtual_memory_get_vma(vm, (uintptr_t)addr);
+void shared_memory_unmap(struct virtual_memory_area *vma, void *addr) {
+  const bool need_remove_from_vm = !vma;
+#ifdef VERBOSE
+  printf("shared_memory_unmap need_remove_from_vm = %d\n", need_remove_from_vm);
+#endif
+  struct virtual_memory *vm = 0;
+  if (!vma) {
+    vm = virtual_memory_current();
+    assert(vm);
+    vma = virtual_memory_get_vma(vm, (uintptr_t)addr);
+  }
   assert(vma);
   if (vma->type != SHM)
     panic("vma->type != SHM");
   struct shared_memory *sh = shared_memory_ctx(vma->shid);
-  assert(sh);
+  assert(sh && sh->id == vma->shid);
   {
     // 这个加锁是为了ref，不是为了vm
     // 之后要加vm锁时候重新考虑这
     SMART_CRITICAL_REGION
-    virtual_memory_unmap(vm, vma->start, vma->size);
-    virtual_memory_free(vm, vma);
+    if (need_remove_from_vm) {
+      assert(vm);
+      virtual_memory_unmap(vm, vma->start, vma->size);
+      virtual_memory_free(vm, vma);
+      lcr3(rcr3());
+    }
     if (--sh->ref == 0) {
-      // 引用计数完了，现在也要删除这sh
+// 引用计数完了，现在也要删除这sh
+#ifdef VERBOSE
+      printf("shared_memory_unmap delete shared_memory %lld since this is the "
+             "last "
+             "reference\n",
+             sh->id);
+#endif
       avl_tree_remove(&shtree, sh);
       free_region_page_free(sh->physical, sh->pgcnt);
       free(sh);

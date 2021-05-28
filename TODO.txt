@@ -51,8 +51,9 @@ OK-实现简单调度算法
 OK-sleep
 OK-yield
 OK-修复现在看到的args生命周期问题 其实不是生命周期问题，是因为free region access那里修改页表没刷缓存导致的奇怪现象
+OK-实现共享内存的系统调用
 
--实现task系统和vm相关的系统调用，包括共享内存
+-实现task的系统调用
 -有没有其他地方需要更新tlb却没更新？找一下
 -flush tlb的地方能不能只更新某个特定条目
 -完成task_test程序，测试用户态程序创建多个线程和多个进程，以及共享内存，最后启动几个countdown和几个schd_test
