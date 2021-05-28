@@ -980,7 +980,7 @@ struct shared_memory *shared_memory_ctx(uint32_t id) {
 
 // map共享内存到当前地址空间
 // 当addr为0时表示自动选择映射到的地址
-bool shared_memory_map(uint32_t id, void *addr, void **actual_addr) {
+void *shared_memory_map(uint32_t id, void *addr) {
   struct virtual_memory *vm = virtual_memory_current();
   struct shared_memory *sh = shared_memory_ctx(id);
   assert(sh && vm);
@@ -990,7 +990,7 @@ bool shared_memory_map(uint32_t id, void *addr, void **actual_addr) {
                                            USER_STACK_BEGIN,
                                            PTE_P | PTE_U | PTE_W, SHM);
     if (!addr)
-      return false;
+      return 0;
   }
   {
     // 这个加锁是为了ref，不是为了vm
@@ -1001,8 +1001,7 @@ bool shared_memory_map(uint32_t id, void *addr, void **actual_addr) {
     virtual_memory_map(vm, 0, (uintptr_t)addr, sh->pgcnt * _4K, sh->physical);
     sh->ref++;
   }
-  *actual_addr = addr;
-  return true;
+  return addr;
 }
 
 void shared_memory_unmap(void *addr) {

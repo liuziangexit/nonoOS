@@ -23,6 +23,9 @@
 // void SYSCALL_SLEEP(hi, lo)
 #define SYSCALL_SLEEP 6
 
+// void SYSCALL_SHM(action, ...)
+#define SYSCALL_SHM 7
+
 #ifdef LIBNO_USER
 uint32_t syscall(int call, int cnt, ...);
 #endif

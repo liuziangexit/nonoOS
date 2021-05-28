@@ -1,6 +1,8 @@
 #include "../../include/syscall.h"
 #include "../../../libno/include/syscall.h"
 #include "debug.h"
+#include <panic.h>
+#include <shared_memory.h>
 #include <stdio.h>
 #include <task.h>
 #include <tty.h>
@@ -72,6 +74,25 @@ void syscall_dispatch(struct trapframe *tf) {
     ms |= arg[1];
     task_sleep(ms);
     syscall_return(tf, 0);
+  } break;
+  case SYSCALL_SHM: {
+    uint32_t action = arg[0];
+    switch (action) {
+    case USER_SHM_ACTION_CREATE: {
+      uint32_t id = shared_memory_create((size_t)arg[1]);
+      syscall_return(tf, id);
+    } break;
+    case USER_SHM_ACTION_MAP: {
+      void *vaddr = shared_memory_map(arg[1], (void *)arg[2]);
+      syscall_return(tf, (uint32_t)vaddr);
+    } break;
+    case USER_SHM_ACTION_UNMAP: {
+      shared_memory_unmap((void *)arg[1]);
+      syscall_return(tf, 0);
+    } break;
+    default:
+      panic("TODO USER ABORT!");
+    }
   } break;
   default: {
     printf("unknown systeam call %d with args:  %d, %d, %d, %d, %d\n", no,

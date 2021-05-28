@@ -232,6 +232,7 @@ void interrupt_handler(struct trapframe *tf) {
     if (task_inited == TASK_INITED_MAGIC && !task_current()->group->is_kernel) {
       // 如果是未处理的用户异常，那么杀进程
       // TODO 要杀整个进程里所有的线程，而不仅仅是这一个线程
+      // TODO 实现用户abort
       print_pgfault(tf);
       task_exit(-1);
       abort();
