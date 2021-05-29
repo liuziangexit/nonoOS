@@ -7,13 +7,11 @@ user_entry:
     pushl %eax
     pushl %ebx
     call *%edx
-    # 系统调用退出，返回值在eax里
-    movl %eax, %edx
-    # 设置eax为SYSCALL_EXIT
+    # 设置exit的参数
+    movl %eax, %ecx
+    # 设置系统调用号为SYSCALL_TASK
     movl $0, %eax
-    movl $0, %ecx
-    movl $0, %ebx
-    movl $0, %edi
-    movl $0, %esi
+    # 设置arg[0]为USER_TASK_ACTION_EXIT
+    movl $6, %edx
     int $122
     hlt

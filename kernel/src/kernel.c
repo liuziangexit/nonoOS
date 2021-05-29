@@ -226,7 +226,7 @@ void ktask0() {
     task_args_destroy(&args, true);
   }
 
-  if (true) {
+  if (false) {
     struct task_args args;
     task_args_init(&args);
     task_args_add(&args, "I AM KERNEL! (1)", 0, false);
@@ -245,7 +245,7 @@ void ktask0() {
     task_args_destroy(&args, true);
   }
 
-  if (true) {
+  if (false) {
     extern char _binary____program_schd_test_main_exe_start[],
         _binary____program_schd_test_main_exe_size[];
     task_create_user((void *)_binary____program_schd_test_main_exe_start,

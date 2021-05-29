@@ -1,5 +1,6 @@
 #include "../../include/syscall.h"
 #include "../../../libno/include/syscall.h"
+#include "../../../libno/include/task.h"
 #include "debug.h"
 #include <panic.h>
 #include <shared_memory.h>
@@ -26,14 +27,34 @@ void syscall_dispatch(struct trapframe *tf) {
   assert(task && !task->group->is_kernel);
 
   switch (no) {
-  case SYSCALL_EXIT: {
-#ifdef VERBOSE
-    terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
-    printf("exit() with args: %d, %d, %d, %d, %d\n", arg[0], arg[1], arg[2],
-           arg[3], arg[4]);
-    terminal_default_color();
-#endif
-    task_exit(arg[0]);
+  case SYSCALL_TASK: {
+    uint32_t action = arg[0];
+    switch (action) {
+    case USER_TASK_ACTION_GET_PID: {
+      syscall_return(tf, task->id);
+    } break;
+    case USER_TASK_ACTION_CREATE: {
+      panic("create");
+    } break;
+    case USER_TASK_ACTION_YIELD: {
+      panic("yield");
+    } break;
+    case USER_TASK_ACTION_SLEEP: {
+      uint64_t ms = arg[1];
+      ms <<= 32;
+      ms |= arg[2];
+      task_sleep(ms);
+      syscall_return(tf, 0);
+    } break;
+    case USER_TASK_ACTION_JOIN: {
+      panic("join");
+    } break;
+    case USER_TASK_ACTION_EXIT: {
+      task_exit(arg[1]);
+    } break;
+    default:
+      panic("unhandled SYSCALL_TASK action");
+    }
   } break;
   case SYSCALL_ALLOC: {
 #ifdef VERBOSE
@@ -61,19 +82,9 @@ void syscall_dispatch(struct trapframe *tf) {
     ufree(task->group->vm, arg[0]);
     syscall_return(tf, 0);
   } break;
-  case SYSCALL_GETPID: {
-    syscall_return(tf, task->id);
-  } break;
   case SYSCALL_PRINTF: {
     int ret = printf_impl((void *)arg[0], (void *)arg[1]);
     syscall_return(tf, ret);
-  } break;
-  case SYSCALL_SLEEP: {
-    uint64_t ms = arg[0];
-    ms <<= 32;
-    ms |= arg[1];
-    task_sleep(ms);
-    syscall_return(tf, 0);
   } break;
   case SYSCALL_SHM: {
     uint32_t action = arg[0];
