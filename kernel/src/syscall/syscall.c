@@ -4,6 +4,7 @@
 #include "debug.h"
 #include <panic.h>
 #include <shared_memory.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <task.h>
 #include <tty.h>
@@ -34,7 +35,10 @@ void syscall_dispatch(struct trapframe *tf) {
       syscall_return(tf, task->id);
     } break;
     case USER_TASK_ACTION_CREATE: {
-      panic("create");
+      // struct create_task_syscall_args *arg_pack =
+      //     (struct create_task_syscall_args *)arg[1];
+      // va_list *parmaters = (va_list *)arg[2];
+      panic("OKOK");
     } break;
     case USER_TASK_ACTION_YIELD: {
       panic("yield");

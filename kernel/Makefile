@@ -5,7 +5,8 @@ AR=$(CCPREFIX)ar
 LD=$(CCPREFIX)ld
 OBJCOPY=$(CCPREFIX)objcopy
 
-CFLAGS=-O0 -g -Wall -Wextra -ffreestanding -nostdinc
+FOPTIMIZATION=-O0
+CFLAGS=-g -Wall -Wextra -ffreestanding
 CVERSION=-std=gnu11
 INCLUDE=-Iinclude -I../libno/include -I../driver/include
 
@@ -48,15 +49,15 @@ src/sync/sync.o
 all: bootblock kernel
 
 bootblock:
-	$(CC) $(CFLAGS) -fno-pic -Os -g -nostdinc -Iinclude $(INCLUDE) -c bootloader/bootloader.c -o bootloader/bootc.o
-	$(CC) $(CFLAGS) -fno-pic -Os -g -nostdinc -Iinclude $(INCLUDE) -c bootloader/bootloader.S -o bootloader/bootasm.o
-	$(LD) -nostdlib -N -e start -Ttext 0x7C00 -o bootloader/bootblock.o bootloader/bootasm.o bootloader/bootc.o
+	$(CC) $(CFLAGS) -nostdinc -fno-pic -Os $(INCLUDE) -c bootloader/bootloader.c -o bootloader/bootc.o
+	$(CC) $(CFLAGS) -nostdinc -fno-pic -Os $(INCLUDE) -c bootloader/bootloader.S -o bootloader/bootasm.o
+	$(LD) -Os -nostdlib -N -e start -Ttext 0x7C00 -o bootloader/bootblock.o bootloader/bootasm.o bootloader/bootc.o
 	$(OBJCOPY) -S -O binary -j .text bootloader/bootblock.o bootblock
 	../tools/sign bootblock bootblock
 	cp bootloader/bootblock.o unsigned_bootblock
 
 kernel: $(KERNEL_OBJS) crt
-	$(CC) -T kernel.ld -o kernel $(CFLAGS) \
+	$(CC) -T kernel.ld -o kernel $(CFLAGS) $(FOPTIMIZATION) -nostdinc \
 	crt/crti.o crt/crtbegin.o \
 	$(KERNEL_OBJS) \
 	-nostdlib -L../libno/kernel_build -lno -L../driver -ldriver -static-libgcc -lgcc \
@@ -70,20 +71,23 @@ kernel: $(KERNEL_OBJS) crt
 crt: crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o
 
 crt/crtbegin.o crt/crtend.o:
-	CPFROM=`$(CC) $(CFLAGS) $(LDFLAGS) -print-file-name=$(@F)` && cp "$$CPFROM" $@
+	CPFROM=`$(CC) $(CFLAGS) $(FOPTIMIZATION) -nostdinc $(LDFLAGS) -print-file-name=$(@F)` && cp "$$CPFROM" $@
 
 src/interrupt/idtvector.o:
 	../tools/idtgen src/interrupt/idtvector.S
-	$(CC) -c src/interrupt/idtvector.S -o $@ $(CFLAGS) $(INCLUDE)
+	$(CC) -c src/interrupt/idtvector.S -o $@ $(CFLAGS) $(FOPTIMIZATION) -nostdinc $(INCLUDE)
 
 src/interrupt_handler.o: src/interrupt_handler.c
-	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) -Wno-address-of-packed-member $(INCLUDE)
+	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(FOPTIMIZATION) -nostdinc -Wno-address-of-packed-member $(INCLUDE)
+
+src/syscall/syscall.o: src/syscall/syscall.c
+	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(FOPTIMIZATION) $(INCLUDE)
 
 %.o: %.c
-	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(INCLUDE)
+	$(CC) -c $< -o $@ $(CVERSION) $(CFLAGS) $(FOPTIMIZATION) -nostdinc $(INCLUDE)
 
 %.o: %.S
-	$(CC) -c $< -o $@ $(CFLAGS) $(INCLUDE)
+	$(CC) -c $< -o $@ $(CFLAGS) $(FOPTIMIZATION) -nostdinc $(INCLUDE)
 
 clean:
 	rm -f *bootblock kernel
