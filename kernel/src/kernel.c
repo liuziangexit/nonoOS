@@ -196,27 +196,42 @@ void ktask0() {
     // 创建共享内存，把countdown程序的代码拷贝进去，让task_test来启动它
     extern char _binary____program_count_down_main_exe_start[],
         _binary____program_count_down_main_exe_size[];
+    const char *test_string = "this string located inside a shared memory";
     // 创建共享内存
-    uint32_t shid = shared_memory_create(
+    uint32_t shid_str = shared_memory_create(strlen(test_string));
+    uint32_t shid_prog = shared_memory_create(
         (uint32_t)_binary____program_count_down_main_exe_size);
-    // 拷贝countdown程序
-    struct shared_memory *sh = shared_memory_ctx(shid);
-    void *access = free_region_access(sh->physical, sh->pgcnt * _4K);
-    // memcpy(access, _binary____program_count_down_main_exe_start,
-    //        (uint32_t)_binary____program_count_down_main_exe_size);
-    memcpy(access, "this string located inside a shared memory",
+    // 拷贝测试字符串
+    struct shared_memory *sh_str = shared_memory_ctx(shid_str);
+    void *access_str =
+        free_region_access(sh_str->physical, sh_str->pgcnt * _4K);
+    memcpy(access_str, "this string located inside a shared memory",
            sizeof("this string located inside a shared memory"));
-    free_region_no_access(access);
+    // 拷贝countdown程序
+    struct shared_memory *sh_prog = shared_memory_ctx(shid_prog);
+    void *access_prog =
+        free_region_access(sh_prog->physical, sh_prog->pgcnt * _4K);
+    memcpy(access_prog, _binary____program_count_down_main_exe_start,
+           (uint32_t)_binary____program_count_down_main_exe_size);
+    free_region_no_access(access_str);
+    free_region_no_access(access_prog);
 
     // 通过程序参数传进去共享内存的id
     union {
-      uint32_t id;
+      uint32_t integer;
       unsigned char str[5];
     } punning;
-    punning.id = shid;
-    punning.str[5] = '\0';
     struct task_args args;
     task_args_init(&args);
+    punning.str[5] = '\0';
+    // 字符串共享内存的id
+    punning.integer = shid_str;
+    task_args_add(&args, (const char *)&punning.str, 0, false);
+    // 程序共享内存的id
+    punning.integer = shid_prog;
+    task_args_add(&args, (const char *)&punning.str, 0, false);
+    // 程序长度
+    punning.integer = (uint32_t)_binary____program_count_down_main_exe_size;
     task_args_add(&args, (const char *)&punning.str, 0, false);
     extern char _binary____program_task_test_main_exe_start[],
         _binary____program_task_test_main_exe_size[];
@@ -226,7 +241,7 @@ void ktask0() {
     task_args_destroy(&args, true);
   }
 
-  if (true) {
+  if (false) {
     struct task_args args;
     task_args_init(&args);
     task_args_add(&args, "I AM KERNEL! (1)", 0, false);
@@ -245,7 +260,7 @@ void ktask0() {
     task_args_destroy(&args, true);
   }
 
-  if (true) {
+  if (false) {
     extern char _binary____program_schd_test_main_exe_start[],
         _binary____program_schd_test_main_exe_size[];
     task_create_user((void *)_binary____program_schd_test_main_exe_start,
