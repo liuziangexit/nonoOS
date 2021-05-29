@@ -196,7 +196,7 @@ void ktask0() {
     // 创建共享内存，把countdown程序的代码拷贝进去，让task_test来启动它
     extern char _binary____program_count_down_main_exe_start[],
         _binary____program_count_down_main_exe_size[];
-    const char *test_string = "this string located inside a shared memory";
+    const char *test_string = "count_down";
     // 创建共享内存
     uint32_t shid_str = shared_memory_create(strlen(test_string));
     uint32_t shid_prog = shared_memory_create(
@@ -205,8 +205,7 @@ void ktask0() {
     struct shared_memory *sh_str = shared_memory_ctx(shid_str);
     void *access_str =
         free_region_access(sh_str->physical, sh_str->pgcnt * _4K);
-    memcpy(access_str, "this string located inside a shared memory",
-           sizeof("this string located inside a shared memory"));
+    memcpy(access_str, test_string, strlen(test_string));
     // 拷贝countdown程序
     struct shared_memory *sh_prog = shared_memory_ctx(shid_prog);
     void *access_prog =
