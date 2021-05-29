@@ -35,10 +35,16 @@ void syscall_dispatch(struct trapframe *tf) {
       syscall_return(tf, task->id);
     } break;
     case USER_TASK_ACTION_CREATE: {
-      // struct create_task_syscall_args *arg_pack =
-      //     (struct create_task_syscall_args *)arg[1];
+      struct create_task_syscall_args *arg_pack =
+          (struct create_task_syscall_args *)arg[1];
       // va_list *parmaters = (va_list *)arg[2];
-      panic("OKOK");
+      task_group_t *group = 0;
+      if (!arg_pack->new_group) {
+        group = task->group;
+      }
+      pid_t id = task_create_user(arg_pack->program, arg_pack->program_size,
+                                  arg_pack->name, group, arg_pack->entry, 0);
+      syscall_return(tf, id);
     } break;
     case USER_TASK_ACTION_YIELD: {
       panic("yield");

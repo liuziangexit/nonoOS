@@ -8,8 +8,17 @@
 #define USER_TASK_ACTION_JOIN 5
 #define USER_TASK_ACTION_EXIT 6
 
-#ifdef LIBNO_USER
 #include <stdbool.h>
+
+struct create_task_syscall_args {
+  void *program;
+  uint32_t program_size;
+  const char *name;
+  bool new_group;
+  uintptr_t entry;
+};
+
+#ifdef LIBNO_USER
 #include <stdint.h>
 
 typedef uint32_t pid_t;
@@ -20,14 +29,6 @@ pid_t create_task(void *program, uint32_t program_size, const char *name,
 void yield();
 void sleep();
 void join();
-
-struct create_task_syscall_args {
-  void *program;
-  uint32_t program_size;
-  const char *name;
-  bool new_group;
-  uintptr_t entry;
-};
 
 #endif
 #endif

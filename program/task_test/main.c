@@ -22,13 +22,15 @@ int main(int argc, char **argv) {
   printf("task_test: shared memory content: %s\n", vaddr);
   // shared_memory_unmap(vaddr);
   memcpy(&punning.str, argv[1], 4);
-  const char *prog = (const char *)punning.integer;
+  uint32_t prog_shid = punning.integer;
   memcpy(&punning.str, argv[2], 4);
   const uint32_t prog_size = punning.integer;
   printf("program size: %lld\n", (int64_t)prog_size);
+  void *vaddr_prog = shared_memory_map(prog_shid, 0);
   pid_t pid =
-      create_task(prog, prog_size, vaddr, true, DEFAULT_ENTRY,
+      create_task(vaddr_prog, prog_size, vaddr, true, DEFAULT_ENTRY,
                   "I AM task_test 1", "I AM task_test 2", "I AM task_test 3");
+  printf("task_test: task %lld created\n", (int64_t)pid);
   printf("task_test: exit\n");
   return 0;
 }
