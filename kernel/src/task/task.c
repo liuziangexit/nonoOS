@@ -19,7 +19,7 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
-#define VERBOSE
+// #define VERBOSE
 
 uint32_t task_inited;
 
