@@ -5,12 +5,7 @@
 
 #include <panic.h>
 
-void abort(void) { panic("abort has been called"); }
-
-void exit(int ret) {
-  UNUSED(ret);
-  panic("guaguaguagua");
-}
+void abort(void) { panic("kernel abort has been called"); }
 
 #else
 
@@ -18,9 +13,9 @@ void exit(int ret) {
 #include <syscall.h>
 #include <task.h>
 
-void abort(void) {
+void abort() {
   printf("libno abort has been called");
-  exit(-1);
+  syscall(SYSCALL_TASK, 1, USER_TASK_ACTION_ABORT);
 }
 
 void exit(int ret) { syscall(SYSCALL_TASK, 2, USER_TASK_ACTION_EXIT, ret); }

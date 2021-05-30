@@ -222,7 +222,7 @@ void ktask0() {
     } punning;
     struct task_args args;
     task_args_init(&args);
-    punning.str[5] = '\0';
+    punning.str[4] = '\0';
     // 字符串共享内存的id
     punning.integer = shid_str;
     task_args_add(&args, (const char *)&punning.str, 0, false);

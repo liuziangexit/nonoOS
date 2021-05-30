@@ -47,14 +47,14 @@ void syscall_dispatch(struct trapframe *tf) {
       for (uint32_t i = 0; i < arg_pack->parameter_cnt; i++) {
         task_args_add(&args, va_arg(*parmaters, const char *), 0, false);
       }
-      pid_t id =
-          task_create_user(arg_pack->program, arg_pack->program_size,
-                           arg_pack->name, group, arg_pack->entry, &args);
+      pid_t id = task_create_user(arg_pack->program, arg_pack->program_size,
+                                  arg_pack->name, group, arg_pack->entry,
+                                  arg_pack->parameter_cnt ? &args : 0);
       task_args_destroy(&args, true);
       syscall_return(tf, id);
     } break;
     case USER_TASK_ACTION_YIELD: {
-      panic("yield");
+      task_yield();
     } break;
     case USER_TASK_ACTION_SLEEP: {
       uint64_t ms = arg[1];
@@ -68,6 +68,9 @@ void syscall_dispatch(struct trapframe *tf) {
     } break;
     case USER_TASK_ACTION_EXIT: {
       task_exit(arg[1]);
+    } break;
+    case USER_TASK_ACTION_ABORT: {
+      task_terminate(TASK_TERMINATE_ABORT);
     } break;
     default:
       panic("unhandled SYSCALL_TASK action");

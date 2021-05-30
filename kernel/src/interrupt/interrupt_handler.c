@@ -109,7 +109,8 @@ static inline void print_pgfault(struct trapframe *tf) {
   terminal_default_color();
 }
 
-static struct trapframe switchk2u, *switchu2k;
+static struct trapframe switchk2u;
+// static struct trapframe *switchu2k;
 
 /* trap_dispatch - dispatch based on what type of trap occurred */
 void interrupt_handler(struct trapframe *tf) {
@@ -128,7 +129,7 @@ void interrupt_handler(struct trapframe *tf) {
       task_current()->tslice++;
       task_handle_wait();
       if (task_preemptive_enabled())
-        task_schd(YIELDED);
+        task_schd(false, false, YIELDED);
     }
   } break;
   case T_SYSCALL:
@@ -144,7 +145,9 @@ void interrupt_handler(struct trapframe *tf) {
       switchk2u.tf_ss = USER_DS;
       // set eflags, make sure ucore can use io under user mode.
       // if CPL > IOPL, then cpu will generate a general protection.
-      switchk2u.tf_eflags |= FL_IOPL_MASK;
+      // nonoOS里的io都要走系统调用，不给用户这权限
+      // switchk2u.tf_eflags |= FL_IOPL_MASK;
+      tf->tf_eflags &= ~FL_IOPL_MASK;
 
       /*
       为了解决下面说的esp错误指向switchk2u附近的问题，我们在这里把switchk2u.tf_esp设置为esp应该指向的正确位置，也就是tf之前()
@@ -179,28 +182,26 @@ void interrupt_handler(struct trapframe *tf) {
       */
     }
     break;
-  case T_SWITCH_KERNEL:
-    if (tf->tf_cs != KERNEL_CS) {
-      SMART_CRITICAL_REGION
-      // 现在不给用这个
-      abort();
-      tf->tf_cs = KERNEL_CS;
-      tf->tf_ds = tf->tf_es = KERNEL_DS;
-      tf->tf_eflags &= ~FL_IOPL_MASK;
+    /*
+    case T_SWITCH_KERNEL:
+      if (tf->tf_cs != KERNEL_CS) {
+        SMART_CRITICAL_REGION
+        tf->tf_cs = KERNEL_CS;
+        tf->tf_ds = tf->tf_es = KERNEL_DS;
+        tf->tf_eflags &= ~FL_IOPL_MASK;
 
-      /*
-      由于现在已经在内核态了，所以iret的时候硬件不会弹出esp和ss
-      那怎么办呢，那就把现在完整的tf在末尾砍一刀：把除了最后8字节的tf的值，向下移动8字节
-      */
-      switchu2k =
-          (struct trapframe *)(tf->tf_esp - (sizeof(struct trapframe) - 8));
-      memmove(switchu2k, tf, sizeof(struct trapframe) - 8);
+        //由于现在已经在内核态了，所以iret的时候硬件不会弹出esp和ss
+        //那怎么办呢，那就把现在完整的tf在末尾砍一刀：把除了最后8字节的tf的值，向下移动8字节
+    switchu2k =
+        (struct trapframe *)(tf->tf_esp - (sizeof(struct trapframe) - 8));
+    memmove(switchu2k, tf, sizeof(struct trapframe) - 8);
 
-      //然后把esp指向修改过的tf的位置，以便从那里开始恢复寄存器
-      //另外，这一句也将栈从当前使用的tss栈切换回到了我们此前在使用的栈
-      *((uint32_t *)tf - 1) = (uint32_t)switchu2k;
-    }
-    break;
+    //然后把esp指向修改过的tf的位置，以便从那里开始恢复寄存器
+    //另外，这一句也将栈从当前使用的tss栈切换回到了我们此前在使用的栈
+    *((uint32_t *)tf - 1) = (uint32_t)switchu2k;
+  }
+  break;
+  */
   case T_GPFLT: {
     panic(trapname(T_GPFLT));
   } break;
@@ -232,10 +233,8 @@ void interrupt_handler(struct trapframe *tf) {
     }
     if (task_inited == TASK_INITED_MAGIC && !task_current()->group->is_kernel) {
       // 如果是未处理的用户异常，那么杀进程
-      // TODO 要杀整个进程里所有的线程，而不仅仅是这一个线程
-      // TODO 实现用户abort
       print_pgfault(tf);
-      task_exit(-1);
+      task_terminate(TASK_TERMINATE_BAD_ACCESS);
       abort();
       __builtin_unreachable();
     }
@@ -244,7 +243,6 @@ void interrupt_handler(struct trapframe *tf) {
   } break;
   default:
     if ((tf->tf_cs & 3) == 0) {
-      // in kernel, it must be a mistake
       /*
       TODO
       这里我想打印一下trap的number，所以在这里必须用一个sprintf去组装一个字符串，

@@ -39,7 +39,7 @@ void kmem_init(struct e820map_t *memlayout) {
   // 确定normal_region的虚拟地址
   normal_region_vaddr = KERNEL_VIRTUAL_BASE + boot_stack_paddr + _4M;
   // 这个for只是为了计算系统内存总量
-  uint32_t total_memory;
+  uint32_t total_memory = 0;
   for (uint32_t i = 0; i < memlayout->count; i++) {
     // BIOS保留的内存
     if (!E820_ADDR_AVAILABLE(memlayout->ard[i].type)) {

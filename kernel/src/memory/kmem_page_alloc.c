@@ -356,6 +356,9 @@ void free_page_impl(enum MEMORY_REGION r, uintptr_t p, size_t cnt) {
     page_struct = (struct page *)p;
   } else if (r == FREE_REGION) {
     page_struct = malloc(sizeof(struct page));
+  } else {
+    abort();
+    __builtin_unreachable();
   }
   page_struct->addr = (uintptr_t)p;
   cnt = next_pow2(cnt);

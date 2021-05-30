@@ -147,7 +147,7 @@ void task_init();
 
 // 对kernel接口
 // 寻找下一个可调度的task
-bool task_schd(enum task_state tostate);
+bool task_schd(bool force, bool allow_idle, enum task_state tostate);
 // 在没有task可调时，hlt
 // 返回值指示是否切换了其他任务
 void task_idle();
@@ -191,6 +191,10 @@ void task_sleep(uint64_t millisecond);
 // 退出当前task
 // aka exit
 void task_exit(int32_t ret);
+// 非正常退出
+#define TASK_TERMINATE_ABORT (-1)
+#define TASK_TERMINATE_BAD_ACCESS (-2)
+void task_terminate(int32_t ret);
 
 // 对kernel接口
 // 切换到另一个task

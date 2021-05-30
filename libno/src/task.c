@@ -4,6 +4,8 @@
 
 pid_t get_pid() { return syscall(SYSCALL_TASK, 1, USER_TASK_ACTION_GET_PID); }
 
+void yield() { syscall(SYSCALL_TASK, 1, USER_TASK_ACTION_YIELD); }
+
 pid_t create_task(void *program, uint32_t program_size, const char *name,
                   bool new_group, uintptr_t entry, uint32_t parameter_cnt,
                   ...) {

@@ -492,15 +492,25 @@ void task_clean() {
 // 要维护的性质是
 // ready队列里面只能是created或yielded任务
 // 也就是说，一个任务运行时，一定不在ready队列里
-bool task_schd(enum task_state tostate) {
+// force指示即使调度队列中的任务slice比当前任务更高，但还是切换到该任务
+// allow_idle指示是否允许切到idle
+// tostate指示切走后，当前任务的状态
+bool task_schd(bool force, bool allow_idle, enum task_state tostate) {
   SMART_NOINT_REGION
   // 如果调度队列有task
   ktask_t *t = ready_queue_get();
   if (t) {
-    if (t->tslice < task_current()->tslice) {
-      // 如果t不如当前任务的时间片，就执行它
-      task_switch(t, true, tostate);
-      return true;
+    if (allow_idle || t->id != 1) {
+      if (force || t->tslice < task_current()->tslice) {
+        // 如果t不如当前任务的时间片，就执行它
+        task_switch(t, true, tostate);
+        return true;
+      } else {
+        terminal_fgcolor(CGA_COLOR_LIGHT_BLUE);
+        printf("%lld not switching to %lld\n", (int64_t)task_current()->id,
+               (int64_t)t->id);
+        terminal_default_color();
+      }
     }
   }
   return false;
@@ -511,7 +521,7 @@ void task_idle() {
   while (true) {
     // 把idle的时间片设置到很大，这样它永远是最低优先级的
     task_current()->tslice = 0x8000000000000000;
-    while (task_schd(YIELDED)) {
+    while (task_schd(false, false, YIELDED)) {
       task_preemptive_set(false);
 #ifdef VERBOSE
       printf("idle: back\n");
@@ -744,7 +754,7 @@ int32_t task_join(pid_t pid) {
 void task_yield() {
   SMART_NOINT_REGION
   task_current()->tslice++;
-  task_schd(YIELDED);
+  task_schd(true, false, YIELDED);
 }
 
 // 将当前进程挂起一定毫秒数
@@ -756,7 +766,7 @@ void task_sleep(uint64_t millisecond) {
     task_current()->wait_type = SLEEP;
     task_current()->wait_ctx.sleep.after =
         clock_get_ticks() * TICK_TIME_MS + millisecond;
-    if (!task_schd(WAITING)) {
+    if (!task_schd(true, false, WAITING)) {
       // 没有任务做了，切到idle
       task_switch(task_find(1), true, WAITING);
     }
@@ -765,9 +775,8 @@ void task_sleep(uint64_t millisecond) {
   }
 }
 
-// 退出当前进程
 // TODO 通知等待此线程的线程
-void task_exit(int32_t ret) {
+static void task_quit(int32_t ret) {
 #ifdef VERBOSE
   printf("task %lld returned %d\n", (int64_t)task_current()->id, ret);
 #endif
@@ -778,6 +787,23 @@ void task_exit(int32_t ret) {
   ktask_t *schd = task_find(1);
   // 切换到schd
   task_switch(schd, task_preemptive_enabled(), EXITED);
+}
+
+// 退出当前进程
+void task_exit(int32_t ret) {
+  if (ret < 0) {
+    panic("task_exit ret < 0");
+  }
+  task_quit(ret);
+}
+
+void task_terminate(int32_t ret) {
+  if (ret >= 0) {
+    panic("task_terminate ret >= 0");
+  }
+  // TODO 把同vm的其他线程全部杀了
+  // TODO 为了尽量减少资源泄漏，强杀进程都要做stack rewind，这怎么做？
+  task_quit(ret);
 }
 
 //切换到另一个task
@@ -826,7 +852,10 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     ready_queue_put(prev);
   }
   task_preemptive_set(schd);
-  // printf("switch from %s to %s\n", prev->name, next->name);
+  terminal_fgcolor(CGA_COLOR_BLUE);
+  printf("switch from %s(%lld) to %s(%lld)\n", prev->name, (int64_t)prev->id,
+         next->name, (int64_t)next->id);
+  terminal_default_color();
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);

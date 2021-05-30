@@ -32,6 +32,8 @@ int main(int argc, char **argv) {
       create_task(vaddr_prog, prog_size, vaddr, true, DEFAULT_ENTRY, 3,
                   "I AM task_test 1", "I AM task_test 2", "I AM task_test 3");
   printf("task_test: task %lld created\n", (int64_t)pid);
+  pid = create_task(vaddr_prog, prog_size, vaddr, true, DEFAULT_ENTRY, 0);
+  printf("task_test: task %lld created\n", (int64_t)pid);
   printf("task_test: exit\n");
   return 0;
 }

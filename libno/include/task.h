@@ -7,6 +7,7 @@
 #define USER_TASK_ACTION_SLEEP 4
 #define USER_TASK_ACTION_JOIN 5
 #define USER_TASK_ACTION_EXIT 6
+#define USER_TASK_ACTION_ABORT 7
 
 #include <stdbool.h>
 

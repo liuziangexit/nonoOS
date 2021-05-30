@@ -280,7 +280,7 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   uintptr_t begin, uintptr_t end,
                                   uint16_t flags,
                                   enum virtual_memory_area_type type) {
-  assert(end > begin && vma_size >= _4K && vma_size % _4K == 0);
+  assert(end > begin && vma_size >= _4K && vma_size % _4K == 0 && vma_size > 0);
   uint64_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDDOWN(end, _4K);
   if (real_end - real_begin < vma_size) {
     return 0;
@@ -349,6 +349,7 @@ struct virtual_memory_area *
 virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
                      uintptr_t vma_size, uint16_t flags,
                      enum virtual_memory_area_type type, bool merge) {
+  assert(vma_size > 0);
   // 我们只允许US、RW和P
   assert(flags >> 3 == 0);
   // 确定一下有没有重叠
@@ -468,7 +469,7 @@ void virtual_memory_map(struct virtual_memory *vm,
                         struct virtual_memory_area *vma, uintptr_t virtual_addr,
                         uint32_t size, uintptr_t physical_addr) {
   assert(virtual_addr % 4096 == 0 && size % 4096 == 0 &&
-         physical_addr % 4096 == 0);
+         physical_addr % 4096 == 0 && size > 0);
 
   if (!vma) {
     vma = virtual_memory_get_vma(vm, virtual_addr);
@@ -602,6 +603,7 @@ static int compare_malloc_vma(const void *a, const void *b) {
 uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
                   struct virtual_memory_area **out_vma,
                   uintptr_t *out_physical) {
+  assert(vm && size > 0);
   SMART_CRITICAL_REGION
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
