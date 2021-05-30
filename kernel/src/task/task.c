@@ -506,10 +506,10 @@ bool task_schd(bool force, bool allow_idle, enum task_state tostate) {
         task_switch(t, true, tostate);
         return true;
       } else {
-        terminal_fgcolor(CGA_COLOR_LIGHT_BLUE);
-        printf("%lld not switching to %lld\n", (int64_t)task_current()->id,
-               (int64_t)t->id);
-        terminal_default_color();
+        // terminal_fgcolor(CGA_COLOR_LIGHT_BLUE);
+        // printf("%lld not switching to %lld\n", (int64_t)task_current()->id,
+        //        (int64_t)t->id);
+        // terminal_default_color();
       }
     }
   }
@@ -852,10 +852,10 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     ready_queue_put(prev);
   }
   task_preemptive_set(schd);
-  terminal_fgcolor(CGA_COLOR_BLUE);
-  printf("switch from %s(%lld) to %s(%lld)\n", prev->name, (int64_t)prev->id,
-         next->name, (int64_t)next->id);
-  terminal_default_color();
+  // terminal_fgcolor(CGA_COLOR_BLUE);
+  // printf("switch from %s(%lld) to %s(%lld)\n", prev->name, (int64_t)prev->id,
+  //        next->name, (int64_t)next->id);
+  // terminal_default_color();
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
