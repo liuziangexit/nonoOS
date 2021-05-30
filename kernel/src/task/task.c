@@ -342,7 +342,7 @@ static void task_destory(ktask_t *t) {
     kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
     free(ut->program);
   }
-  free((void *)t->name);
+  free(t->name);
   free(t);
 }
 
