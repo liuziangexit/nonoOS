@@ -8,6 +8,7 @@
 #include <task.h>
 
 int main(int argc, char **argv) {
+  UNUSED(argc);
   printf("task_test: begin\n");
   union {
     uint32_t integer;
@@ -25,7 +26,7 @@ int main(int argc, char **argv) {
   uint32_t prog_shid = punning.integer;
   memcpy(&punning.str, argv[2], 4);
   const uint32_t prog_size = punning.integer;
-  printf("program size: %lld\n", (int64_t)prog_size);
+  printf("task_test: program size: %lld\n", (int64_t)prog_size);
   void *vaddr_prog = shared_memory_map(prog_shid, 0);
   pid_t pid =
       create_task(vaddr_prog, prog_size, vaddr, true, DEFAULT_ENTRY,
