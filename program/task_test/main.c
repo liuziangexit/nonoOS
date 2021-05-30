@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
   printf("task_test: program size: %lld\n", (int64_t)prog_size);
   void *vaddr_prog = shared_memory_map(prog_shid, 0);
   pid_t pid =
-      create_task(vaddr_prog, prog_size, vaddr, true, DEFAULT_ENTRY,
+      create_task(vaddr_prog, prog_size, vaddr, true, DEFAULT_ENTRY, 3,
                   "I AM task_test 1", "I AM task_test 2", "I AM task_test 3");
   printf("task_test: task %lld created\n", (int64_t)pid);
   printf("task_test: exit\n");
