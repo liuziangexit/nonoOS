@@ -100,7 +100,7 @@ struct ktask {
   task_group_t *group;
   enum task_state state;
   pid_t id;
-  const char *name;
+  char *name;
   struct ktask *parent;   // 父进程
   uintptr_t kstack;       // 内核栈
   struct registers regs;  // 寄存器

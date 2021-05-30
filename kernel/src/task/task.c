@@ -19,7 +19,7 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
-//#define VERBOSE
+#define VERBOSE
 
 uint32_t task_inited;
 
@@ -328,6 +328,9 @@ static pid_t gen_pid() {
 //析构task
 static void task_destory(ktask_t *t) {
   assert(t);
+#ifdef VERBOSE
+  printf("task_destory: destroy task %s(%lld)\n", t->name, (int64_t)t->id);
+#endif
   if (t->args) {
     task_args_destroy(t->args, t->group->is_kernel);
     free(t->args);
@@ -339,9 +342,7 @@ static void task_destory(ktask_t *t) {
     kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
     free(ut->program);
   }
-#ifdef VERBOSE
-  printf("task_destory: destroy task %s(%lld)\n", t->name, (int64_t)t->id);
-#endif
+  free((void *)t->name);
   free(t);
 }
 
@@ -406,7 +407,8 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   list_init(&new_task->group_head);
   new_task->state = CREATED;
   new_task->parent = current;
-  new_task->name = name;
+  new_task->name = malloc(strlen(name) + 1);
+  strcpy(new_task->name, name);
   // 生成id
   new_task->id = gen_pid();
   // 移除此pid的返回值记录，因为此前可能有一个进程用过这个pid
