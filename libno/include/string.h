@@ -13,6 +13,7 @@ void *memmove(void *, const void *, size_t);
 void *memset(void *, int, size_t);
 size_t strlen(const char *);
 void strrev(char *str);
+char *strcpy(char *dst, const char *src);
 
 #ifdef __cplusplus
 }

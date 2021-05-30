@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <string.h>
 
 // TODO SIMD
@@ -59,4 +60,10 @@ void strrev(char *str) {
     str[i] = str[j];
     str[j] = a;
   }
+}
+
+char *strcpy(char *dst, const char *src) {
+  uint32_t len = strlen(src);
+  memcpy(dst, src, len);
+  return dst;
 }
