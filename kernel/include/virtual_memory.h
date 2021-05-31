@@ -167,7 +167,6 @@ struct shared_memory {
   uint32_t pgcnt;
 };
 
-uint32_t shared_memory_gen_id();
 void shared_memory_init();
 // 创建共享内存，返回共享内存id
 // 若返回0表示失败
