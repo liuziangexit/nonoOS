@@ -41,3 +41,22 @@ void leave_noint_region(uint32_t *save);
       __attribute__((cleanup(leave_noint_region)));                            \
   enter_noint_region(&__smart_noint_region__);
 #endif
+
+// 参考C11线程支持库
+// 可重入锁
+struct mutex {};
+uint32_t mutex_create();
+void mutex_destroy(uint32_t mut_id);
+bool mutex_trylock(uint32_t mut_id);
+void mutex_lock(uint32_t mut_id);
+bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
+void mutex_unlock(uint32_t mut_id);
+// 条件变量
+struct condition_variable {};
+uint32_t condition_variable_create();
+void condition_variable_destroy(uint32_t cv_id);
+void condition_variable_wait(uint32_t cv_id, uint32_t mut_id);
+bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
+                                  uint32_t timeout_ms);
+void condition_variable_notify_one(uint32_t cv_id);
+void condition_variable_notify_all(uint32_t cv_id);
