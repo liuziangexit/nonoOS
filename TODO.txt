@@ -52,12 +52,12 @@ OK-sleep
 OK-yield
 OK-修复现在看到的args生命周期问题 其实不是生命周期问题，是因为free region access那里修改页表没刷缓存导致的奇怪现象
 OK-实现共享内存的系统调用
+OK-完成task_test程序，测试用户态程序创建多个线程和多个进程，以及共享内存，最后启动几个countdown和几个schd_test
 
 -内存不够的时候打印slab和buddy的情况
 -实现task的系统调用
 -有没有其他地方需要更新tlb却没更新？找一下
 -flush tlb的地方能不能只更新某个特定条目
--完成task_test程序，测试用户态程序创建多个线程和多个进程，以及共享内存，最后启动几个countdown和几个schd_test
 -看看能不能实现打印调用站
 
 -实现mutex、信号量。可以按照java和c#的方式，用一种对象来实现
@@ -87,6 +87,7 @@ OK-实现共享内存的系统调用
 -运行 ASCII RayTracing
 -整理编译系统，支持配置tool prefix
 
+-实现POSIX接口
 -给slab写一个buddy那样的测试用例
 -安全问题1)内核线程栈溢出的处理 2)用户进程有没有可能访问到内核栈或代码
 -考虑怎么检测内存泄漏
