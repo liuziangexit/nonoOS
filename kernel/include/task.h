@@ -86,6 +86,11 @@ struct registers {
   uint32_t ebp;
 };
 
+struct kern_obj_id {
+  struct avl_node head;
+  uint32_t id;
+};
+
 /*
 CAUTION!
 task_group_head_retrieve
@@ -110,6 +115,7 @@ struct ktask {
       wait_type; // 等待类型，只有在当前state==WAITING时此字段才有意义
   union task_wait_ctx
       wait_ctx; // 等待上下文，只有在当前state==WAITING时此字段才有意义
+  struct avl_tree kernel_objects; // 线程使用的内核对象
 };
 typedef struct ktask ktask_t;
 

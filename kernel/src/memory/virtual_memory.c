@@ -2,6 +2,7 @@
 #include <atomic.h>
 #include <avlmini.h>
 #include <defs.h>
+#include <kernel_object.h>
 #include <memlayout.h>
 #include <memory_manager.h>
 #include <mmu.h>
@@ -111,9 +112,7 @@ static void vm_clear_tree_callback(void *data) {
   case UMALLOC: {
     malloc_vma_destroy(tdata);
   } break;
-  case SHM: {
-    shared_memory_unmap(tdata, (void *)tdata->start);
-  } break;
+  case SHM:
   case UKERNEL:
   case UCODE:
   case USTACK:
@@ -932,39 +931,6 @@ void ufree(struct virtual_memory *vm, uintptr_t addr) {
 #endif
 }
 
-static uint32_t id_seq;
-uint32_t shared_memory_gen_id() {
-  make_sure_schd_disabled();
-  uint32_t result;
-  const pid_t begins = atomic_load(&id_seq);
-  do {
-    result = atomic_add(&id_seq, 1);
-    if (result == begins) {
-      panic("running out of pid");
-    }
-    if (result == 0) {
-      continue;
-    }
-  } while (shared_memory_ctx(result));
-  return result;
-}
-
-static struct avl_tree shtree;
-static int shcmp(const void *a, const void *b) {
-  const struct shared_memory *ta = (const struct shared_memory *)a;
-  const struct shared_memory *tb = (const struct shared_memory *)b;
-  if (ta->id > tb->id)
-    return 1;
-  if (ta->id < tb->id)
-    return -1;
-  if (ta->id == tb->id)
-    return 0;
-  __builtin_unreachable();
-}
-void shared_memory_init() {
-  avl_tree_init(&shtree, shcmp, sizeof(struct shared_memory), 0);
-}
-
 // 创建共享内存，返回共享内存id
 // 若返回0表示失败
 uint32_t shared_memory_create(size_t size) {
@@ -980,25 +946,25 @@ uint32_t shared_memory_create(size_t size) {
   sh->ref = 0;
   avl_node_init(&sh->head);
   SMART_CRITICAL_REGION
-  sh->id = shared_memory_gen_id();
-  void *prev = avl_tree_add(&shtree, sh);
-  if (prev)
-    panic("shared_memory_create");
+  sh->id = kernel_object_new(KERNEL_OBJECT_SHARED_MEMORY, sh);
   return sh->id;
+}
+
+void shared_memory_destroy(struct shared_memory *sh) {
+  free_region_page_free(sh->physical, sh->pgcnt);
+  free(sh);
 }
 
 // 获得共享内存的上下文
 struct shared_memory *shared_memory_ctx(uint32_t id) {
-  struct shared_memory sh;
-  sh.id = id;
-  SMART_CRITICAL_REGION
-  return (struct shared_memory *)avl_tree_find(&shtree, &sh);
+  return kernel_object_get(id);
 }
 
 // map共享内存到当前地址空间
 // 当addr为0时表示自动选择映射到的地址
 void *shared_memory_map(uint32_t id, void *addr) {
   struct virtual_memory *vm = virtual_memory_current();
+  SMART_CRITICAL_REGION
   struct shared_memory *sh = shared_memory_ctx(id);
   assert(sh && vm);
   if (!addr) {
@@ -1009,58 +975,31 @@ void *shared_memory_map(uint32_t id, void *addr) {
     if (!addr)
       return 0;
   }
-  {
-    // 这个加锁是为了ref，不是为了vm
-    // 之后要加vm锁时候重新考虑这
-    SMART_CRITICAL_REGION
-    struct virtual_memory_area *vma =
-        virtual_memory_alloc(vm, (uintptr_t)addr, sh->pgcnt * _4K,
-                             PTE_P | PTE_U | PTE_W, SHM, false);
-    virtual_memory_map(vm, 0, (uintptr_t)addr, sh->pgcnt * _4K, sh->physical);
-    sh->ref++;
-    vma->shid = id;
-  }
+  struct virtual_memory_area *vma = virtual_memory_alloc(
+      vm, (uintptr_t)addr, sh->pgcnt * _4K, PTE_P | PTE_U | PTE_W, SHM, false);
+  virtual_memory_map(vm, 0, (uintptr_t)addr, sh->pgcnt * _4K, sh->physical);
+  bool abs = kernel_object_ref(task_current(), id);
+  if (!abs)
+    abort();
+  vma->shid = id;
   lcr3(rcr3());
   return addr;
 }
 
-void shared_memory_unmap(struct virtual_memory_area *vma, void *addr) {
-  const bool need_remove_from_vm = !vma;
-#ifdef VERBOSE
-  printf("shared_memory_unmap need_remove_from_vm = %d\n", need_remove_from_vm);
-#endif
-  struct virtual_memory *vm = 0;
-  if (!vma) {
-    vm = virtual_memory_current();
-    assert(vm);
-    vma = virtual_memory_get_vma(vm, (uintptr_t)addr);
-  }
+void shared_memory_unmap(void *addr) {
+  struct virtual_memory *vm = virtual_memory_current();
+  assert(vm);
+  struct virtual_memory_area *vma = virtual_memory_get_vma(vm, (uintptr_t)addr);
   assert(vma);
   if (vma->type != SHM)
     panic("vma->type != SHM");
-  struct shared_memory *sh = shared_memory_ctx(vma->shid);
-  assert(sh && sh->id == vma->shid);
   {
-    // 这个加锁是为了ref，不是为了vm
-    // 之后要加vm锁时候重新考虑这
     SMART_CRITICAL_REGION
-    if (need_remove_from_vm) {
-      assert(vm);
-      virtual_memory_unmap(vm, vma->start, vma->size);
-      virtual_memory_free(vm, vma);
-      lcr3(rcr3());
-    }
-    if (--sh->ref == 0) {
-// 引用计数完了，现在也要删除这sh
-#ifdef VERBOSE
-      printf("shared_memory_unmap delete shared_memory %lld since this is the "
-             "last "
-             "reference\n",
-             sh->id);
-#endif
-      avl_tree_remove(&shtree, sh);
-      free_region_page_free(sh->physical, sh->pgcnt);
-      free(sh);
-    }
+    struct shared_memory *sh = shared_memory_ctx(vma->shid);
+    assert(sh && sh->id == vma->shid);
+    kernel_object_unref(task_current(), sh->id, true);
   }
+  virtual_memory_unmap(vm, vma->start, vma->size);
+  virtual_memory_free(vm, vma);
+  lcr3(rcr3());
 }

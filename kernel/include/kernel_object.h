@@ -5,15 +5,18 @@
 
 enum _kernel_object_type {
   KERNEL_OBJECT_SHARED_MEMORY,
-  KERNEL_OBJECT_MUTEX,
-  KERNEL_OBJECT_CONDITION_VARIABLE
+  //   KERNEL_OBJECT_MUTEX,
+  //   KERNEL_OBJECT_CONDITION_VARIABLE
 };
 typedef enum _kernel_object_type kernel_object_type;
 
-// type | pointer | ref_offset | dtor
-
-uint32_t kernel_object_new_id(kernel_object_type t);
-void kernel_object_ref(ktask_t *task, uint32_t kobj_id);
-void kernel_object_unref(ktask_t *task, uint32_t kobj_id);
+void kernel_object_init();
+void *kernel_object_get(uint32_t id);
+uint32_t kernel_object_new(kernel_object_type t, void *obj);
+void kernel_object_delete(uint32_t id);
+bool kernel_object_ref(ktask_t *task, uint32_t kobj_id);
+bool kernel_object_ref_safe(pid_t pid, uint32_t kobj_id);
+void kernel_object_unref(ktask_t *task, uint32_t kobj_id,
+                         bool remove_from_task_avl);
 
 #endif

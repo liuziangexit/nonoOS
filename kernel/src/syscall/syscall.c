@@ -118,7 +118,7 @@ void syscall_dispatch(struct trapframe *tf) {
       syscall_return(tf, (uint32_t)vaddr);
     } break;
     case USER_SHM_ACTION_UNMAP: {
-      shared_memory_unmap(0, (void *)arg[1]);
+      shared_memory_unmap((void *)arg[1]);
       syscall_return(tf, 0);
     } break;
     default:

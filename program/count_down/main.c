@@ -6,7 +6,6 @@
 #define SECONDS 5
 
 int main(int argc, char **argv) {
-  printf("parameter from kernel:\n");
   printf("argc: %d  argv: 0x%08llx\n", argc, (int64_t)(uintptr_t)argv);
   for (uint32_t i = 0; i < (uint32_t)argc; i++) {
     printf("argv[%d]: 0x%08llx %s\n", i, (int64_t)(uintptr_t)argv[i], argv[i]);

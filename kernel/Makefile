@@ -41,7 +41,8 @@ src/task/switch_to.o\
 src/task/entry.o\
 src/task/user_entry.o\
 src/syscall/syscall.o\
-src/sync/sync.o
+src/sync/sync.o\
+src/kernel_object.o
 
 .PHONY: all clean crt
 .SUFFIXES: .o .c .S

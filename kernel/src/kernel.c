@@ -11,6 +11,7 @@
 #include <gdt.h>
 #include <interrupt.h>
 #include <kbd.h>
+#include <kernel_object.h>
 #include <memlayout.h>
 #include <memory_manager.h>
 #include <mmu.h>
@@ -92,15 +93,9 @@ void kmain() {
   kmem_cache_init();
   free_region_init(e820map);
   virtual_memory_check();
-  shared_memory_init();
-  printf("\n");
-  {
-    extern uint32_t kernel_pd[];
-    // page_directory_debug(kernel_pd);
-  }
+  kernel_object_init();
 
   task_init();
-
   uint32_t esp, ebp, new_esp, new_ebp;
   const uint32_t stack_top = KERNEL_VIRTUAL_BOOT_STACK + KERNEL_BOOT_STACK_SIZE;
   uint32_t used_stack, current_stack_frame_size;
@@ -234,9 +229,15 @@ void ktask0() {
     task_args_add(&args, (const char *)&punning.str, 0, false);
     extern char _binary____program_task_test_main_exe_start[],
         _binary____program_task_test_main_exe_size[];
-    task_create_user((void *)_binary____program_task_test_main_exe_start,
-                     (uint32_t)_binary____program_task_test_main_exe_size,
-                     "task_test", 0, DEFAULT_ENTRY, &args);
+    SMART_CRITICAL_REGION
+    pid_t pid =
+        task_create_user((void *)_binary____program_task_test_main_exe_start,
+                         (uint32_t)_binary____program_task_test_main_exe_size,
+                         "task_test", 0, DEFAULT_ENTRY, &args);
+    kernel_object_ref_safe(pid, shid_str);
+    kernel_object_ref_safe(pid, shid_prog);
+    kernel_object_unref(task_current(), shid_str, true);
+    kernel_object_unref(task_current(), shid_prog, true);
     task_args_destroy(&args, true);
   }
 

@@ -5,6 +5,7 @@
 #include <compiler_helper.h>
 #include <elf.h>
 #include <gdt.h>
+#include <kernel_object.h>
 #include <list.h>
 #include <memlayout.h>
 #include <memory_barrier.h>
@@ -267,6 +268,18 @@ static int compare_task(const void *a, const void *b) {
   __builtin_unreachable();
 }
 
+static int compare_kern_obj_id(const void *a, const void *b) {
+  const struct kern_obj_id *ta = a;
+  const struct kern_obj_id *tb = b;
+  if (ta->id > tb->id)
+    return 1;
+  if (ta->id < tb->id)
+    return -1;
+  if (ta->id == tb->id)
+    return 0;
+  __builtin_unreachable();
+}
+
 //创建组
 static task_group_t *task_group_create(bool is_kernel) {
   task_group_t *group = malloc(sizeof(task_group_t));
@@ -325,6 +338,12 @@ static pid_t gen_pid() {
   return result;
 }
 
+static void unref_kernel_objs(void *ko) {
+  const struct kern_obj_id *id = ko;
+  kernel_object_unref(task_current(), id->id, false);
+  free(ko);
+}
+
 //析构task
 static void task_destory(ktask_t *t) {
   assert(t);
@@ -342,6 +361,8 @@ static void task_destory(ktask_t *t) {
     kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
     free(ut->program);
   }
+  // 取消引用内核对象
+  avl_tree_clear(&t->kernel_objects, unref_kernel_objs);
   free(t->name);
   free(t);
 }
@@ -415,6 +436,9 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   del_ret_val(new_task->id);
   // 加入group
   task_group_add(group, new_task);
+  // 初始化记录内核对象id的avl树
+  avl_tree_init(&new_task->kernel_objects, compare_kern_obj_id,
+                sizeof(struct kern_obj_id), 0);
   return new_task;
 }
 
