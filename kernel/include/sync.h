@@ -52,6 +52,15 @@ void mutex_lock(uint32_t mut_id);
 bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
 void mutex_unlock(uint32_t mut_id);
 // 条件变量
+/*
+在POSIX系统里，条件变量要配合mutex一起使用的原因是
+1)
+2)
+但是由于
+1)
+2)
+所以nonoOS的条件变量可以不与mutex一起使用
+*/
 struct condition_variable {};
 uint32_t condition_variable_create();
 void condition_variable_destroy(uint32_t cv_id);

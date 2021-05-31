@@ -6,7 +6,7 @@
 #include <task.h>
 #include <virtual_memory.h>
 
-#define VERBOSE
+//#define VERBOSE
 
 static uint32_t id_seq;
 struct avl_tree id_tree;

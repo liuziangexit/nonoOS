@@ -3,6 +3,11 @@
 #include "task.h"
 #include <stdint.h>
 
+/*
+跨进程共享的资源都要统一以kernel_object的方式管理其生命周期以避免泄漏
+本质上是引用计数
+*/
+
 enum _kernel_object_type {
   KERNEL_OBJECT_SHARED_MEMORY,
   //   KERNEL_OBJECT_MUTEX,
