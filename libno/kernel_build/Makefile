@@ -23,7 +23,8 @@ OBJS=\
 ../src/round.o\
 ../src/malloc.o\
 ../src/syscall.o\
-../src/list.o
+../src/list.o\
+../src/vector.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

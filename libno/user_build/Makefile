@@ -26,7 +26,8 @@ OBJS=\
 ../src/list.o\
 ../src/task.o\
 ../src/unistd.o\
-../src/shared_memory.o
+../src/shared_memory.o\
+../src/vector.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S
