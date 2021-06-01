@@ -52,15 +52,11 @@ void mutex_lock(uint32_t mut_id);
 bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
 void mutex_unlock(uint32_t mut_id);
 // 条件变量
-/*
-在POSIX系统里，条件变量要配合mutex一起使用的原因是
-1)
-2)
-但是由于
-1)
-2)
-所以nonoOS的条件变量可以不与mutex一起使用
-*/
+// 为什么notify不传入一个mutex呢
+// 考虑在我的线程池worker里，以及task_join里，能不能不需要锁？
+// 考虑Java Object里的notify/wait为什么不需要锁
+
+// 要给PCB（struct task)实现一个基于RAII的引用计数
 struct condition_variable {};
 uint32_t condition_variable_create();
 void condition_variable_destroy(uint32_t cv_id);

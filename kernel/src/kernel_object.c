@@ -18,6 +18,15 @@ struct id_ctx {
   void *object;
 };
 
+static const char *type2str(kernel_object_type t) {
+  if (t == KERNEL_OBJECT_SHARED_MEMORY)
+    return "SHM";
+  if (t == KERNEL_OBJECT_TASK)
+    return "TASK";
+  abort();
+  __builtin_unreachable();
+}
+
 static int compare_id(const void *a, const void *b) {
   struct id_ctx *ta = (struct id_ctx *)a;
   struct id_ctx *tb = (struct id_ctx *)b;
@@ -40,6 +49,9 @@ static struct id_ctx *get_ctx(uint32_t id) {
 
 static uint32_t *get_counter(kernel_object_type t, void *obj) {
   switch (t) {
+  case KERNEL_OBJECT_TASK: {
+    return (uint32_t *)(obj + 32);
+  } break;
   case KERNEL_OBJECT_SHARED_MEMORY: {
     return (uint32_t *)(obj + 20);
   } break;
@@ -54,6 +66,9 @@ static uint32_t *get_counter(kernel_object_type t, void *obj) {
 
 static void *get_dtor(kernel_object_type t) {
   switch (t) {
+  case KERNEL_OBJECT_TASK: {
+    return task_destory;
+  } break;
   case KERNEL_OBJECT_SHARED_MEMORY: {
     return shared_memory_destroy;
   } break;
@@ -98,13 +113,16 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj) {
   avl_tree_add(&id_tree, ctx);
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_CYAN);
-  printf("kernel_object_new: create kernel object %lld\n", (int64_t)result);
+  printf("kernel_object_new: create kernel object %s %lld\n", type2str(t),
+         (int64_t)result);
   terminal_default_color();
 #endif
-  // 当前的进程引用这个内核对象
-  bool abs = kernel_object_ref(task_current(), result);
-  if (!abs)
-    abort();
+  if (t != KERNEL_OBJECT_TASK) {
+    // 当前的进程引用这个内核对象
+    bool abs = kernel_object_ref(task_current(), result);
+    if (!abs)
+      abort();
+  }
   return result;
 }
 
@@ -116,12 +134,13 @@ void kernel_object_delete(uint32_t id) {
   assert(dtor);
   avl_tree_remove(&id_tree, ctx);
   dtor(ctx->object);
-  free(ctx);
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_CYAN);
-  printf("kernel_object_delete: delete kernel object %lld\n", (int64_t)id);
+  printf("kernel_object_delete: delete kernel object %s %lld\n",
+         type2str(ctx->type), (int64_t)id);
   terminal_default_color();
 #endif
+  free(ctx);
 }
 
 bool kernel_object_ref(ktask_t *task, uint32_t kobj_id) {
@@ -141,8 +160,9 @@ bool kernel_object_ref(ktask_t *task, uint32_t kobj_id) {
     (*counter)++;
 #ifdef VERBOSE
     terminal_fgcolor(CGA_COLOR_CYAN);
-    printf("kernel_object_ref: kernel object %lld ref to %lld\n",
-           (int64_t)kobj_id, (int64_t)*counter);
+    printf(
+        "kernel_object_ref: kernel object %s %lld counter increasing to %lld\n",
+        type2str(ctx->type), (int64_t)kobj_id, (int64_t)*counter);
     terminal_default_color();
 #endif
   } else {
@@ -172,17 +192,31 @@ void kernel_object_unref(ktask_t *task, uint32_t kobj_id,
   find.id = kobj_id;
   struct kern_obj_id *record = avl_tree_find(&task->kernel_objects, &find);
   if (remove_from_task_avl) {
+    assert(record);
     avl_tree_remove(&task->kernel_objects, record);
     free(record);
   }
 // 如果引用归0，删除对象
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_CYAN);
-  printf("kernel_object_unref: kernel object %lld unref to %lld\n",
-         (int64_t)kobj_id, (int64_t)*counter);
+  printf("kernel_object_unref: kernel object %s %lld unref to %lld\n",
+         type2str(ctx->type), (int64_t)kobj_id, (int64_t)*counter);
   terminal_default_color();
 #endif
   if (*counter == 0) {
     kernel_object_delete(kobj_id);
   }
+}
+
+void kernel_object_print() {
+  SMART_CRITICAL_REGION
+  terminal_fgcolor(CGA_COLOR_LIGHT_MAGENTA);
+  printf("kernel_object_print\n******************************\n");
+  for (struct id_ctx *ctx = avl_tree_first(&id_tree); ctx != 0;
+       ctx = avl_tree_next(&id_tree, ctx)) {
+    printf("id: %lld  type: %s  ref: %lld\n", (int64_t)ctx->id,
+           type2str(ctx->type), (int64_t)*get_counter(ctx->type, ctx->object));
+  }
+  printf("******************************\n");
+  terminal_default_color();
 }

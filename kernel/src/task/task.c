@@ -28,8 +28,6 @@ uint32_t task_inited;
 static struct avl_tree tasks;
 // 当前运行的task
 static ktask_t *current;
-// id序列
-static pid_t id_seq;
 // 调度队列，在这个队列中的task都是可执行的，也就是它没有等待锁或者io或者sleep
 static list_entry_t ready_queue;
 
@@ -199,53 +197,6 @@ void task_args_destroy(struct task_args *dst, bool free_data) {
   dst->cnt = 0;
 }
 
-static struct avl_tree ret_val_tree;
-struct ret_val {
-  struct avl_node avl_head;
-  pid_t pid;
-  int32_t val;
-};
-static int compare_ret_val(const void *a, const void *b) {
-  const struct ret_val *ta = (const struct ret_val *)a;
-  const struct ret_val *tb = (const struct ret_val *)b;
-  if (ta->pid > tb->pid)
-    return 1;
-  else if (ta->pid < tb->pid)
-    return -1;
-  else
-    return 0;
-}
-static void record_ret_val(pid_t id, int32_t val) {
-  struct ret_val *record = malloc(sizeof(struct ret_val));
-  assert(record);
-  memset(record, 0, sizeof(struct ret_val));
-  avl_node_init(&record->avl_head);
-  record->pid = id;
-  record->val = val;
-  void *prev = avl_tree_add(&ret_val_tree, record);
-  if (prev) {
-    panic("record_ret_val avl_tree_add");
-  }
-}
-static void del_ret_val(pid_t id) {
-  struct ret_val find;
-  find.pid = id;
-  struct ret_val *record = avl_tree_find(&ret_val_tree, &find);
-  if (record) {
-    avl_tree_remove(&ret_val_tree, record);
-    free(record);
-  }
-}
-static int32_t get_ret_val(pid_t id) {
-  struct ret_val find;
-  find.pid = id;
-  struct ret_val *record = avl_tree_find(&ret_val_tree, &find);
-  if (!record) {
-    abort();
-  }
-  return record->val;
-}
-
 static void add_task(ktask_t *new_task) {
   avl_node_init(&new_task->global_head);
   make_sure_schd_disabled();
@@ -321,32 +272,16 @@ static void task_group_remove(ktask_t *t) {
   }
 }
 
-// 生成ID
-static pid_t gen_pid() {
-  make_sure_schd_disabled();
-  pid_t result;
-  const pid_t begins = atomic_load(&id_seq);
-  do {
-    result = atomic_add(&id_seq, 1);
-    if (result == begins) {
-      panic("running out of pid");
-    }
-    if (result == 0) {
-      continue;
-    }
-  } while (task_find(result));
-  return result;
-}
-
 static void unref_kernel_objs(void *ko) {
   const struct kern_obj_id *id = ko;
   kernel_object_unref(task_current(), id->id, false);
   free(ko);
 }
 
-//析构task
-static void task_destory(ktask_t *t) {
+// 析构task
+void task_destory(ktask_t *t) {
   assert(t);
+  assert(t->ref_count == 0);
 #ifdef VERBOSE
   printf("task_destory: destroy task %s(%lld)\n", t->name, (int64_t)t->id);
 #endif
@@ -431,14 +366,14 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   new_task->name = malloc(strlen(name) + 1);
   strcpy(new_task->name, name);
   // 生成id
-  new_task->id = gen_pid();
-  // 移除此pid的返回值记录，因为此前可能有一个进程用过这个pid
-  del_ret_val(new_task->id);
-  // 加入group
-  task_group_add(group, new_task);
+  new_task->id = kernel_object_new(KERNEL_OBJECT_TASK, new_task);
   // 初始化记录内核对象id的avl树
   avl_tree_init(&new_task->kernel_objects, compare_kern_obj_id,
                 sizeof(struct kern_obj_id), 0);
+  // 自己引用自己
+  kernel_object_ref(new_task, new_task->id);
+  // 加入group
+  task_group_add(group, new_task);
   return new_task;
 }
 
@@ -484,8 +419,8 @@ const char *task_state_str(enum task_state s) {
     return "YIELDED";
   case RUNNING:
     return "RUNNING";
-  case EXITED:
-    return "EXITED ";
+  case ZOMBIE:
+    return "ZOMBIE ";
   case WAITING:
     return "WAITING";
   default:
@@ -501,7 +436,7 @@ void task_clean() {
   ktask_t *p = avl_tree_nearest(&tasks, &key);
   if (p) {
     do {
-      if (p->state == EXITED) {
+      if (p->state == ZOMBIE) {
         ktask_t *n = avl_tree_next(&tasks, p);
         avl_tree_remove(&tasks, p);
         task_destory(p);
@@ -551,15 +486,16 @@ void task_idle() {
       printf("idle: back\n");
 #endif
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
-        if (t->state == EXITED) {
+        if (t->state == ZOMBIE) {
           ktask_t *n = avl_tree_next(&tasks, t);
           avl_tree_remove(&tasks, t);
-          task_destory(t);
+          kernel_object_unref(t, t->id, true);
           t = n;
           continue;
         }
         t = avl_tree_next(&tasks, t);
       }
+      kernel_object_print();
 #ifdef VERBOSE
       task_display();
 #endif
@@ -769,9 +705,20 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name,
 }
 
 // 等待进程结束
-int32_t task_join(pid_t pid) {
-  panic("not implemented");
-  return get_ret_val(pid);
+bool task_join(pid_t pid, int32_t *ret_val) {
+  UNUSED(ret_val);
+  SMART_CRITICAL_REGION
+  if (pid == task_current()->id) {
+    abort();
+  }
+  ktask_t *task = task_find(pid);
+  if (!task)
+    return false;
+  kernel_object_ref(task_current(), task->join_mutex);
+  kernel_object_ref(task_current(), task->join_cv);
+
+  // return get_ret_val(pid);
+  return true;
 }
 
 // 放弃当前进程时间片
@@ -799,18 +746,20 @@ void task_sleep(uint64_t millisecond) {
   }
 }
 
-// TODO 通知等待此线程的线程
 static void task_quit(int32_t ret) {
+  SMART_CRITICAL_REGION
 #ifdef VERBOSE
   printf("task %lld returned %d\n", (int64_t)task_current()->id, ret);
 #endif
+  assert(task_current()->ref_count != 0);
+  // 切到idle去开始删除线程
   disable_interrupt();
-  // 保存返回值供其他task查询
-  record_ret_val(task_current()->id, ret);
   // 找到idle task，它的pid是1
-  ktask_t *schd = task_find(1);
-  // 切换到schd
-  task_switch(schd, task_preemptive_enabled(), EXITED);
+  ktask_t *idle = task_find(1);
+  // 切换到idle
+  task_switch(idle, task_preemptive_enabled(), ZOMBIE);
+  abort();
+  __builtin_unreachable();
 }
 
 // 退出当前进程
@@ -881,7 +830,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   //        next->name, (int64_t)next->id);
   // terminal_default_color();
   // 切换寄存器，包括eip、esp和ebp
-  switch_to(prev->state != EXITED, &prev->regs, &next->regs);
+  switch_to(prev->state != ZOMBIE, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
 }
 
@@ -891,7 +840,6 @@ void task_init() {
          TASK_TIME_SLICE_MS % TICK_TIME_MS == 0);
   avl_tree_init(&tasks, compare_task, sizeof(ktask_t), 0);
   list_init(&ready_queue);
-  avl_tree_init(&ret_val_tree, compare_ret_val, sizeof(struct ret_val), 0);
 
   // 将当前的上下文设置为第一个任务
   ktask_t *init = task_create_impl("idle", true, 0);

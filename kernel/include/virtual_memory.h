@@ -171,6 +171,7 @@ void shared_memory_destroy(struct shared_memory *);
 // 获得共享内存的上下文
 struct shared_memory *shared_memory_ctx(uint32_t id);
 // map共享内存到当前地址空间
+// map时会自动ref内核对象，unmap时会自动unref
 void *shared_memory_map(uint32_t id, void *addr);
 void shared_memory_unmap(void *addr);
 

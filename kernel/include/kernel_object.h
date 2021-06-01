@@ -9,6 +9,7 @@
 */
 
 enum _kernel_object_type {
+  KERNEL_OBJECT_TASK,
   KERNEL_OBJECT_SHARED_MEMORY,
   //   KERNEL_OBJECT_MUTEX,
   //   KERNEL_OBJECT_CONDITION_VARIABLE
@@ -23,5 +24,6 @@ bool kernel_object_ref(ktask_t *task, uint32_t kobj_id);
 bool kernel_object_ref_safe(pid_t pid, uint32_t kobj_id);
 void kernel_object_unref(ktask_t *task, uint32_t kobj_id,
                          bool remove_from_task_avl);
+void kernel_object_print();
 
 #endif

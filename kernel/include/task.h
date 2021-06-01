@@ -30,7 +30,7 @@ enum task_state {
   YIELDED, // 被调走
   WAITING, // 等待资源
   RUNNING, // 运行中
-  EXITED   // 已退出
+  ZOMBIE,  // 已退出，但还不可删除
 };
 
 enum task_wait_type { SLEEP, MUTEX };
@@ -102,20 +102,36 @@ struct ktask {
   struct avl_node global_head;
   list_entry_t ready_queue_head;
   list_entry_t group_head;
+  // 内核对象引用计数
+  // 此线程被别的线程join时会加引用
+  uint32_t ref_count;
+  // 所属线程组
   task_group_t *group;
+  // 状态
   enum task_state state;
   pid_t id;
   char *name;
-  struct ktask *parent;   // 父进程
-  uintptr_t kstack;       // 内核栈
-  struct registers regs;  // 寄存器
-  struct task_args *args; // 命令行参数
-  uint64_t tslice;        // 已使用的时间片
-  enum task_wait_type
-      wait_type; // 等待类型，只有在当前state==WAITING时此字段才有意义
-  union task_wait_ctx
-      wait_ctx; // 等待上下文，只有在当前state==WAITING时此字段才有意义
-  struct avl_tree kernel_objects; // 线程使用的内核对象
+  // 父进程
+  struct ktask *parent;
+  // 内核栈
+  uintptr_t kstack;
+  // 寄存器
+  struct registers regs;
+  // 命令行参数
+  struct task_args *args;
+  // 已使用的时间片
+  uint64_t tslice;
+  // 等待类型，只有在当前state==WAITING时此字段才有意义
+  enum task_wait_type wait_type;
+  // 等待上下文，只有在当前state==WAITING时此字段才有意义
+  union task_wait_ctx wait_ctx;
+  // 线程引用的内核对象
+  struct avl_tree kernel_objects;
+  // 用于join的内核对象
+  uint32_t join_mutex;
+  uint32_t join_cv;
+  // 返回值
+  int32_t ret_val;
 };
 typedef struct ktask ktask_t;
 
@@ -147,11 +163,9 @@ void task_handle_wait();
 
 // 对外接口
 
-// 对kernel接口
 // 初始化task系统
 void task_init();
 
-// 对kernel接口
 // 寻找下一个可调度的task
 bool task_schd(bool force, bool allow_idle, enum task_state tostate);
 // 在没有task可调时，hlt
@@ -162,38 +176,31 @@ void task_idle();
 bool task_preemptive_enabled();
 void task_preemptive_set(bool val);
 
-// 对kernel接口
-// 对task接口
 // 当前task
 ktask_t *task_current();
 
-// 对kernel接口
 // 创建内核线程
 pid_t task_create_kernel(int (*func)(int, char **), const char *name,
                          struct task_args *args);
 
-// 对kernel接口
 // 创建user task
 #define DEFAULT_ENTRY 0
 pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                        task_group_t *group, uintptr_t entry,
                        struct task_args *args);
 
-// 对kernel接口
-// 对task接口
+void task_destory(ktask_t *t);
+
 // 等待task结束
 // 返回被等待task的返回值
-int32_t task_join(pid_t pid);
+bool task_join(pid_t pid, int32_t *ret_val);
 
-// 对task接口
 // 放弃当前task时间片
 void task_yield();
 
-// 对task接口
 // 将当前task挂起一段时间
 void task_sleep(uint64_t millisecond);
 
-// 对task接口
 // 退出当前task
 // aka exit
 void task_exit(int32_t ret);
@@ -202,7 +209,6 @@ void task_exit(int32_t ret);
 #define TASK_TERMINATE_BAD_ACCESS (-2)
 void task_terminate(int32_t ret);
 
-// 对kernel接口
 // 切换到另一个task
 void task_switch(ktask_t *, bool, enum task_state tostate);
 
