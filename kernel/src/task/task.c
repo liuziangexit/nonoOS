@@ -20,7 +20,7 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
-// #define VERBOSE
+//#define VERBOSE
 
 uint32_t task_inited;
 
@@ -419,8 +419,8 @@ const char *task_state_str(enum task_state s) {
     return "YIELDED";
   case RUNNING:
     return "RUNNING";
-  case ZOMBIE:
-    return "ZOMBIE ";
+  case EXITED:
+    return "EXITED ";
   case WAITING:
     return "WAITING";
   default:
@@ -436,10 +436,10 @@ void task_clean() {
   ktask_t *p = avl_tree_nearest(&tasks, &key);
   if (p) {
     do {
-      if (p->state == ZOMBIE) {
+      if (p->state == EXITED) {
         ktask_t *n = avl_tree_next(&tasks, p);
         avl_tree_remove(&tasks, p);
-        task_destory(p);
+        kernel_object_unref(p, p->id, true);
         p = n;
         continue;
       }
@@ -486,7 +486,7 @@ void task_idle() {
       printf("idle: back\n");
 #endif
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
-        if (t->state == ZOMBIE) {
+        if (t->state == EXITED) {
           ktask_t *n = avl_tree_next(&tasks, t);
           avl_tree_remove(&tasks, t);
           kernel_object_unref(t, t->id, true);
@@ -495,8 +495,8 @@ void task_idle() {
         }
         t = avl_tree_next(&tasks, t);
       }
-      kernel_object_print();
 #ifdef VERBOSE
+      kernel_object_print();
       task_display();
 #endif
     }
@@ -757,7 +757,7 @@ static void task_quit(int32_t ret) {
   // 找到idle task，它的pid是1
   ktask_t *idle = task_find(1);
   // 切换到idle
-  task_switch(idle, task_preemptive_enabled(), ZOMBIE);
+  task_switch(idle, task_preemptive_enabled(), EXITED);
   abort();
   __builtin_unreachable();
 }
@@ -830,7 +830,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   //        next->name, (int64_t)next->id);
   // terminal_default_color();
   // 切换寄存器，包括eip、esp和ebp
-  switch_to(prev->state != ZOMBIE, &prev->regs, &next->regs);
+  switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
 }
 

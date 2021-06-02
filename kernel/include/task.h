@@ -30,7 +30,7 @@ enum task_state {
   YIELDED, // 被调走
   WAITING, // 等待资源
   RUNNING, // 运行中
-  ZOMBIE,  // 已退出，但还不可删除
+  EXITED,  // 已退出，但还不可删除
 };
 
 enum task_wait_type { SLEEP, MUTEX };
