@@ -38,15 +38,18 @@ static __always_inline uint32_t task_count() {
 
 // 从组链表node获得对象
 inline static ktask_t *task_group_head_retrieve(list_entry_t *head) {
+  SMART_CRITICAL_REGION
   return (ktask_t *)(((void *)head) - sizeof(struct avl_node) * 2);
 }
 
 // 从ready链表node获得对象
 inline static ktask_t *task_ready_queue_head_retrieve(list_entry_t *head) {
+  SMART_CRITICAL_REGION
   return (ktask_t *)(((void *)head) - sizeof(struct avl_node));
 }
 
 static ktask_t *ready_queue_get() {
+  SMART_CRITICAL_REGION
   list_entry_t *entry = list_next(&ready_queue);
   if (entry == &ready_queue) {
     return 0;
@@ -67,6 +70,7 @@ static int compare_task_by_ts(const void *a, const void *b) {
 }
 
 static void ready_queue_put(ktask_t *t) {
+  SMART_CRITICAL_REGION
   list_init(&t->ready_queue_head);
   list_sort_add(&ready_queue, &t->ready_queue_head, compare_task_by_ts,
                 sizeof(struct avl_node));
@@ -353,7 +357,7 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     }
     return 0;
   }
-  if (task_current())
+  if (task_inited == TASK_INITED_MAGIC)
     new_task->tslice = task_current()->tslice;
 
   // 内核栈

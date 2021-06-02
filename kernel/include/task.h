@@ -34,10 +34,12 @@ enum task_state {
 };
 
 enum task_wait_type { SLEEP, MUTEX };
+
 struct sleep_ctx {
   uint64_t after; // 当ticks * TICK_TIME_MS >= after，就等到了
 };
 struct mutex_ctx {};
+
 union task_wait_ctx {
   struct sleep_ctx sleep;
   struct mutex_ctx mutex;
