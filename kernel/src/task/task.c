@@ -74,6 +74,7 @@ static void ready_queue_put(ktask_t *t) {
 
 // 每个调度周期调一次
 void task_handle_wait() {
+  make_sure_int_disabled();
   // 遍历全部任务，如果有WAITING状态的任务等到了他要的东西，就把它放到readyqueue
   for (ktask_t *t = avl_tree_first(&tasks); t != 0;
        t = avl_tree_next(&tasks, t)) {
@@ -86,6 +87,7 @@ void task_handle_wait() {
         }
         continue;
       case MUTEX:
+        abort();
         if (false) {
           goto PUTBACK;
         }
@@ -102,6 +104,7 @@ void task_handle_wait() {
 
 struct virtual_memory *current_vm;
 struct virtual_memory *virtual_memory_current() {
+  SMART_CRITICAL_REGION
   return current_vm;
 }
 
@@ -198,8 +201,8 @@ void task_args_destroy(struct task_args *dst, bool free_data) {
 }
 
 static void add_task(ktask_t *new_task) {
-  avl_node_init(&new_task->global_head);
   make_sure_schd_disabled();
+  avl_node_init(&new_task->global_head);
   void *prev = avl_tree_add(&tasks, &new_task->global_head);
   if (prev) {
     abort();

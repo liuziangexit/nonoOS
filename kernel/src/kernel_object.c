@@ -143,6 +143,16 @@ void kernel_object_delete(uint32_t id) {
   free(ctx);
 }
 
+bool kernel_object_has_ref(ktask_t *task, uint32_t kobj_id) {
+  SMART_CRITICAL_REGION
+  if (task_inited == TASK_INITED_MAGIC) {
+    struct id_ctx find;
+    find.id = kobj_id;
+    return 0 != avl_tree_find(&task->kernel_objects, &find);
+  }
+  return true;
+}
+
 bool kernel_object_ref(ktask_t *task, uint32_t kobj_id) {
   SMART_CRITICAL_REGION
   struct id_ctx *ctx = get_ctx(kobj_id);
