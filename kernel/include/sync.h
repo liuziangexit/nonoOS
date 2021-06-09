@@ -52,9 +52,9 @@ void mutex_lock(uint32_t mut_id);
 bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
 void mutex_unlock(uint32_t mut_id);
 // 条件变量
-// 为什么notify不传入一个mutex呢
-// 考虑在我的线程池worker里，以及task_join里，能不能不需要锁？
-// 考虑Java Object里的notify/wait为什么不需要锁
+// 为什么notify不传入一个mutex，也就是强制先notify再unlock，来保证绝对不会丢通知呢？因为这是以性能为代价的，比如有的实现下，wait那边会有一次假唤醒。因此，将这个决定给程序员做
+// 考虑在我的线程池worker里，以及task_join里，能不能不需要锁？稍有常识的人都能看出，不能。我只想说懂的都懂，我也不想解释了
+// Java Object里的notify/wait为什么不需要锁？这是一个假命题，看一下文档就知道，他们也需要锁
 
 // 要给PCB（struct task)实现一个基于RAII的引用计数
 struct condition_variable {};
