@@ -17,6 +17,7 @@ struct create_task_syscall_args {
   const char *name;
   bool new_group;
   uintptr_t entry;
+  bool ref; // 是否一开始就引用创建的线程
   uint32_t parameter_cnt;
 };
 
@@ -26,11 +27,13 @@ struct create_task_syscall_args {
 typedef uint32_t pid_t;
 pid_t get_pid();
 #define DEFAULT_ENTRY 0
+#define CREATE_TASK_REF 1
 pid_t create_task(void *program, uint32_t program_size, const char *name,
-                  bool new_group, uintptr_t entry, uint32_t parameter_cnt, ...);
+                  bool new_group, uintptr_t entry, uint32_t flags,
+                  uint32_t parameter_cnt, ...);
 void yield();
 void sleep();
-void join();
+int32_t join(pid_t id);
 
 #endif
 #endif

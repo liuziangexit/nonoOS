@@ -233,7 +233,7 @@ void ktask0() {
     pid_t pid =
         task_create_user((void *)_binary____program_task_test_main_exe_start,
                          (uint32_t)_binary____program_task_test_main_exe_size,
-                         "task_test", 0, DEFAULT_ENTRY, &args);
+                         "task_test", 0, DEFAULT_ENTRY, false, &args);
     kernel_object_ref_safe(pid, shid_str);
     kernel_object_ref_safe(pid, shid_prog);
     kernel_object_unref(task_current(), shid_str, true);
@@ -250,13 +250,13 @@ void ktask0() {
         _binary____program_count_down_main_exe_size[];
     task_create_user((void *)_binary____program_count_down_main_exe_start,
                      (uint32_t)_binary____program_count_down_main_exe_size,
-                     "count_down_1", 0, DEFAULT_ENTRY, &args);
+                     "count_down_1", 0, DEFAULT_ENTRY, false, &args);
     task_create_user((void *)_binary____program_count_down_main_exe_start,
                      (uint32_t)_binary____program_count_down_main_exe_size,
-                     "count_down_2", 0, DEFAULT_ENTRY, &args);
+                     "count_down_2", 0, DEFAULT_ENTRY, false, &args);
     task_create_user((void *)_binary____program_count_down_main_exe_start,
                      (uint32_t)_binary____program_count_down_main_exe_size,
-                     "count_down_3", 0, DEFAULT_ENTRY, &args);
+                     "count_down_3", 0, DEFAULT_ENTRY, false, &args);
     task_args_destroy(&args, true);
   }
 
@@ -271,10 +271,10 @@ void ktask0() {
     task_args_add(&args2, "0", 0, false);
     task_create_user((void *)_binary____program_schd_test_main_exe_start,
                      (uint32_t)_binary____program_schd_test_main_exe_size,
-                     "schd_test_1", 0, DEFAULT_ENTRY, &args);
+                     "schd_test_1", 0, DEFAULT_ENTRY, false, &args);
     task_create_user((void *)_binary____program_schd_test_main_exe_start,
                      (uint32_t)_binary____program_schd_test_main_exe_size,
-                     "schd_test_2", 0, DEFAULT_ENTRY, &args2);
+                     "schd_test_2", 0, DEFAULT_ENTRY, false, &args2);
     task_args_destroy(&args, true);
     task_args_destroy(&args2, true);
   }

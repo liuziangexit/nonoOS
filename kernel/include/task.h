@@ -188,12 +188,12 @@ ktask_t *task_current();
 
 // 创建内核线程
 pid_t task_create_kernel(int (*func)(int, char **), const char *name,
-                         struct task_args *args);
+                         struct task_args *args, bool ref);
 
 // 创建user task
 #define DEFAULT_ENTRY 0
 pid_t task_create_user(void *program, uint32_t program_size, const char *name,
-                       task_group_t *group, uintptr_t entry,
+                       task_group_t *group, uintptr_t entry, bool ref,
                        struct task_args *args);
 
 void task_destory(ktask_t *t);
@@ -214,6 +214,7 @@ void task_exit(int32_t ret);
 // 非正常退出
 #define TASK_TERMINATE_ABORT (-1)
 #define TASK_TERMINATE_BAD_ACCESS (-2)
+#define TASK_TERMINATE_JOIN_FAILED (-3)
 void task_terminate(int32_t ret);
 
 // 切换到另一个task

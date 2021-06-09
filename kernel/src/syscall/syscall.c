@@ -47,9 +47,9 @@ void syscall_dispatch(struct trapframe *tf) {
       for (uint32_t i = 0; i < arg_pack->parameter_cnt; i++) {
         task_args_add(&args, va_arg(*parmaters, const char *), 0, false);
       }
-      pid_t id = task_create_user(arg_pack->program, arg_pack->program_size,
-                                  arg_pack->name, group, arg_pack->entry,
-                                  arg_pack->parameter_cnt ? &args : 0);
+      pid_t id = task_create_user(
+          arg_pack->program, arg_pack->program_size, arg_pack->name, group,
+          arg_pack->entry, arg_pack->ref, arg_pack->parameter_cnt ? &args : 0);
       task_args_destroy(&args, true);
       syscall_return(tf, id);
     } break;
@@ -64,7 +64,12 @@ void syscall_dispatch(struct trapframe *tf) {
       syscall_return(tf, 0);
     } break;
     case USER_TASK_ACTION_JOIN: {
-      panic("join");
+      int32_t ret;
+      bool s = task_join(arg[1], &ret);
+      if (s)
+        syscall_return(tf, ret);
+      else
+        task_terminate(TASK_TERMINATE_JOIN_FAILED);
     } break;
     case USER_TASK_ACTION_EXIT: {
       task_exit(arg[1]);

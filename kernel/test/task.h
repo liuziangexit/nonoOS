@@ -45,7 +45,7 @@ void utask_test() {
   pid_t upid =
       task_create_user(_binary____program_hello_world_hello_exe_start,
                        (uintptr_t)_binary____program_hello_world_hello_exe_size,
-                       "user_test_proc", 0, DEFAULT_ENTRY, &args);
+                       "user_test_proc", 0, DEFAULT_ENTRY, false, &args);
   task_args_destroy(&args, true);
   printf("switch to user process...\n");
   disable_interrupt();
@@ -61,7 +61,7 @@ void task_test() {
   task_args_add(args, "11", 0, false);
   task_args_add(args, "22", 0, false);
   task_args_add(args, "33", 0, false);
-  pid_t t2 = task_create_kernel(task2, "kernel_test_proc", args);
+  pid_t t2 = task_create_kernel(task2, "kernel_test_proc", args, false);
   assert(t2);
   pid_t t1 = task_current()->id;
   assert(t1);

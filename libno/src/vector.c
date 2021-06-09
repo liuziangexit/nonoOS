@@ -40,6 +40,8 @@ uint32_t vector_add(vector_t *vec, void *obj) {
 
 void vector_remove(vector_t *vec, uint32_t index) {
   check_oor(vec, index);
+  memcpy(vec->mem + vec->obj_size * index,
+         vec->mem + vec->obj_size * (index + 1), vec->obj_size - index + 1);
   vec->count--;
 }
 

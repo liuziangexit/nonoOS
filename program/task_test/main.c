@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <task.h>
+#include <unistd.h>
 
 int main(int argc, char **argv) {
   UNUSED(argc);
@@ -28,12 +29,20 @@ int main(int argc, char **argv) {
   const uint32_t prog_size = punning.integer;
   printf("task_test: program size: %lld\n", (int64_t)prog_size);
   void *vaddr_prog = shared_memory_map(prog_shid, 0);
-  pid_t pid =
-      create_task(vaddr_prog, prog_size, vaddr, true, DEFAULT_ENTRY, 3,
-                  "I AM task_test 1", "I AM task_test 2", "I AM task_test 3");
+  const pid_t pid = create_task(
+      vaddr_prog, prog_size, vaddr, true, DEFAULT_ENTRY, CREATE_TASK_REF, 3,
+      "I AM task_test 1", "I AM task_test 2", "I AM task_test 3");
   printf("task_test: task %lld created\n", (int64_t)pid);
-  pid = create_task(vaddr_prog, prog_size, vaddr, true, DEFAULT_ENTRY, 0);
-  printf("task_test: task %lld created\n", (int64_t)pid);
+  const pid_t pid2 = create_task(vaddr_prog, prog_size, vaddr, true,
+                                 DEFAULT_ENTRY, CREATE_TASK_REF, 0);
+  printf("task_test: task %lld created\n", (int64_t)pid2);
+  printf("task_test: waiting %lld to quit\n", (int64_t)pid);
+  int32_t ret = join(pid);
+  printf("task_test: %lld exited with code %d\n", (int64_t)pid, ret);
+  sleep(1000);
+  printf("task_test: waiting %lld to quit\n", (int64_t)pid2);
+  int32_t ret2 = join(pid2);
+  printf("task_test: %lld exited with code %d\n", (int64_t)pid2, ret2);
   printf("task_test: exit\n");
   return 0;
 }

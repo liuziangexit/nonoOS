@@ -303,7 +303,7 @@ void task_destory(ktask_t *t) {
 }
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
-                                 task_group_t *group) {
+                                 task_group_t *group, bool ref) {
   make_sure_schd_disabled();
   if (current && kernel && !current->group->is_kernel) {
     return 0; //只有supervisor才能创造一个supervisor
@@ -372,6 +372,9 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
                 sizeof(struct kern_obj_id), 0);
   // 自己引用自己
   kernel_object_ref(new_task, new_task->id);
+  // 如果调用者有要求，就让现在的线程引用正在创建的线程
+  if (ref)
+    kernel_object_ref(task_current(), new_task->id);
   // 初始化joining
   vector_init(&new_task->joining, sizeof(pid_t));
   // 加入group
@@ -460,7 +463,7 @@ bool task_schd(bool force, bool allow_idle, enum task_state tostate) {
   SMART_NOINT_REGION
   // 如果调度队列有task
   ktask_t *t = ready_queue_get();
-  if (t) {
+  if (t && t->state != EXITED) {
     if (allow_idle || t->id != 1) {
       if (force || t->tslice < task_current()->tslice) {
         // 如果t不如当前任务的时间片，就执行它
@@ -499,12 +502,16 @@ void task_idle() {
             // 告诉他们返回值
             waiting_task->wait_ctx.join.ret_val = t->ret_val;
             // 把他们放入调度队列
+            waiting_task->state = YIELDED;
             ready_queue_put(waiting_task);
           }
           // 然后可以开始删除这个线程的PCB
           ktask_t *n = avl_tree_next(&tasks, t);
-          avl_tree_remove(&tasks, t);
-          kernel_object_unref(t, t->id, true);
+          if (t->ref_count == 1) {
+            // 只有在没有别的线程引用时，才会删除
+            avl_tree_remove(&tasks, t);
+            kernel_object_unref(t, t->id, true);
+          }
           t = n;
           continue;
         }
@@ -545,7 +552,7 @@ ktask_t *task_current() {
 // entry是开始执行的虚拟地址，arg是指向函数参数的虚拟地址
 // 若program为0，则program_size将被忽略。program和group之间有且只有一个为非0，这意味着只有创建进程时才能指定program
 pid_t task_create_user(void *program, uint32_t program_size, const char *name,
-                       task_group_t *group, uintptr_t entry,
+                       task_group_t *group, uintptr_t entry, bool ref,
                        struct task_args *args) {
   // FIXME 根据program_size去看底下elf处理时候有没有越界
   UNUSED(program_size);
@@ -559,7 +566,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   assert((entry == DEFAULT_ENTRY) == is_first);
 
   SMART_CRITICAL_REGION
-  utask_t *new_task = (utask_t *)task_create_impl(name, false, group);
+  utask_t *new_task = (utask_t *)task_create_impl(name, false, group, ref);
   if (!new_task) {
     return 0;
   }
@@ -686,10 +693,10 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
 
 //创建内核线程
 pid_t task_create_kernel(int (*func)(int, char **), const char *name,
-                         struct task_args *args) {
+                         struct task_args *args, bool ref) {
   SMART_CRITICAL_REGION
   ktask_t *schd = task_find(1);
-  ktask_t *new_task = task_create_impl(name, true, schd->group);
+  ktask_t *new_task = task_create_impl(name, true, schd->group, ref);
   if (!new_task)
     return 0;
 
@@ -728,15 +735,26 @@ bool task_join(pid_t pid, int32_t *ret_val) {
   ktask_t *task = task_find(pid);
   if (!task)
     return false;
-  vector_add(&task->joining, &task_current()->id);
-  SMART_NOINT_REGION
-  task_current()->tslice++;
-  task_current()->wait_type = JOIN;
-  task_current()->wait_ctx.join.id = pid;
-  // 开始等待那个线程退出
-  task_schd(true, true, WAITING);
-  // 等再回来的时候，那个线程的返回值已经被存给我们了
-  *ret_val = task_current()->wait_ctx.join.ret_val;
+  if (task->state == EXITED) {
+    // 场景是本线程此前已经ref了该线程，所以该线程退出之后还没有被销毁
+    // join之后，需要本线程手动unref，不然那个线程的结构就没人释放了
+    // 当然，你也可以等本线程退出时候自动unref他们
+    *ret_val = task->ret_val;
+    return true;
+  } else {
+    SMART_NOINT_REGION
+    task_current()->tslice++;
+    task_current()->wait_type = JOIN;
+    task_current()->wait_ctx.join.id = pid;
+    // 把本线程的值加到那个线程的joining里
+    uint32_t idx = vector_add(&task->joining, &task_current()->id);
+    // 开始等待那个线程退出
+    task_schd(true, true, WAITING);
+    // 等再回来的时候，那个线程的返回值已经被存给我们了
+    *ret_val = task_current()->wait_ctx.join.ret_val;
+    // 还需要把我们从joining中删除
+    vector_remove(&task->joining, idx);
+  }
   return true;
 }
 
@@ -793,6 +811,9 @@ void task_terminate(int32_t ret) {
   }
   // TODO 把同vm的其他线程全部杀了
   // TODO 为了尽量减少资源泄漏，强杀进程都要做stack rewind，这怎么做？
+  terminal_fgcolor(CGA_COLOR_RED);
+  printf("task terminated with err code %d\n", ret);
+  terminal_default_color();
   task_quit(ret);
 }
 
@@ -859,7 +880,7 @@ void task_init() {
   list_init(&ready_queue);
 
   // 将当前的上下文设置为第一个任务
-  ktask_t *init = task_create_impl("idle", true, 0);
+  ktask_t *init = task_create_impl("idle", true, 0, false);
   if (!init) {
     panic("creating task idle failed");
   }
