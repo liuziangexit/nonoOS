@@ -76,6 +76,11 @@ static void ready_queue_put(ktask_t *t) {
                 sizeof(struct avl_node));
 }
 
+void put_back(ktask_t *t) {
+  t->state = YIELDED;
+  ready_queue_put(t);
+}
+
 // 每个调度周期调一次
 void task_handle_wait() {
   make_sure_int_disabled();
@@ -84,24 +89,11 @@ void task_handle_wait() {
        t = avl_tree_next(&tasks, t)) {
     if (t->state == WAITING) {
       assert(t->ready_queue_head.next == 0 && t->ready_queue_head.prev == 0);
-      switch (t->wait_type) {
-      case SLEEP:
+      if (t->wait_type == SLEEP) {
         if (clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.sleep.after) {
-          goto PUTBACK;
+          put_back(t);
         }
-        continue;
-      case MUTEX:
-        abort();
-        if (false) {
-          goto PUTBACK;
-        }
-        continue;
-      default:
-        panic("unhandled wait");
       }
-    PUTBACK:
-      t->state = YIELDED;
-      ready_queue_put(t);
     }
   }
 }
@@ -306,6 +298,7 @@ void task_destory(ktask_t *t) {
   // 取消引用内核对象
   avl_tree_clear(&t->kernel_objects, unref_kernel_objs);
   free(t->name);
+  vector_destroy(&t->joining);
   free(t);
 }
 
@@ -379,6 +372,8 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
                 sizeof(struct kern_obj_id), 0);
   // 自己引用自己
   kernel_object_ref(new_task, new_task->id);
+  // 初始化joining
+  vector_init(&new_task->joining, sizeof(pid_t));
   // 加入group
   task_group_add(group, new_task);
   return new_task;
@@ -494,6 +489,19 @@ void task_idle() {
 #endif
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
         if (t->state == EXITED) {
+          // 处理join这个线程的线程
+          for (uint32_t i = 0; i < vector_count(&t->joining); i++) {
+            pid_t *id = vector_get(&t->joining, i);
+            ktask_t *waiting_task = task_find(*id);
+            assert(waiting_task->state == WAITING &&
+                   waiting_task->wait_type == JOIN &&
+                   waiting_task->wait_ctx.join.id == t->id);
+            // 告诉他们返回值
+            waiting_task->wait_ctx.join.ret_val = t->ret_val;
+            // 把他们放入调度队列
+            ready_queue_put(waiting_task);
+          }
+          // 然后可以开始删除这个线程的PCB
           ktask_t *n = avl_tree_next(&tasks, t);
           avl_tree_remove(&tasks, t);
           kernel_object_unref(t, t->id, true);
@@ -713,7 +721,6 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name,
 
 // 等待进程结束
 bool task_join(pid_t pid, int32_t *ret_val) {
-  UNUSED(ret_val);
   SMART_CRITICAL_REGION
   if (pid == task_current()->id) {
     abort();
@@ -721,10 +728,15 @@ bool task_join(pid_t pid, int32_t *ret_val) {
   ktask_t *task = task_find(pid);
   if (!task)
     return false;
-  kernel_object_ref(task_current(), task->join_mutex);
-  kernel_object_ref(task_current(), task->join_cv);
-
-  // return get_ret_val(pid);
+  vector_add(&task->joining, &task_current()->id);
+  SMART_NOINT_REGION
+  task_current()->tslice++;
+  task_current()->wait_type = JOIN;
+  task_current()->wait_ctx.join.id = pid;
+  // 开始等待那个线程退出
+  task_schd(true, true, WAITING);
+  // 等再回来的时候，那个线程的返回值已经被存给我们了
+  *ret_val = task_current()->wait_ctx.join.ret_val;
   return true;
 }
 
@@ -744,10 +756,7 @@ void task_sleep(uint64_t millisecond) {
     task_current()->wait_type = SLEEP;
     task_current()->wait_ctx.sleep.after =
         clock_get_ticks() * TICK_TIME_MS + millisecond;
-    if (!task_schd(true, false, WAITING)) {
-      // 没有任务做了，切到idle
-      task_switch(task_find(1), true, WAITING);
-    }
+    task_schd(true, true, WAITING);
     assert(clock_get_ticks() * TICK_TIME_MS >=
            task_current()->wait_ctx.sleep.after);
   }
@@ -764,6 +773,7 @@ static void task_quit(int32_t ret) {
   // 找到idle task，它的pid是1
   ktask_t *idle = task_find(1);
   // 切换到idle
+  task_current()->ret_val = ret;
   task_switch(idle, task_preemptive_enabled(), EXITED);
   abort();
   __builtin_unreachable();

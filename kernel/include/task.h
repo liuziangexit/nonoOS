@@ -4,6 +4,7 @@
 #include <list.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <vector.h>
 #include <virtual_memory.h>
 
 /*
@@ -25,6 +26,8 @@
 #define TASK_INITED_MAGIC 9863479
 extern uint32_t task_inited;
 
+typedef uint32_t pid_t;
+
 enum task_state {
   CREATED, // 已创建
   YIELDED, // 被调走
@@ -33,21 +36,24 @@ enum task_state {
   EXITED,  // 已退出，但还不可删除
 };
 
-enum task_wait_type { SLEEP, MUTEX };
+enum task_wait_type { SLEEP, JOIN, MUTEX };
 
 struct sleep_ctx {
   uint64_t after; // 当ticks * TICK_TIME_MS >= after，就等到了
+};
+struct join_ctx {
+  pid_t id;        // 要等待的线程ID
+  int32_t ret_val; // 该线程的返回值
 };
 struct mutex_ctx {};
 
 union task_wait_ctx {
   struct sleep_ctx sleep;
+  struct join_ctx join;
   struct mutex_ctx mutex;
 };
 
 const char *task_state_str(enum task_state);
-
-typedef uint32_t pid_t;
 
 // task group中的tasks共享同一个地址空间
 // 每个task都必须属于一个task group，每个task group至少要有一个task
@@ -129,9 +135,8 @@ struct ktask {
   union task_wait_ctx wait_ctx;
   // 线程引用的内核对象
   struct avl_tree kernel_objects;
-  // 用于join的内核对象
-  uint32_t join_mutex;
-  uint32_t join_cv;
+  // 在等待本task退出的task
+  vector_t joining;
   // 返回值
   int32_t ret_val;
 };
