@@ -72,11 +72,22 @@ bool mutex_trylock(uint32_t mut_id) {
   if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
     return false;
   }
-  mut->owner = task_current()->id;
+  atomic_store(&mut->owner, task_current()->id);
   return true;
 }
 
 void mutex_lock(uint32_t mut_id);
 
 bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
-void mutex_unlock(uint32_t mut_id);
+
+void mutex_unlock(uint32_t mut_id) {
+  mutex_t *mut = kernel_object_get(mut_id);
+  if (!mut)
+    task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
+  uint32_t owner = atomic_load(&mut->owner);
+  if (owner != task_current()->id) {
+    task_terminate(TASK_TERMINATE_ABORT);
+  }
+  atomic_store(&mut->owner, 0);
+  atomic_store(&mut->locked, 0);
+}
