@@ -634,7 +634,9 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     }
   }
   //在虚拟内存中的用户栈
-  new_task->vustack = USER_STACK_BEGIN;
+  new_task->vustack = virtual_memory_find_fit(
+      new_task->base.group->vm, _4K * TASK_STACK_SIZE, USER_SPACE_BEGIN,
+      USER_CODE_BEGIN, PTE_P | PTE_W | PTE_U, USTACK);
   struct virtual_memory_area *vma = virtual_memory_alloc(
       new_task->base.group->vm, new_task->vustack, _4K * TASK_STACK_SIZE,
       PTE_P | PTE_W | PTE_U, USTACK, false);

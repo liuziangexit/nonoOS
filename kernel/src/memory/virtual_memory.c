@@ -639,7 +639,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     terminal_default_color();
 #endif
     uintptr_t vma_start =
-        virtual_memory_find_fit(vm, vma_size, USER_CODE_BEGIN, USER_STACK_BEGIN,
+        virtual_memory_find_fit(vm, vma_size, USER_CODE_BEGIN, USER_SPACE_END,
                                 PTE_U | PTE_W | PTE_P, UMALLOC);
     if (vma_start == 0) {
       panic("unlikely...");
@@ -975,7 +975,7 @@ void *shared_memory_map(uint32_t id, void *addr) {
   if (!addr) {
     // 自动寻找地址
     addr = (void *)virtual_memory_find_fit(vm, sh->pgcnt * _4K, USER_CODE_BEGIN,
-                                           USER_STACK_BEGIN,
+                                           USER_SPACE_END,
                                            PTE_P | PTE_U | PTE_W, SHM);
     if (!addr)
       return 0;

@@ -17,9 +17,9 @@
 // 这个指的是4k页数
 #define TASK_STACK_SIZE 1024
 // 用户代码的虚拟地址
-#define USER_CODE_BEGIN 0x8000000
-// 用户栈的虚拟地址(3GB - 4K)
-#define USER_STACK_BEGIN (0xC0000000 - TASK_STACK_SIZE * 4096)
+#define USER_SPACE_BEGIN (0x0)
+#define USER_CODE_BEGIN (0x8000000)
+#define USER_SPACE_END (0xC0000000)
 // 时间片
 #define TASK_TIME_SLICE_MS 10
 
