@@ -43,6 +43,8 @@ void leave_noint_region(uint32_t *save);
   enter_noint_region(&__smart_noint_region__);
 #endif
 
+// 使用下面的内核对象时，需要自己进行引用
+
 // 参考C11线程支持库
 // 可重入锁
 struct mutex {
@@ -53,7 +55,7 @@ struct mutex {
 };
 typedef struct mutex mutex_t;
 uint32_t mutex_create();
-void mutex_destroy(uint32_t mut_id);
+void mutex_destroy(mutex_t *);
 bool mutex_trylock(uint32_t mut_id);
 void mutex_lock(uint32_t mut_id);
 bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
@@ -67,7 +69,7 @@ void mutex_unlock(uint32_t mut_id);
 struct condition_variable {};
 typedef struct condition_variable condition_variable_t;
 uint32_t condition_variable_create();
-void condition_variable_destroy(uint32_t cv_id);
+void condition_variable_destroy(mutex_t *);
 void condition_variable_wait(uint32_t cv_id, uint32_t mut_id);
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
                                   uint32_t timeout_ms);

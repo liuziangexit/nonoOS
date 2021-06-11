@@ -806,6 +806,9 @@ void task_exit(int32_t ret) {
 }
 
 void task_terminate(int32_t ret) {
+  if (task_current()->id == 1) {
+    panic("idle called terminate!");
+  }
   if (ret >= 0) {
     panic("task_terminate ret >= 0");
   }

@@ -1,5 +1,9 @@
+#include <assert.h>
+#include <atomic.h>
+#include <kernel_object.h>
 #include <memory_barrier.h>
 #include <mmu.h>
+#include <stdlib.h>
 #include <sync.h>
 #include <task.h>
 #include <x86.h>
@@ -44,3 +48,35 @@ void leave_noint_region(uint32_t *save) {
     enable_interrupt();
   }
 }
+
+uint32_t mutex_create() {
+  mutex_t *mut = malloc(sizeof(mutex_t));
+  assert(mut);
+  mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut);
+  mut->locked = 0;
+  mut->owner = 0;
+  mut->ref_cnt = 0;
+  return mut->obj_id;
+}
+
+void mutex_destroy(mutex_t *mut) {
+  if (mut->ref_cnt != 0 || mut->locked != 0 || mut->owner != 0)
+    task_terminate(TASK_TERMINATE_ABORT);
+  free(mut);
+}
+
+bool mutex_trylock(uint32_t mut_id) {
+  mutex_t *mut = kernel_object_get(mut_id);
+  if (!mut)
+    task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
+  if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+    return false;
+  }
+  mut->owner = task_current()->id;
+  return true;
+}
+
+void mutex_lock(uint32_t mut_id);
+
+bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
+void mutex_unlock(uint32_t mut_id);

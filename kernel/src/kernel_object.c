@@ -55,8 +55,9 @@ static uint32_t *get_counter(kernel_object_type t, void *obj) {
   case KERNEL_OBJECT_SHARED_MEMORY: {
     return (uint32_t *)(obj + 20);
   } break;
-    //   case KERNEL_OBJECT_MUTEX: {
-    //   } break;
+  case KERNEL_OBJECT_MUTEX: {
+    return (uint32_t *)(obj + 4);
+  } break;
     //   case KERNEL_OBJECT_CONDITION_VARIABLE: {
     //   } break;
   }
@@ -72,8 +73,9 @@ static void *get_dtor(kernel_object_type t) {
   case KERNEL_OBJECT_SHARED_MEMORY: {
     return shared_memory_destroy;
   } break;
-    //   case KERNEL_OBJECT_MUTEX: {
-    //   } break;
+  case KERNEL_OBJECT_MUTEX: {
+    return mutex_destroy;
+  } break;
     //   case KERNEL_OBJECT_CONDITION_VARIABLE: {
     //   } break;
   }
@@ -92,6 +94,7 @@ void *kernel_object_get(uint32_t id) {
 
 uint32_t kernel_object_new(kernel_object_type t, void *obj) {
   SMART_CRITICAL_REGION
+  // 生成唯一id
   uint32_t result;
   const pid_t begins = atomic_load(&id_seq);
   struct id_ctx find;
@@ -105,6 +108,7 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj) {
     }
     find.id = result;
   } while (avl_tree_find(&id_tree, &find));
+  // 新增内核对象记录
   struct id_ctx *ctx = malloc(sizeof(struct id_ctx));
   avl_node_init(&ctx->head);
   ctx->id = result;

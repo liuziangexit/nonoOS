@@ -215,6 +215,7 @@ void task_exit(int32_t ret);
 #define TASK_TERMINATE_ABORT (-1)
 #define TASK_TERMINATE_BAD_ACCESS (-2)
 #define TASK_TERMINATE_JOIN_FAILED (-3)
+#define TASK_TERMINATE_MUT_NOT_FOUND (-4)
 void task_terminate(int32_t ret);
 
 // 切换到另一个task
