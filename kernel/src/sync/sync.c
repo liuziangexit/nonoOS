@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <atomic.h>
+#include <clock.h>
 #include <kernel_object.h>
 #include <memory_barrier.h>
 #include <mmu.h>
@@ -56,12 +57,15 @@ uint32_t mutex_create() {
   mut->locked = 0;
   mut->owner = 0;
   mut->ref_cnt = 0;
+  vector_init(&mut->waitors, sizeof(pid_t));
   return mut->obj_id;
 }
 
 void mutex_destroy(mutex_t *mut) {
   if (mut->ref_cnt != 0 || mut->locked != 0 || mut->owner != 0)
     task_terminate(TASK_TERMINATE_ABORT);
+  assert(vector_count(&mut->waitors) == 0);
+  vector_destroy(&mut->waitors);
   free(mut);
 }
 
@@ -76,18 +80,82 @@ bool mutex_trylock(uint32_t mut_id) {
   return true;
 }
 
-void mutex_lock(uint32_t mut_id);
+void mutex_lock(uint32_t mut_id) {
+  mutex_t *mut = kernel_object_get(mut_id);
+  if (!mut)
+    task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
+  SMART_CRITICAL_REGION
+  if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+    // 失败了
+    SMART_NOINT_REGION
+    task_current()->tslice++;
+    task_current()->wait_type = WAIT_MUTEX;
+    task_current()->wait_ctx.mutex.after = 0; // 设置为0，表示没有超时
+    task_current()->wait_ctx.mutex.timeout = false;
+    // 添加进等待此mutex的列表
+    uint32_t idx = vector_add(&mut->waitors, &task_current()->id);
+    // 陷入等待
+    task_schd(true, true, WAITING);
+    // 从等待列表中移除我自己
+    vector_remove(&mut->waitors, idx);
+    // 获得锁
+    if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+      task_terminate(TASK_TERMINATE_ABORT);
+    }
+  }
+  atomic_store(&mut->owner, task_current()->id);
+}
 
-bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
+bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
+  mutex_t *mut = kernel_object_get(mut_id);
+  if (!mut)
+    task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
+  SMART_CRITICAL_REGION
+  if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+    // 失败了
+    SMART_NOINT_REGION
+    task_current()->tslice++;
+    task_current()->wait_type = WAIT_MUTEX;
+    task_current()->wait_ctx.mutex.after =
+        clock_get_ticks() * TICK_TIME_MS + timeout_ms;
+    task_current()->wait_ctx.mutex.timeout = false;
+    // 添加进等待此mutex的列表
+    uint32_t idx = vector_add(&mut->waitors, &task_current()->id);
+    // 陷入等待
+    task_schd(true, true, WAITING);
+    // 从等待列表中移除我自己
+    vector_remove(&mut->waitors, idx);
+    if (task_current()->wait_ctx.mutex.timeout) {
+      // 由超时导致返回
+      return false;
+    }
+    // 获得锁
+    if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+      task_terminate(TASK_TERMINATE_ABORT);
+    }
+  }
+  atomic_store(&mut->owner, task_current()->id);
+  return true;
+}
 
 void mutex_unlock(uint32_t mut_id) {
   mutex_t *mut = kernel_object_get(mut_id);
   if (!mut)
     task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
   uint32_t owner = atomic_load(&mut->owner);
+  // 首先验证owner是不是我
   if (owner != task_current()->id) {
     task_terminate(TASK_TERMINATE_ABORT);
   }
+  // 设置owner为0
   atomic_store(&mut->owner, 0);
+  // 找第一个等待队列里的线程出来
+  // 如果没有也没关系
+  SMART_CRITICAL_REGION
+  if (vector_count(&mut->waitors) != 0) {
+    ktask_t *t = task_find(*(pid_t *)vector_get(&mut->waitors, 0));
+    t->state = YIELDED;
+    ready_queue_put(t);
+  }
   atomic_store(&mut->locked, 0);
 }

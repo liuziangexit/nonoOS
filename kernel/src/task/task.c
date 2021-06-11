@@ -69,7 +69,7 @@ static int compare_task_by_ts(const void *a, const void *b) {
   __builtin_unreachable();
 }
 
-static void ready_queue_put(ktask_t *t) {
+void ready_queue_put(ktask_t *t) {
   SMART_CRITICAL_REGION
   list_init(&t->ready_queue_head);
   list_sort_add(&ready_queue, &t->ready_queue_head, compare_task_by_ts,
@@ -89,8 +89,17 @@ void task_handle_wait() {
        t = avl_tree_next(&tasks, t)) {
     if (t->state == WAITING) {
       assert(t->ready_queue_head.next == 0 && t->ready_queue_head.prev == 0);
-      if (t->wait_type == SLEEP) {
+      if (t->wait_type == WAIT_SLEEP) {
         if (clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.sleep.after) {
+          put_back(t);
+        }
+      }
+      // 处理timedwait没有等到mutex而超时的情况
+      if (t->wait_type == WAIT_MUTEX) {
+        if (t->wait_ctx.mutex.after != 0 &&
+            clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.mutex.after) {
+          t->wait_ctx.mutex.timeout = true;
+          // 可以放回调度队列了
           put_back(t);
         }
       }
@@ -497,7 +506,7 @@ void task_idle() {
             pid_t *id = vector_get(&t->joining, i);
             ktask_t *waiting_task = task_find(*id);
             assert(waiting_task->state == WAITING &&
-                   waiting_task->wait_type == JOIN &&
+                   waiting_task->wait_type == WAIT_JOIN &&
                    waiting_task->wait_ctx.join.id == t->id);
             // 告诉他们返回值
             waiting_task->wait_ctx.join.ret_val = t->ret_val;
@@ -744,7 +753,7 @@ bool task_join(pid_t pid, int32_t *ret_val) {
   } else {
     SMART_NOINT_REGION
     task_current()->tslice++;
-    task_current()->wait_type = JOIN;
+    task_current()->wait_type = WAIT_JOIN;
     task_current()->wait_ctx.join.id = pid;
     // 把本线程的值加到那个线程的joining里
     uint32_t idx = vector_add(&task->joining, &task_current()->id);
@@ -771,7 +780,7 @@ void task_sleep(uint64_t millisecond) {
   {
     SMART_NOINT_REGION
     task_current()->tslice++;
-    task_current()->wait_type = SLEEP;
+    task_current()->wait_type = WAIT_SLEEP;
     task_current()->wait_ctx.sleep.after =
         clock_get_ticks() * TICK_TIME_MS + millisecond;
     task_schd(true, true, WAITING);

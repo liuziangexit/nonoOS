@@ -36,7 +36,7 @@ enum task_state {
   EXITED,  // 已退出，但还不可删除
 };
 
-enum task_wait_type { SLEEP, JOIN, MUTEX };
+enum task_wait_type { WAIT_SLEEP, WAIT_JOIN, WAIT_MUTEX };
 
 struct sleep_ctx {
   uint64_t after; // 当ticks * TICK_TIME_MS >= after，就等到了
@@ -45,7 +45,10 @@ struct join_ctx {
   pid_t id;        // 要等待的线程ID
   int32_t ret_val; // 该线程的返回值
 };
-struct mutex_ctx {};
+struct mutex_ctx {
+  uint64_t after; // 同sleep_ctx，这个是timedlock时用的，平时为0
+  bool timeout;   // 由时钟中断设置，指示是否因为超时返回
+};
 
 union task_wait_ctx {
   struct sleep_ctx sleep;
@@ -159,6 +162,7 @@ struct utask {
 typedef struct utask utask_t;
 
 // 内部函数
+void ready_queue_put(ktask_t *t);
 
 ktask_t *task_find(pid_t pid);
 

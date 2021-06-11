@@ -4,6 +4,7 @@
 #include <mmu.h>
 #include <panic.h>
 #include <task.h>
+#include <vector.h>
 #include <x86.h>
 
 static __always_inline void disable_interrupt() { cli(); }
@@ -52,6 +53,7 @@ struct mutex {
   uint32_t ref_cnt; // 引用此对象的线程数量
   uint32_t locked;  // 当前是否已锁
   pid_t owner;      // 拥有者
+  vector_t waitors; // 等待者
 };
 typedef struct mutex mutex_t;
 uint32_t mutex_create();
