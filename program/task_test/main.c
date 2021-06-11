@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
   printf("task_test: %lld exited with code %d\n", (int64_t)pid2, ret2);
 
   // 测试线程mutex
-  pid_t new_thr = create_task(0, 0, "new_thread", false, thr_main, 0, 0, 0);
+  // pid_t new_thr = create_task(0, 0, "new_thread", false, thr_main, 0, 0, 0);
 
   printf("task_test: exit\n");
   return 0;
