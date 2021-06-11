@@ -8,6 +8,11 @@
 #include <task.h>
 #include <unistd.h>
 
+void thr_main() {
+  printf("new thread: pid is %lld\n", (int64_t)get_pid());
+  printf("new thread: quit\n");
+}
+
 int main(int argc, char **argv) {
   UNUSED(argc);
   printf("task_test: begin\n");
@@ -43,6 +48,10 @@ int main(int argc, char **argv) {
   printf("task_test: waiting %lld to quit\n", (int64_t)pid2);
   int32_t ret2 = join(pid2);
   printf("task_test: %lld exited with code %d\n", (int64_t)pid2, ret2);
+
+  // 测试线程mutex
+  pid_t new_thr = create_task(0, 0, "new_thread", false, thr_main, 0, 0, 0);
+
   printf("task_test: exit\n");
   return 0;
 }

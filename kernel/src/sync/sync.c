@@ -62,9 +62,9 @@ uint32_t mutex_create() {
 }
 
 void mutex_destroy(mutex_t *mut) {
-  if (mut->ref_cnt != 0 || mut->locked != 0 || mut->owner != 0)
+  if (mut->ref_cnt != 0 || mut->locked != 0 || mut->owner != 0 ||
+      vector_count(&mut->waitors) != 0)
     task_terminate(TASK_TERMINATE_ABORT);
-  assert(vector_count(&mut->waitors) == 0);
   vector_destroy(&mut->waitors);
   free(mut);
 }

@@ -47,7 +47,7 @@ void leave_noint_region(uint32_t *save);
 // 使用下面的内核对象时，需要自己进行引用
 
 // 参考C11线程支持库
-// 可重入锁
+// TODO 做成可重入锁
 struct mutex {
   uint32_t obj_id;  // 内核对象id
   uint32_t ref_cnt; // 引用此对象的线程数量
