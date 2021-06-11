@@ -945,7 +945,6 @@ uint32_t shared_memory_create(size_t size) {
   }
   sh->ref = 0;
   avl_node_init(&sh->head);
-  SMART_CRITICAL_REGION
   sh->id = kernel_object_new(KERNEL_OBJECT_SHARED_MEMORY, sh);
   return sh->id;
 }
