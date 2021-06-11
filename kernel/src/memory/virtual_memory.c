@@ -281,7 +281,7 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
                                   enum virtual_memory_area_type type) {
   assert(end > begin && vma_size >= _4K && vma_size % _4K == 0 && vma_size > 0);
   uint64_t real_begin = ROUNDUP(begin, _4K), real_end = ROUNDDOWN(end, _4K);
-  if (real_end - real_begin < vma_size) {
+  if (real_begin >= real_end || real_end - real_begin < vma_size) {
     return 0;
   }
   struct virtual_memory_area key;
@@ -295,9 +295,11 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
     }
     next = avl_tree_next(&vm->vma_tree, next);
   }
+  // 遍历realbegin和realend之间的每个vma
   while (true) {
     assert(!next || next->start >= real_begin);
     if (next && next->start <= real_end) {
+      // 这个next vma的开头在区间中
       // 现在我们召开民主大会，请大家给我们的候选人投票
       // 坏消息是，本次只有1名候选人参加选举；好消息是，你可以投反对票
       uint64_t end_candidate = ROUNDDOWN(next->start, 4096);
@@ -319,6 +321,9 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
         real_begin = next->start + next->size;
         real_begin = ROUNDUP(real_begin, 4096);
         next = avl_tree_next(&vm->vma_tree, next);
+        if (real_begin >= real_end) {
+          return 0;
+        }
         continue;
       }
     } else {
