@@ -123,7 +123,7 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj) {
 #endif
   if (t != KERNEL_OBJECT_TASK) {
     // 当前的进程引用这个内核对象
-    bool abs = kernel_object_ref(task_current(), result);
+    bool abs = kernel_object_ref(task_current()->group, result);
     if (!abs)
       abort();
   }
@@ -147,17 +147,17 @@ void kernel_object_delete(uint32_t id) {
   free(ctx);
 }
 
-bool kernel_object_has_ref(ktask_t *task, uint32_t kobj_id) {
+bool kernel_object_has_ref(task_group_t *group, uint32_t kobj_id) {
   SMART_CRITICAL_REGION
   if (task_inited == TASK_INITED_MAGIC) {
     struct id_ctx find;
     find.id = kobj_id;
-    return 0 != avl_tree_find(&task->kernel_objects, &find);
+    return 0 != avl_tree_find(&group->kernel_objects, &find);
   }
   return true;
 }
 
-bool kernel_object_ref(ktask_t *task, uint32_t kobj_id) {
+bool kernel_object_ref(task_group_t *group, uint32_t kobj_id) {
   SMART_CRITICAL_REGION
   struct id_ctx *ctx = get_ctx(kobj_id);
   if (!ctx)
@@ -168,7 +168,7 @@ bool kernel_object_ref(ktask_t *task, uint32_t kobj_id) {
   avl_node_init(&id_record->head);
   id_record->id = kobj_id;
   // 因为创建此线程的线程可能将此线程引用了该资源，所以要处理这种可能性
-  if (avl_tree_add(&task->kernel_objects, id_record) == 0) {
+  if (avl_tree_add(&group->kernel_objects, id_record) == 0) {
     // 加引用计数
     uint32_t *counter = get_counter(ctx->type, ctx->object);
     (*counter)++;
@@ -191,10 +191,10 @@ bool kernel_object_ref_safe(pid_t pid, uint32_t kobj_id) {
   ktask_t *task = task_find(pid);
   if (!task)
     return false;
-  return kernel_object_ref(task, kobj_id);
+  return kernel_object_ref(task->group, kobj_id);
 }
 
-void kernel_object_unref(ktask_t *task, uint32_t kobj_id,
+void kernel_object_unref(task_group_t *group, uint32_t kobj_id,
                          bool remove_from_task_avl) {
   SMART_CRITICAL_REGION
   // 减引用计数
@@ -204,10 +204,10 @@ void kernel_object_unref(ktask_t *task, uint32_t kobj_id,
   // task这边移除对象id
   struct kern_obj_id find;
   find.id = kobj_id;
-  struct kern_obj_id *record = avl_tree_find(&task->kernel_objects, &find);
+  struct kern_obj_id *record = avl_tree_find(&group->kernel_objects, &find);
   if (remove_from_task_avl) {
     assert(record);
-    avl_tree_remove(&task->kernel_objects, record);
+    avl_tree_remove(&group->kernel_objects, record);
     free(record);
   }
 // 如果引用归0，删除对象

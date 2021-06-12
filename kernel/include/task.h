@@ -63,9 +63,10 @@ const char *task_state_str(enum task_state);
 struct task_group {
   list_entry_t tasks;
   uint32_t task_cnt;
-  bool is_kernel;            // 是否内核权限
-  struct virtual_memory *vm; // 虚拟内存管理
-  void *program;             // 程序映像拷贝
+  bool is_kernel;                 // 是否内核权限
+  struct virtual_memory *vm;      // 虚拟内存管理
+  void *program;                  // 程序映像拷贝
+  struct avl_tree kernel_objects; // 线程引用的内核对象
 };
 typedef struct task_group task_group_t;
 
@@ -137,8 +138,6 @@ struct ktask {
   enum task_wait_type wait_type;
   // 等待上下文，只有在当前state==WAITING时此字段才有意义
   union task_wait_ctx wait_ctx;
-  // 线程引用的内核对象
-  struct avl_tree kernel_objects;
   // 在等待本task退出的task
   vector_t joining;
   // 返回值

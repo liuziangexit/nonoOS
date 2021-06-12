@@ -983,7 +983,7 @@ void *shared_memory_map(uint32_t id, void *addr) {
   struct virtual_memory_area *vma = virtual_memory_alloc(
       vm, (uintptr_t)addr, sh->pgcnt * _4K, PTE_P | PTE_U | PTE_W, SHM, false);
   virtual_memory_map(vm, 0, (uintptr_t)addr, sh->pgcnt * _4K, sh->physical);
-  bool abs = kernel_object_ref(task_current(), id);
+  bool abs = kernel_object_ref(task_current()->group, id);
   if (!abs)
     abort();
   vma->shid = id;
@@ -1002,7 +1002,7 @@ void shared_memory_unmap(void *addr) {
     SMART_CRITICAL_REGION
     struct shared_memory *sh = shared_memory_ctx(vma->shid);
     assert(sh && sh->id == vma->shid);
-    kernel_object_unref(task_current(), sh->id, true);
+    kernel_object_unref(task_current()->group, sh->id, true);
   }
   virtual_memory_unmap(vm, vma->start, vma->size);
   virtual_memory_free(vm, vma);

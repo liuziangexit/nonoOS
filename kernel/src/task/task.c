@@ -249,6 +249,9 @@ static task_group_t *task_group_create(bool is_kernel) {
   list_init(&group->tasks);
   group->task_cnt = 0;
   group->is_kernel = is_kernel;
+  // 初始化记录内核对象id的avl树
+  avl_tree_init(&group->kernel_objects, compare_kern_obj_id,
+                sizeof(struct kern_obj_id), 0);
   return group;
 }
 
@@ -258,6 +261,13 @@ static void task_group_add(task_group_t *g, ktask_t *t) {
   list_add(&g->tasks, &t->group_head);
   g->task_cnt++;
   t->group = g;
+}
+
+static void unref_kernel_objs(void *ko) {
+  make_sure_schd_disabled();
+  const struct kern_obj_id *id = ko;
+  kernel_object_unref(task_current()->group, id->id, false);
+  free(ko);
 }
 
 //析构组
@@ -271,6 +281,8 @@ static void task_group_destroy(task_group_t *g) {
   if (!g->is_kernel) {
     free(g->program);
   }
+  // 取消引用内核对象
+  avl_tree_clear(&g->kernel_objects, unref_kernel_objs);
   free(g);
 }
 
@@ -284,12 +296,6 @@ static void task_group_remove(ktask_t *t) {
     g->task_cnt--;
     list_del(&t->group_head);
   }
-}
-
-static void unref_kernel_objs(void *ko) {
-  const struct kern_obj_id *id = ko;
-  kernel_object_unref(task_current(), id->id, false);
-  free(ko);
 }
 
 // 析构task
@@ -309,8 +315,6 @@ void task_destroy(ktask_t *t) {
     utask_t *ut = (utask_t *)t;
     kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
   }
-  // 取消引用内核对象
-  avl_tree_clear(&t->kernel_objects, unref_kernel_objs);
   free(t->name);
   vector_destroy(&t->joining);
   free(t);
@@ -381,18 +385,15 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   strcpy(new_task->name, name);
   // 生成id
   new_task->id = kernel_object_new(KERNEL_OBJECT_TASK, new_task);
-  // 初始化记录内核对象id的avl树
-  avl_tree_init(&new_task->kernel_objects, compare_kern_obj_id,
-                sizeof(struct kern_obj_id), 0);
-  // 自己引用自己
-  kernel_object_ref(new_task, new_task->id);
-  // 如果调用者有要求，就让现在的线程引用正在创建的线程
-  if (ref)
-    kernel_object_ref(task_current(), new_task->id);
-  // 初始化joining
-  vector_init(&new_task->joining, sizeof(pid_t));
   // 加入group
   task_group_add(group, new_task);
+  // 自己引用自己
+  kernel_object_ref(new_task->group, new_task->id);
+  // 如果调用者有要求，就让现在的线程引用正在创建的线程
+  if (ref)
+    kernel_object_ref(task_current()->group, new_task->id);
+  // 初始化joining
+  vector_init(&new_task->joining, sizeof(pid_t));
   return new_task;
 }
 
@@ -458,7 +459,7 @@ void task_clean() {
       if (p->state == EXITED) {
         ktask_t *n = avl_tree_next(&tasks, p);
         avl_tree_remove(&tasks, p);
-        kernel_object_unref(p, p->id, true);
+        kernel_object_unref(p->group, p->id, true);
         p = n;
         continue;
       }
@@ -526,7 +527,7 @@ void task_idle() {
           if (t->ref_count == 1) {
             // 只有在没有别的线程引用时，才会删除
             avl_tree_remove(&tasks, t);
-            kernel_object_unref(t, t->id, true);
+            kernel_object_unref(t->group, t->id, true);
           }
           t = n;
           continue;

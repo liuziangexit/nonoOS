@@ -13,11 +13,11 @@ uint32_t mut_id;
 
 int thr_main() {
   printf("new thread: pid is %lld\n", (int64_t)get_pid());
-  mtx_lock(mut_id);
-  printf("new thread: locked\n");
-  sleep(1000);
-  printf("new thread: unlock\n");
-  mtx_unlock(mut_id);
+  // mtx_lock(mut_id);
+  // printf("new thread: locked\n");
+  // sleep(1000);
+  // printf("new thread: unlock\n");
+  // mtx_unlock(mut_id);
   printf("new thread: quit\n");
   return 888;
 }
@@ -68,11 +68,12 @@ int main(int argc, char **argv) {
   // int32_t new_thr_ret = join(new_thr);
   // printf("task_test: %lld exited with code %d\n", (int64_t)new_thr,
   //        new_thr_ret);
-  mtx_lock(mut_id);
-  printf("task_test: locked\n");
-  sleep(1000);
-  printf("task_test: unlocking\n");
-  mtx_unlock(mut_id);
+
+  // mtx_lock(mut_id);
+  // printf("task_test: locked\n");
+  // sleep(1000);
+  // printf("task_test: unlocking\n");
+  // mtx_unlock(mut_id);
 
   printf("task_test: exit\n");
   return 0;

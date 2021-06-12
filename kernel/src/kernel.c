@@ -236,8 +236,8 @@ void ktask0() {
                          "task_test", 0, DEFAULT_ENTRY, false, &args);
     kernel_object_ref_safe(pid, shid_str);
     kernel_object_ref_safe(pid, shid_prog);
-    kernel_object_unref(task_current(), shid_str, true);
-    kernel_object_unref(task_current(), shid_prog, true);
+    kernel_object_unref(task_current()->group, shid_str, true);
+    kernel_object_unref(task_current()->group, shid_prog, true);
     task_args_destroy(&args, true);
   }
 
