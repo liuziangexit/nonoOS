@@ -12,22 +12,22 @@
 uint32_t mut_id;
 
 int thr_main() {
-  printf("new thread: pid is %lld\n", (int64_t)get_pid());
-  printf("new thread: try locking\n");
+  printf("new_thread: pid is %lld\n", (int64_t)get_pid());
+  printf("new_thread: mtx_trylock()\n");
   if (!mtx_trylock(mut_id)) {
-    printf("new thread: try failed, timedlocking 1s\n");
+    printf("task_test: mtx_trylock() failed, mtx_timedlock(1s)\n");
     if (!mtx_timedlock(mut_id, 1000)) {
-      printf("new thread: timedlock failed, timeout expired\n");
-      printf("new thread: try failed, locking\n");
+      printf("new_thread: mtx_timedlock() failed, since timeout expired\n");
+      printf("new_thread: mtx_lock()\n");
       mtx_lock(mut_id);
     }
   }
-  printf("new thread: locked\n");
-  printf("new thread: sleep 2s\n");
+  printf("new_thread: locked\n");
+  printf("new_thread: sleep 2s\n");
   sleep(2000);
-  printf("new thread: unlock\n");
+  printf("new_thread: mtx_unlock()\n");
   mtx_unlock(mut_id);
-  printf("new thread: quit\n");
+  printf("new_thread: quit\n");
   return 888;
 }
 
@@ -78,12 +78,12 @@ int main(int argc, char **argv) {
   // printf("task_test: %lld exited with code %d\n", (int64_t)new_thr,
   //        new_thr_ret);
 
-  printf("task_test: try locking\n");
+  printf("task_test: mtx_trylock()\n");
   if (!mtx_trylock(mut_id)) {
-    printf("task_test: try failed, timedlocking 1s\n");
+    printf("task_test: mtx_trylock() failed, mtx_timedlock(1s)\n");
     if (!mtx_timedlock(mut_id, 1000)) {
-      printf("task_test: timedlock failed, timeout expired\n");
-      printf("task_test: previous try failed, locking\n");
+      printf("task_test: mtx_timedlock() failed, since timeout expired\n");
+      printf("task_test: mtx_lock()\n");
       mtx_lock(mut_id);
     }
   }
@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
   //  mtx_lock(mut_id);
   printf("task_test: sleep 2s\n");
   sleep(2000);
-  printf("task_test: unlocking\n");
+  printf("task_test: mtx_unlock()\n");
   mtx_unlock(mut_id);
 
   printf("task_test: exit\n");
