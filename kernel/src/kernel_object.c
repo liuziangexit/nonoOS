@@ -23,6 +23,8 @@ static const char *type2str(kernel_object_type t) {
     return "SHM";
   if (t == KERNEL_OBJECT_TASK)
     return "TASK";
+  if (t == KERNEL_OBJECT_MUTEX)
+    return "MUTEX";
   abort();
   __builtin_unreachable();
 }

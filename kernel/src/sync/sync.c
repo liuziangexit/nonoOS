@@ -53,11 +53,11 @@ void leave_noint_region(uint32_t *save) {
 uint32_t mutex_create() {
   mutex_t *mut = malloc(sizeof(mutex_t));
   assert(mut);
-  mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut);
   mut->locked = 0;
   mut->owner = 0;
   mut->ref_cnt = 0;
   vector_init(&mut->waitors, sizeof(pid_t));
+  mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut);
   return mut->obj_id;
 }
 
