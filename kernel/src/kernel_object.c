@@ -68,7 +68,7 @@ static uint32_t *get_counter(kernel_object_type t, void *obj) {
 static void *get_dtor(kernel_object_type t) {
   switch (t) {
   case KERNEL_OBJECT_TASK: {
-    return task_destory;
+    return task_destroy;
   } break;
   case KERNEL_OBJECT_SHARED_MEMORY: {
     return shared_memory_destroy;

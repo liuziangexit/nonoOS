@@ -20,7 +20,7 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
-//#define VERBOSE
+// #define VERBOSE
 
 uint32_t task_inited;
 
@@ -262,8 +262,14 @@ static void task_group_add(task_group_t *g, ktask_t *t) {
 
 //析构组
 static void task_group_destroy(task_group_t *g) {
+#ifdef VERBOSE
+  printf("task_group_destroy 0x%08llx\n", (int64_t)(uint64_t)(uintptr_t)g);
+#endif
   if (g->vm) {
     virtual_memory_destroy(g->vm);
+  }
+  if (!g->is_kernel) {
+    free(g->program);
   }
   free(g);
 }
@@ -287,11 +293,11 @@ static void unref_kernel_objs(void *ko) {
 }
 
 // 析构task
-void task_destory(ktask_t *t) {
+void task_destroy(ktask_t *t) {
   assert(t);
   assert(t->ref_count == 0);
 #ifdef VERBOSE
-  printf("task_destory: destroy task %s(%lld)\n", t->name, (int64_t)t->id);
+  printf("task_destroy: destroy task %s(%lld)\n", t->name, (int64_t)t->id);
 #endif
   if (t->args) {
     task_args_destroy(t->args, t->group->is_kernel);
@@ -302,7 +308,6 @@ void task_destory(ktask_t *t) {
   if (!t->group->is_kernel) {
     utask_t *ut = (utask_t *)t;
     kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
-    free(ut->program);
   }
   // 取消引用内核对象
   avl_tree_clear(&t->kernel_objects, unref_kernel_objs);
@@ -365,7 +370,7 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   // 内核栈
   new_task->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->kstack) {
-    task_destory(new_task);
+    task_destroy(new_task);
     return 0;
   }
 
@@ -498,6 +503,8 @@ void task_idle() {
       task_preemptive_set(false);
 #ifdef VERBOSE
       printf("idle: back\n");
+      kernel_object_print();
+      task_display();
 #endif
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
         if (t->state == EXITED) {
@@ -526,10 +533,6 @@ void task_idle() {
         }
         t = avl_tree_next(&tasks, t);
       }
-#ifdef VERBOSE
-      kernel_object_print();
-      task_display();
-#endif
     }
     hlt();
   }
@@ -583,7 +586,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   //用户栈
   new_task->pustack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->pustack) {
-    task_destory((struct ktask *)new_task);
+    task_destroy((struct ktask *)new_task);
     return 0;
   }
   //如果这是进程中首个线程，需要设置这个进程的虚拟内存
@@ -591,31 +594,45 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     //设置这个新group的虚拟内存
     group->vm = virtual_memory_create();
     if (!group->vm) {
-      task_destory((struct ktask *)new_task);
+      task_destroy((struct ktask *)new_task);
       return 0;
     }
     //存放程序映像的虚拟内存
-    new_task->program = aligned_alloc(1, ROUNDUP(program_size, _4K));
-    if (!new_task->program) {
-      task_destory((struct ktask *)new_task);
-      return 0;
-    }
-    memset(new_task->program, 0, ROUNDUP(program_size, _4K));
-    //读elf
-    struct elfhdr *elf_header = program;
-    if (elf_header->e_magic != ELF_MAGIC) {
-      task_destory((struct ktask *)new_task);
-      return 0;
-    }
-    struct proghdr *program_header, *ph_end;
-    // load each program segment (ignores ph flags)
-    program_header =
-        (struct proghdr *)((uintptr_t)elf_header + elf_header->e_phoff);
-    ph_end = program_header + elf_header->e_phnum;
-    for (; program_header < ph_end; program_header++) {
-      // FIXME 检查越界
-      memcpy(new_task->program + (program_header->p_va - USER_CODE_BEGIN),
-             program + program_header->p_offset, program_header->p_filesz);
+    if (program) {
+      if (new_task->base.group->program) {
+        abort();
+      }
+      new_task->base.group->program =
+          aligned_alloc(1, ROUNDUP(program_size, _4K));
+      if (!new_task->base.group->program) {
+        task_destroy((struct ktask *)new_task);
+        return 0;
+      }
+      memset(new_task->base.group->program, 0, ROUNDUP(program_size, _4K));
+      //读elf
+      struct elfhdr *elf_header = program;
+      if (elf_header->e_magic != ELF_MAGIC) {
+        task_destroy((struct ktask *)new_task);
+        return 0;
+      }
+      struct proghdr *program_header, *ph_end;
+      // load each program segment (ignores ph flags)
+      program_header =
+          (struct proghdr *)((uintptr_t)elf_header + elf_header->e_phoff);
+      ph_end = program_header + elf_header->e_phnum;
+      for (; program_header < ph_end; program_header++) {
+        // FIXME 检查越界
+        memcpy(new_task->base.group->program +
+                   (program_header->p_va - USER_CODE_BEGIN),
+               program + program_header->p_offset, program_header->p_filesz);
+      }
+      if (entry == DEFAULT_ENTRY) {
+        entry = (uintptr_t)elf_header->e_entry;
+      }
+    } else {
+      if (entry == DEFAULT_ENTRY) {
+        abort();
+      }
     }
 
     extern uint32_t kernel_pd[];
@@ -628,10 +645,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     assert(vma);
     virtual_memory_map(new_task->base.group->vm, vma, USER_CODE_BEGIN,
                        ROUNDUP(program_size, _4K),
-                       V2P((uintptr_t)new_task->program));
-    if (entry == DEFAULT_ENTRY) {
-      entry = (uintptr_t)elf_header->e_entry;
-    }
+                       V2P((uintptr_t)new_task->base.group->program));
   }
   //在虚拟内存中的用户栈
   new_task->vustack = virtual_memory_find_fit(

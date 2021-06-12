@@ -65,6 +65,7 @@ struct task_group {
   uint32_t task_cnt;
   bool is_kernel;            // 是否内核权限
   struct virtual_memory *vm; // 虚拟内存管理
+  void *program;             // 程序映像拷贝
 };
 typedef struct task_group task_group_t;
 
@@ -157,7 +158,6 @@ struct utask {
   ktask_t base;
   uintptr_t pustack; // 用户栈
   uintptr_t vustack; // 用户栈的虚拟地址
-  void *program;     // 程序映像拷贝
 };
 typedef struct utask utask_t;
 
@@ -200,7 +200,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                        task_group_t *group, uintptr_t entry, bool ref,
                        struct task_args *args);
 
-void task_destory(ktask_t *t);
+void task_destroy(ktask_t *t);
 
 // 等待task结束
 // 返回被等待task的返回值
