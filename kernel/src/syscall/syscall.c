@@ -2,10 +2,12 @@
 #include "../../../libno/include/syscall.h"
 #include "../../../libno/include/task.h"
 #include "debug.h"
+#include <mutex.h>
 #include <panic.h>
 #include <shared_memory.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <sync.h>
 #include <task.h>
 #include <tty.h>
 #include <virtual_memory.h>
@@ -78,7 +80,7 @@ void syscall_dispatch(struct trapframe *tf) {
       task_terminate(TASK_TERMINATE_ABORT);
     } break;
     default:
-      panic("unhandled SYSCALL_TASK action");
+      panic("TODO USER ABORT!");
     }
   } break;
   case SYSCALL_ALLOC: {
@@ -130,13 +132,45 @@ void syscall_dispatch(struct trapframe *tf) {
       panic("TODO USER ABORT!");
     }
   } break;
+  case SYSCALL_MTX: {
+    uint32_t action = arg[0];
+    switch (action) {
+    case USER_MTX_ACTION_CREATE: {
+      printf("mutex create\n");
+      int32_t obj = (int32_t)mutex_create();
+      syscall_return(tf, obj);
+    } break;
+    case USER_MTX_ACTION_LOCK: {
+      printf("mutex lock\n");
+      mutex_lock(arg[1]);
+      syscall_return(tf, 0);
+    } break;
+    case USER_MTX_ACTION_TIMEDLOCK: {
+      printf("mutex timedlock\n");
+      uint64_t ms = arg[1];
+      ms <<= 32;
+      ms |= arg[2];
+      bool ret = mutex_timedlock(arg[1], ms);
+      syscall_return(tf, (int32_t)ret);
+    } break;
+    case USER_MTX_ACTION_TRYLOCK: {
+      printf("mutex trylock\n");
+      bool ret = mutex_trylock(arg[1]);
+      syscall_return(tf, (int32_t)ret);
+    } break;
+    case USER_MTX_ACTION_UNLOCK: {
+      printf("mutex unlock\n");
+      mutex_unlock(arg[1]);
+      syscall_return(tf, 0);
+    } break;
+    default:
+      panic("TODO USER ABORT!");
+    }
+  } break;
   default: {
-    printf("unknown systeam call %d with args:  %d, %d, %d, %d, %d\n", no,
+    printf("unknown system call %d with args:  %d, %d, %d, %d, %d\n", no,
            arg[0], arg[1], arg[2], arg[3], arg[4]);
-    printf("\n\n");
-    print_cur_status();
-    printf("\n\nhlt()");
-    hlt();
+    abort();
   }
   }
 }

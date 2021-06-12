@@ -2,20 +2,23 @@
 #include <mutex.h>
 #include <syscall.h>
 
+// lock时候也要引用
+
 uint32_t mtx_create() {
-  return syscall(SYSCALL_MTX, 1, USER_MTX_ACTION_CREATE);
+  return (uint32_t)syscall(SYSCALL_MTX, 1, USER_MTX_ACTION_CREATE);
 }
 
 void mtx_lock(uint32_t id) {
   syscall(SYSCALL_MTX, 2, USER_MTX_ACTION_LOCK, id);
 }
 
-void mtx_timedlock(uint32_t id) {
-  syscall(SYSCALL_MTX, 2, USER_MTX_ACTION_TIMEDLOCK, id);
+bool mtx_timedlock(uint32_t id, uint64_t ms) {
+  return syscall(SYSCALL_MTX, 4, USER_MTX_ACTION_TIMEDLOCK, id,
+                 (uint32_t)(ms >> 32), (uint32_t)(ms & 0xFFFFFFFF));
 }
 
-void mtx_trylock(uint32_t id) {
-  syscall(SYSCALL_MTX, 2, USER_MTX_ACTION_TRYLOCK, id);
+bool mtx_trylock(uint32_t id) {
+  return syscall(SYSCALL_MTX, 2, USER_MTX_ACTION_TRYLOCK, id);
 }
 
 void mtx_unlock(uint32_t id) {

@@ -615,6 +615,9 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
         task_destroy((struct ktask *)new_task);
         return 0;
       }
+      // FIXME 这里data segment和code seg要分开map
+      // data给W权限，而code不给
+      // 现在code因为和data一起map，所以整个区是用户可写的，这样不鲁棒
       struct proghdr *program_header, *ph_end;
       // load each program segment (ignores ph flags)
       program_header =
@@ -641,7 +644,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     // 把new_task->program映射到128MB的地方
     struct virtual_memory_area *vma = virtual_memory_alloc(
         new_task->base.group->vm, USER_CODE_BEGIN, ROUNDUP(program_size, _4K),
-        PTE_P | PTE_U, UCODE, false);
+        PTE_P | PTE_W | PTE_U, UCODE, false);
     assert(vma);
     virtual_memory_map(new_task->base.group->vm, vma, USER_CODE_BEGIN,
                        ROUNDUP(program_size, _4K),

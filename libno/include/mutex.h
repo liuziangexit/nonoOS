@@ -8,11 +8,12 @@
 #define USER_MTX_ACTION_UNLOCK 5
 
 #ifdef LIBNO_USER
+#include <stdbool.h>
 #include <stdint.h>
 uint32_t mtx_create();
 void mtx_lock(uint32_t id);
-void mtx_timedlock(uint32_t id);
-void mtx_trylock(uint32_t id);
+bool mtx_timedlock(uint32_t id, uint64_t ms);
+bool mtx_trylock(uint32_t id);
 void mtx_unlock(uint32_t id);
 #endif
 
