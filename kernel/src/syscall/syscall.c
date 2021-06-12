@@ -147,9 +147,10 @@ void syscall_dispatch(struct trapframe *tf) {
     } break;
     case USER_MTX_ACTION_TIMEDLOCK: {
       // printf("mutex timedlock\n");
-      uint64_t ms = arg[1];
+      uint64_t ms = arg[2];
       ms <<= 32;
-      ms |= arg[2];
+      ms |= arg[3];
+      // printf("timed lock: %lldms\n", (int64_t)ms);
       bool ret = mutex_timedlock(arg[1], ms);
       syscall_return(tf, (int32_t)ret);
     } break;

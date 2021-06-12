@@ -76,6 +76,9 @@ bool mutex_trylock(uint32_t mut_id) {
     task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
   uint32_t expected = 0;
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
+    // 失败了
+    if (atomic_load(&mut->owner) == task_current()->id)
+      task_terminate(TASK_TERMINATE_ABORT);
     return false;
   }
   atomic_store(&mut->owner, task_current()->id);
@@ -91,6 +94,8 @@ void mutex_lock(uint32_t mut_id) {
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
     SMART_NOINT_REGION
+    if (atomic_load(&mut->owner) == task_current()->id)
+      task_terminate(TASK_TERMINATE_ABORT);
     task_current()->tslice++;
     task_current()->wait_type = WAIT_MUTEX;
     task_current()->wait_ctx.mutex.after = 0; // 设置为0，表示没有超时
@@ -119,6 +124,8 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
     SMART_NOINT_REGION
+    if (atomic_load(&mut->owner) == task_current()->id)
+      task_terminate(TASK_TERMINATE_ABORT);
     task_current()->tslice++;
     task_current()->wait_type = WAIT_MUTEX;
     task_current()->wait_ctx.mutex.after =

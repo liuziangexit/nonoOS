@@ -15,16 +15,16 @@ int thr_main() {
   printf("new thread: pid is %lld\n", (int64_t)get_pid());
   printf("new thread: try locking\n");
   if (!mtx_trylock(mut_id)) {
-    printf("new thread: try failed, timedlocking 5s\n");
-    if (!mtx_timedlock(mut_id, 5000)) {
+    printf("new thread: try failed, timedlocking 1s\n");
+    if (!mtx_timedlock(mut_id, 1000)) {
       printf("new thread: timedlock failed, timeout expired\n");
+      printf("new thread: try failed, locking\n");
+      mtx_lock(mut_id);
     }
-    printf("new thread: try failed, locking\n");
-    mtx_lock(mut_id);
   }
   printf("new thread: locked\n");
-  printf("new thread: sleep 10s\n");
-  sleep(10000);
+  printf("new thread: sleep 2s\n");
+  sleep(2000);
   printf("new thread: unlock\n");
   mtx_unlock(mut_id);
   printf("new thread: quit\n");
@@ -80,16 +80,18 @@ int main(int argc, char **argv) {
 
   printf("task_test: try locking\n");
   if (!mtx_trylock(mut_id)) {
-    printf("task_test: try failed, timedlocking 5000ms\n");
-    if (!mtx_timedlock(mut_id, 5000)) {
+    printf("task_test: try failed, timedlocking 1s\n");
+    if (!mtx_timedlock(mut_id, 1000)) {
       printf("task_test: timedlock failed, timeout expired\n");
+      printf("task_test: previous try failed, locking\n");
+      mtx_lock(mut_id);
     }
-    printf("task_test: previous try failed, locking\n");
-    mtx_lock(mut_id);
   }
   printf("task_test: locked\n");
-  printf("task_test: sleep 10s\n");
-  sleep(10000);
+  // TODO reentry测试
+  //  mtx_lock(mut_id);
+  printf("task_test: sleep 2s\n");
+  sleep(2000);
   printf("task_test: unlocking\n");
   mtx_unlock(mut_id);
 
