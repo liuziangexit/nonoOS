@@ -70,10 +70,12 @@ void mutex_destroy(mutex_t *mut) {
 }
 
 bool mutex_trylock(uint32_t mut_id) {
+  SMART_CRITICAL_REGION
   mutex_t *mut = kernel_object_get(mut_id);
   if (!mut)
     task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
-  if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+  uint32_t expected = 0;
+  if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     return false;
   }
   atomic_store(&mut->owner, task_current()->id);
@@ -81,11 +83,12 @@ bool mutex_trylock(uint32_t mut_id) {
 }
 
 void mutex_lock(uint32_t mut_id) {
+  SMART_CRITICAL_REGION
   mutex_t *mut = kernel_object_get(mut_id);
   if (!mut)
     task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
-  SMART_CRITICAL_REGION
-  if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+  uint32_t expected = 0;
+  if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
     SMART_NOINT_REGION
     task_current()->tslice++;
@@ -99,7 +102,8 @@ void mutex_lock(uint32_t mut_id) {
     // 从等待列表中移除我自己
     vector_remove(&mut->waitors, idx);
     // 获得锁
-    if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+    expected = 0;
+    if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
       task_terminate(TASK_TERMINATE_ABORT);
     }
   }
@@ -107,11 +111,12 @@ void mutex_lock(uint32_t mut_id) {
 }
 
 bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
+  SMART_CRITICAL_REGION
   mutex_t *mut = kernel_object_get(mut_id);
   if (!mut)
     task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
-  SMART_CRITICAL_REGION
-  if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+  uint32_t expected = 0;
+  if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
     SMART_NOINT_REGION
     task_current()->tslice++;
@@ -130,7 +135,8 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
       return false;
     }
     // 获得锁
-    if (!atomic_compare_exchange(&mut->locked, 0, 1)) {
+    expected = 0;
+    if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
       task_terminate(TASK_TERMINATE_ABORT);
     }
   }
@@ -139,6 +145,7 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
 }
 
 void mutex_unlock(uint32_t mut_id) {
+  SMART_CRITICAL_REGION
   mutex_t *mut = kernel_object_get(mut_id);
   if (!mut)
     task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
@@ -151,7 +158,6 @@ void mutex_unlock(uint32_t mut_id) {
   atomic_store(&mut->owner, 0);
   // 找第一个等待队列里的线程出来
   // 如果没有也没关系
-  SMART_CRITICAL_REGION
   if (vector_count(&mut->waitors) != 0) {
     ktask_t *t = task_find(*(pid_t *)vector_get(&mut->waitors, 0));
     t->state = YIELDED;

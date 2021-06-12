@@ -136,17 +136,17 @@ void syscall_dispatch(struct trapframe *tf) {
     uint32_t action = arg[0];
     switch (action) {
     case USER_MTX_ACTION_CREATE: {
-      printf("mutex create\n");
+      // printf("mutex create\n");
       int32_t obj = (int32_t)mutex_create();
       syscall_return(tf, obj);
     } break;
     case USER_MTX_ACTION_LOCK: {
-      printf("mutex lock\n");
+      // printf("mutex lock\n");
       mutex_lock(arg[1]);
       syscall_return(tf, 0);
     } break;
     case USER_MTX_ACTION_TIMEDLOCK: {
-      printf("mutex timedlock\n");
+      // printf("mutex timedlock\n");
       uint64_t ms = arg[1];
       ms <<= 32;
       ms |= arg[2];
@@ -154,12 +154,12 @@ void syscall_dispatch(struct trapframe *tf) {
       syscall_return(tf, (int32_t)ret);
     } break;
     case USER_MTX_ACTION_TRYLOCK: {
-      printf("mutex trylock\n");
+      // printf("mutex trylock\n");
       bool ret = mutex_trylock(arg[1]);
       syscall_return(tf, (int32_t)ret);
     } break;
     case USER_MTX_ACTION_UNLOCK: {
-      printf("mutex unlock\n");
+      // printf("mutex unlock\n");
       mutex_unlock(arg[1]);
       syscall_return(tf, 0);
     } break;
