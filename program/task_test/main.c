@@ -1,4 +1,5 @@
 #include <compiler_helper.h>
+#include <mutex.h>
 #include <shared_memory.h>
 #include <stdbool.h>
 #include <stdint.h>

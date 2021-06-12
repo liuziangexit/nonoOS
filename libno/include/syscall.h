@@ -20,6 +20,9 @@
 // void SYSCALL_SHM(action, ...)
 #define SYSCALL_SHM 5
 
+// void SYSCALL_MTX(action, ...)
+#define SYSCALL_MTX 6
+
 #ifdef LIBNO_USER
 uint32_t syscall(int call, int cnt, ...);
 #endif
