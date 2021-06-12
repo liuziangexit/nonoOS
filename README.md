@@ -15,9 +15,9 @@
 |虚拟内存|OK|memory|
 |task(进程/线程)|OK|master|
 |上下文切换|OK|task|
-|task调度|WORKING|master|
+|task调度|OK|master|
 |系统调用|OK|master|
-|同步原语|WORKING|-|
+|同步原语|OK|master|
 |硬盘接口|PENDING|-|
 |换页|PENDING|-|
 |SMP支持|PENDING|-|
