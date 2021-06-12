@@ -1,7 +1,12 @@
 # nonoOS
 我的第一个操作系统。
+<br>
+此操作系统由自制的bootloader引导，目前已经实现一个操作系统的最小功能，包括中断处理、标准输入输出、动态内存分配、虚拟内存、用户态空间、抢占式调度、进程隔离、进程/线程间通信、进程/线程间同步。
+<br>
+接下来将实现硬盘接口(尽量VMA和PIO都提供吧)、swap、图形界面(目前想模仿一个老Mac OS X的Aqura风格出来)、TCP/IP网络栈、SMP支持（支持对称多处理器，这个要实现正确还是很难的）。
 <img src="web/1.png"/>
 <img src="web/2.png"/>
+<img src="web/3.png"/>
 
 <h2>进展</h2>
 
@@ -20,33 +25,14 @@
 |同步原语|OK|master|
 |硬盘接口|PENDING|-|
 |换页|PENDING|-|
-|SMP支持|PENDING|-|
 |图形界面|PENDING |-|
 |TCP/IP|PENDING|-|
+|SMP支持|PENDING|-|
 
-<h2>编译并运行！</h2>
-前置需求:
-<br>
-- 面向386或686的gcc和binutils
-<br>
-- make
-<br>
-- 面向386或686的qemu
-<br><br>
-编译运行:
+<h2>编译</h2>
 
-```
-tools/run.sh
-```
+目前不提供环境搭建和编译方法。如果竟然真的有人想在他的机器上编译和运行这程序，请给我来信。<br>我的邮箱是liuziangexit@gmail.com
 
-编译:
+<h2>nono没有被抛弃！</h2>
 
-```
-tools/build.sh
-```
-
-调试:
-
-```
-tools/debug.sh
-```
+由于个人安排，在接下来半年中，此项目的开发工作将暂停。但今宵离别后，我一定会回来的！
