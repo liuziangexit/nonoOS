@@ -12,7 +12,7 @@ enum _kernel_object_type {
   KERNEL_OBJECT_TASK,
   KERNEL_OBJECT_SHARED_MEMORY,
   KERNEL_OBJECT_MUTEX,
-  //   KERNEL_OBJECT_CONDITION_VARIABLE
+  KERNEL_OBJECT_CONDITION_VARIABLE
 };
 typedef enum _kernel_object_type kernel_object_type;
 

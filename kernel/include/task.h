@@ -36,7 +36,7 @@ enum task_state {
   EXITED,  // 已退出，但还不可删除
 };
 
-enum task_wait_type { WAIT_SLEEP, WAIT_JOIN, WAIT_MUTEX };
+enum task_wait_type { WAIT_SLEEP, WAIT_JOIN, WAIT_MUTEX, WAIT_CV };
 
 struct sleep_ctx {
   uint64_t after; // 当ticks * TICK_TIME_MS >= after，就等到了
@@ -49,11 +49,16 @@ struct mutex_ctx {
   uint64_t after; // 同sleep_ctx，这个是timedlock时用的，平时为0
   bool timeout;   // 由时钟中断设置，指示是否因为超时返回
 };
+struct cv_ctx {
+  uint64_t after; // 同sleep_ctx，这个是timedlock时用的，平时为0
+  bool timeout;   // 由时钟中断设置，指示是否因为超时返回
+};
 
 union task_wait_ctx {
   struct sleep_ctx sleep;
   struct join_ctx join;
   struct mutex_ctx mutex;
+  struct cv_ctx cv;
 };
 
 const char *task_state_str(enum task_state);

@@ -103,6 +103,15 @@ void task_handle_wait() {
           put_back(t);
         }
       }
+      // 处理timedwait没有等到cv而超时的情况
+      if (t->wait_type == WAIT_CV) {
+        if (t->wait_ctx.cv.after != 0 &&
+            clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.cv.after) {
+          t->wait_ctx.cv.timeout = true;
+          // 可以放回调度队列了
+          put_back(t);
+        }
+      }
     }
   }
 }

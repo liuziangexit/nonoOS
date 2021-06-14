@@ -172,3 +172,84 @@ void mutex_unlock(uint32_t mut_id) {
   }
   atomic_store(&mut->locked, 0);
 }
+
+uint32_t condition_variable_create() {
+  condition_variable_t *cv = malloc(sizeof(condition_variable_t));
+  assert(cv);
+  cv->ref_cnt = 0;
+  vector_init(&cv->waitors, sizeof(pid_t));
+  cv->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, cv);
+  return cv->obj_id;
+}
+
+void condition_variable_destroy(condition_variable_t *cv) {
+  if (cv->ref_cnt != 0 || vector_count(&cv->waitors) != 0)
+    task_terminate(TASK_TERMINATE_ABORT);
+  vector_destroy(&cv->waitors);
+  free(cv);
+}
+
+void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
+  mutex_lock(mut_id);
+  condition_variable_t *cv = kernel_object_get(cv_id, true);
+  uint32_t idx = vector_add(&cv->waitors, &task_current()->id);
+  mutex_unlock(mut_id);
+  task_current()->tslice++;
+  task_current()->wait_type = WAIT_CV;
+  task_current()->wait_ctx.mutex.after = 0;
+  task_current()->wait_ctx.mutex.timeout = false;
+  // 陷入等待
+  task_schd(true, true, WAITING);
+  assert(!task_current()->wait_ctx.cv.timeout);
+  // 被唤醒了
+  mutex_lock(mut_id);
+  vector_remove(&cv->waitors, idx);
+}
+
+bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
+                                  uint64_t timeout_ms) {
+  mutex_lock(mut_id);
+  condition_variable_t *cv = kernel_object_get(cv_id, true);
+  uint32_t idx = vector_add(&cv->waitors, &task_current()->id);
+  mutex_unlock(mut_id);
+  task_current()->tslice++;
+  task_current()->wait_type = WAIT_CV;
+  task_current()->wait_ctx.mutex.after =
+      clock_get_ticks() * TICK_TIME_MS + timeout_ms;
+  task_current()->wait_ctx.mutex.timeout = false;
+  // 陷入等待
+  task_schd(true, true, WAITING);
+  if (task_current()->wait_ctx.cv.timeout) {
+    return false;
+  }
+  // 被唤醒了
+  mutex_lock(mut_id);
+  vector_remove(&cv->waitors, idx);
+  return true;
+}
+
+void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id) {
+  mutex_lock(mut_id);
+  condition_variable_t *cv = kernel_object_get(cv_id, true);
+  if (vector_count(&cv->waitors) != 0) {
+    SMART_CRITICAL_REGION
+    ktask_t *t = task_find(*(pid_t *)vector_get(&cv->waitors, 0));
+    t->state = YIELDED;
+    ready_queue_put(t);
+  }
+  mutex_unlock(mut_id);
+}
+
+void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id) {
+  mutex_lock(mut_id);
+  condition_variable_t *cv = kernel_object_get(cv_id, true);
+  if (vector_count(&cv->waitors) != 0) {
+    SMART_CRITICAL_REGION
+    for (uint32_t i = 0; i < vector_count(&cv->waitors); i++) {
+      ktask_t *t = task_find(*(pid_t *)vector_get(&cv->waitors, 0));
+      t->state = YIELDED;
+      ready_queue_put(t);
+    }
+  }
+  mutex_unlock(mut_id);
+}

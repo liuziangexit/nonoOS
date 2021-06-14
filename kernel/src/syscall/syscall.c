@@ -2,6 +2,7 @@
 #include "../../../libno/include/syscall.h"
 #include "../../../libno/include/task.h"
 #include "debug.h"
+#include <condition_variable.h>
 #include <mutex.h>
 #include <panic.h>
 #include <shared_memory.h>
@@ -162,6 +163,38 @@ void syscall_dispatch(struct trapframe *tf) {
     case USER_MTX_ACTION_UNLOCK: {
       // printf("mutex unlock\n");
       mutex_unlock(arg[1]);
+      syscall_return(tf, 0);
+    } break;
+    default:
+      panic("TODO USER ABORT!");
+    }
+  } break;
+  case SYSCALL_CV: {
+    uint32_t action = arg[0];
+    switch (action) {
+    case USER_CV_ACTION_CREATE: {
+      int32_t obj = (int32_t)condition_variable_create();
+      syscall_return(tf, obj);
+    } break;
+    case USER_CV_ACTION_WAIT: {
+      condition_variable_wait(arg[1], arg[2]);
+      syscall_return(tf, 0);
+    } break;
+    case USER_CV_ACTION_TIMEDWAIT: {
+      uint32_t cv = arg[1], mut = arg[2];
+      uint64_t ms = arg[3];
+      ms <<= 32;
+      ms |= arg[4];
+      // printf("cv timedwait: %lldms\n", (int64_t)ms);
+      bool ret = condition_variable_timedwait(cv, mut, ms);
+      syscall_return(tf, (int32_t)ret);
+    } break;
+    case USER_CV_ACTION_NOTIFY_ONE: {
+      condition_variable_notify_one(arg[1], arg[2]);
+      syscall_return(tf, 0);
+    } break;
+    case USER_CV_ACTION_NOTIFY_ALL: {
+      condition_variable_notify_all(arg[1], arg[2]);
       syscall_return(tf, 0);
     } break;
     default:

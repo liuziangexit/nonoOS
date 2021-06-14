@@ -23,6 +23,9 @@
 // void SYSCALL_MTX(action, ...)
 #define SYSCALL_MTX 6
 
+// void SYSCALL_CV(action, ...)
+#define SYSCALL_CV 7
+
 #ifdef LIBNO_USER
 uint32_t syscall(int call, int cnt, ...);
 #endif

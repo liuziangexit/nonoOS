@@ -28,7 +28,8 @@ OBJS=\
 ../src/unistd.o\
 ../src/shared_memory.o\
 ../src/vector.o\
-../src/mutex.o
+../src/mutex.o\
+../src/condition_variable.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

@@ -68,12 +68,16 @@ void mutex_unlock(uint32_t mut_id);
 // 考虑在我的线程池worker里，以及task_join里，能不能不需要锁？稍有常识的人都能看出，不能。我只想说懂的都懂，我也不想解释了
 // Java
 // Object里的notify/wait为什么不需要锁？这是一个假命题，看一下文档就知道，他们也需要锁
-struct condition_variable {};
+struct condition_variable {
+  uint32_t obj_id;  // 内核对象id
+  uint32_t ref_cnt; // 引用此对象的线程数量
+  vector_t waitors; // 等待者
+};
 typedef struct condition_variable condition_variable_t;
 uint32_t condition_variable_create();
-void condition_variable_destroy(mutex_t *);
+void condition_variable_destroy(condition_variable_t *cv);
 void condition_variable_wait(uint32_t cv_id, uint32_t mut_id);
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
-                                  uint32_t timeout_ms);
-void condition_variable_notify_one(uint32_t cv_id);
-void condition_variable_notify_all(uint32_t cv_id);
+                                  uint64_t timeout_ms);
+void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id);
+void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id);

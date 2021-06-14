@@ -25,6 +25,8 @@ static const char *type2str(kernel_object_type t) {
     return "TASK";
   if (t == KERNEL_OBJECT_MUTEX)
     return "MUTEX";
+  if (t == KERNEL_OBJECT_CONDITION_VARIABLE)
+    return "CONVAR";
   abort();
   __builtin_unreachable();
 }
@@ -60,8 +62,9 @@ static uint32_t *get_counter(kernel_object_type t, void *obj) {
   case KERNEL_OBJECT_MUTEX: {
     return (uint32_t *)(obj + 4);
   } break;
-    //   case KERNEL_OBJECT_CONDITION_VARIABLE: {
-    //   } break;
+  case KERNEL_OBJECT_CONDITION_VARIABLE: {
+    return (uint32_t *)(obj + 4);
+  } break;
   }
   panic("AHAHAH");
   __builtin_unreachable();
@@ -78,8 +81,9 @@ static void *get_dtor(kernel_object_type t) {
   case KERNEL_OBJECT_MUTEX: {
     return mutex_destroy;
   } break;
-    //   case KERNEL_OBJECT_CONDITION_VARIABLE: {
-    //   } break;
+  case KERNEL_OBJECT_CONDITION_VARIABLE: {
+    return condition_variable_destroy;
+  } break;
   }
   panic("AHAHAH");
   __builtin_unreachable();
