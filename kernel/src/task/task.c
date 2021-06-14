@@ -862,6 +862,7 @@ void task_terminate(int32_t ret) {
 void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   SMART_NOINT_REGION
   assert(current);
+  assert(next != current);
   assert(next && (next->state == CREATED || next->state == YIELDED));
   if (next == current) {
     panic("task_switch");

@@ -50,6 +50,12 @@ void leave_noint_region(uint32_t *save) {
   }
 }
 
+pid_t mutex_owner(uint32_t mut_id) {
+  SMART_CRITICAL_REGION
+  mutex_t *mut = kernel_object_get(mut_id, false);
+  return atomic_load(&mut->owner);
+}
+
 uint32_t mutex_create() {
   mutex_t *mut = malloc(sizeof(mutex_t));
   assert(mut);
@@ -73,7 +79,7 @@ bool mutex_trylock(uint32_t mut_id) {
   SMART_CRITICAL_REGION
   mutex_t *mut = kernel_object_get(mut_id, false);
   if (!mut)
-    task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
+    task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t expected = 0;
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
@@ -89,7 +95,7 @@ void mutex_lock(uint32_t mut_id) {
   SMART_CRITICAL_REGION
   mutex_t *mut = kernel_object_get(mut_id, false);
   if (!mut)
-    task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
+    task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t expected = 0;
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
@@ -119,7 +125,7 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
   SMART_CRITICAL_REGION
   mutex_t *mut = kernel_object_get(mut_id, false);
   if (!mut)
-    task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
+    task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t expected = 0;
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
@@ -155,7 +161,7 @@ void mutex_unlock(uint32_t mut_id) {
   SMART_CRITICAL_REGION
   mutex_t *mut = kernel_object_get(mut_id, false);
   if (!mut)
-    task_terminate(TASK_TERMINATE_MUT_NOT_FOUND);
+    task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t owner = atomic_load(&mut->owner);
   // 首先验证owner是不是我
   if (owner != task_current()->id) {
@@ -190,9 +196,13 @@ void condition_variable_destroy(condition_variable_t *cv) {
 }
 
 void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
-  mutex_lock(mut_id);
+  if (mutex_owner(mut_id) != task_current()->id) {
+    task_current(TASK_TERMINATE_ABORT);
+  }
   condition_variable_t *cv = kernel_object_get(cv_id, true);
   uint32_t idx = vector_add(&cv->waitors, &task_current()->id);
+  // 关中断是为了确保此线程陷入等待对于另一个线程的notify具有happens-before
+  SMART_CRITICAL_REGION
   mutex_unlock(mut_id);
   task_current()->tslice++;
   task_current()->wait_type = WAIT_CV;
@@ -202,15 +212,22 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
   task_schd(true, true, WAITING);
   assert(!task_current()->wait_ctx.cv.timeout);
   // 被唤醒了
-  mutex_lock(mut_id);
+  bool locked = mutex_trylock(mut_id);
+  if (!locked) {
+    task_current(TASK_TERMINATE_ABORT);
+  }
   vector_remove(&cv->waitors, idx);
 }
 
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
                                   uint64_t timeout_ms) {
-  mutex_lock(mut_id);
+  if (mutex_owner(mut_id) != task_current()->id) {
+    task_current(TASK_TERMINATE_ABORT);
+  }
   condition_variable_t *cv = kernel_object_get(cv_id, true);
   uint32_t idx = vector_add(&cv->waitors, &task_current()->id);
+  // 关中断是为了确保此线程陷入等待对于另一个线程的notify具有happens-before
+  SMART_CRITICAL_REGION
   mutex_unlock(mut_id);
   task_current()->tslice++;
   task_current()->wait_type = WAIT_CV;
@@ -223,7 +240,10 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
     return false;
   }
   // 被唤醒了
-  mutex_lock(mut_id);
+  bool locked = mutex_trylock(mut_id);
+  if (!locked) {
+    task_current(TASK_TERMINATE_ABORT);
+  }
   vector_remove(&cv->waitors, idx);
   return true;
 }
@@ -246,7 +266,7 @@ void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id) {
   if (vector_count(&cv->waitors) != 0) {
     SMART_CRITICAL_REGION
     for (uint32_t i = 0; i < vector_count(&cv->waitors); i++) {
-      ktask_t *t = task_find(*(pid_t *)vector_get(&cv->waitors, 0));
+      ktask_t *t = task_find(*(pid_t *)vector_get(&cv->waitors, i));
       t->state = YIELDED;
       ready_queue_put(t);
     }

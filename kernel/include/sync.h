@@ -56,6 +56,7 @@ struct mutex {
   vector_t waitors; // 等待者
 };
 typedef struct mutex mutex_t;
+pid_t mutex_owner(uint32_t mut_id);
 uint32_t mutex_create();
 void mutex_destroy(mutex_t *);
 bool mutex_trylock(uint32_t mut_id);

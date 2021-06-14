@@ -43,8 +43,9 @@ static int compare_id(const void *a, const void *b) {
   return 0;
 }
 
-static struct id_ctx *get_ctx(uint32_t id) {
-  make_sure_schd_disabled();
+static struct id_ctx *get_ctx(uint32_t id, bool unsafe) {
+  if (!unsafe)
+    make_sure_schd_disabled();
   struct id_ctx find;
   find.id = id;
   SMART_CRITICAL_REGION
@@ -97,7 +98,7 @@ void kernel_object_init() {
 void *kernel_object_get(uint32_t id, bool unsafe) {
   if (!unsafe)
     make_sure_schd_disabled();
-  return get_ctx(id)->object;
+  return get_ctx(id, unsafe)->object;
 }
 
 uint32_t kernel_object_new(kernel_object_type t, void *obj) {
@@ -140,7 +141,7 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj) {
 
 void kernel_object_delete(uint32_t id) {
   SMART_CRITICAL_REGION
-  struct id_ctx *ctx = get_ctx(id);
+  struct id_ctx *ctx = get_ctx(id, false);
   assert(ctx);
   void (*dtor)(void *) = get_dtor(ctx->type);
   assert(dtor);
@@ -167,7 +168,7 @@ bool kernel_object_has_ref(task_group_t *group, uint32_t kobj_id) {
 
 bool kernel_object_ref(task_group_t *group, uint32_t kobj_id) {
   SMART_CRITICAL_REGION
-  struct id_ctx *ctx = get_ctx(kobj_id);
+  struct id_ctx *ctx = get_ctx(kobj_id, false);
   if (!ctx)
     return false;
   // task这边记录对象id
@@ -206,7 +207,7 @@ void kernel_object_unref(task_group_t *group, uint32_t kobj_id,
                          bool remove_from_task_avl) {
   SMART_CRITICAL_REGION
   // 减引用计数
-  struct id_ctx *ctx = get_ctx(kobj_id);
+  struct id_ctx *ctx = get_ctx(kobj_id, false);
   uint32_t *counter = get_counter(ctx->type, ctx->object);
   (*counter)--;
   // task这边移除对象id
