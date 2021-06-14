@@ -184,7 +184,7 @@ uint32_t condition_variable_create() {
   assert(cv);
   cv->ref_cnt = 0;
   vector_init(&cv->waitors, sizeof(pid_t));
-  cv->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, cv);
+  cv->obj_id = kernel_object_new(KERNEL_OBJECT_CONDITION_VARIABLE, cv);
   return cv->obj_id;
 }
 
@@ -200,7 +200,7 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
     task_current(TASK_TERMINATE_ABORT);
   }
   condition_variable_t *cv = kernel_object_get(cv_id, true);
-  uint32_t idx = vector_add(&cv->waitors, &task_current()->id);
+  vector_add(&cv->waitors, &task_current()->id);
   // 关中断是为了确保此线程陷入等待对于另一个线程的notify具有happens-before
   SMART_CRITICAL_REGION
   mutex_unlock(mut_id);
@@ -216,7 +216,6 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
   if (!locked) {
     task_current(TASK_TERMINATE_ABORT);
   }
-  vector_remove(&cv->waitors, idx);
 }
 
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
@@ -225,7 +224,7 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
     task_current(TASK_TERMINATE_ABORT);
   }
   condition_variable_t *cv = kernel_object_get(cv_id, true);
-  uint32_t idx = vector_add(&cv->waitors, &task_current()->id);
+  vector_add(&cv->waitors, &task_current()->id);
   // 关中断是为了确保此线程陷入等待对于另一个线程的notify具有happens-before
   SMART_CRITICAL_REGION
   mutex_unlock(mut_id);
@@ -244,7 +243,6 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
   if (!locked) {
     task_current(TASK_TERMINATE_ABORT);
   }
-  vector_remove(&cv->waitors, idx);
   return true;
 }
 
@@ -256,6 +254,7 @@ void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id) {
     ktask_t *t = task_find(*(pid_t *)vector_get(&cv->waitors, 0));
     t->state = YIELDED;
     ready_queue_put(t);
+    vector_remove(&cv->waitors, 0);
   }
   mutex_unlock(mut_id);
 }
@@ -270,6 +269,7 @@ void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id) {
       t->state = YIELDED;
       ready_queue_put(t);
     }
+    vector_clear(&cv->waitors);
   }
   mutex_unlock(mut_id);
 }

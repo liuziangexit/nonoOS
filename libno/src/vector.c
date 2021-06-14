@@ -72,3 +72,5 @@ void vector_shrink(vector_t *vec, uint32_t new_capacity) {
     vec->count = new_capacity;
   }
 }
+
+void vector_clear(vector_t *vec) { vec->count = 0; }

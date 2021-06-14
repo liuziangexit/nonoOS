@@ -20,6 +20,7 @@ void *vector_get(vector_t *vec, uint32_t index);
 
 void vector_reserve(vector_t *vec, uint32_t new_capacity);
 void vector_shrink(vector_t *vec, uint32_t new_capacity);
+void vector_clear(vector_t *vec);
 // void vector_resize(vector_t *vec, uint32_t new_size);
 // void vector_begin(vector_t *vec);
 // void vector_end(vector_t *vec);

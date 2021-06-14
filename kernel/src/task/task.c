@@ -60,6 +60,8 @@ static ktask_t *ready_queue_get() {
 static int compare_task_by_ts(const void *a, const void *b) {
   const ktask_t *ta = a;
   const ktask_t *tb = b;
+  // printf("A: id %lld ts %lld\n", (int64_t)ta->id, (int64_t)ta->tslice);
+  // printf("B: id %lld ts %lld\n", (int64_t)tb->id, (int64_t)tb->tslice);
   if (ta->tslice > tb->tslice)
     return 1;
   if (ta->tslice < tb->tslice)
@@ -71,6 +73,7 @@ static int compare_task_by_ts(const void *a, const void *b) {
 
 void ready_queue_put(ktask_t *t) {
   SMART_CRITICAL_REGION
+  assert(t->ready_queue_head.next == 0 && t->ready_queue_head.prev == 0);
   list_init(&t->ready_queue_head);
   list_sort_add(&ready_queue, &t->ready_queue_head, compare_task_by_ts,
                 sizeof(struct avl_node));
@@ -516,6 +519,7 @@ void task_idle() {
       kernel_object_print();
       task_display();
 #endif
+    HANDLE_EXITED:
       for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
         if (t->state == EXITED) {
           // 处理join这个线程的线程
@@ -542,6 +546,18 @@ void task_idle() {
           continue;
         }
         t = avl_tree_next(&tasks, t);
+      }
+      for (ktask_t *t = avl_tree_first(&tasks); t != 0;
+           t = avl_tree_next(&tasks, t)) {
+        if (t->state == EXITED && t->ref_count == 1) {
+          // 还有线程没有退出，需要重新走一遍上面的流程
+          // 这种情况出现于一个线程（引用者）引用了另一个线程（被引用者）
+          // 而到了上面的代码时，这两个线程都处于EXITED状态了，因此他们都会被
+          // idle做退出处理。不幸的是，被引用者先于引用者进行处理，而idle看到被引用者
+          // 有2个引用，因此没有进行推出处理，而当引用者取消对于被引用者的引用时，已经晚了
+          // 因此在这里再检测一遍
+          goto HANDLE_EXITED;
+        }
       }
     }
     hlt();
@@ -853,7 +869,8 @@ void task_terminate(int32_t ret) {
   // TODO 把同vm的其他线程全部杀了
   // TODO 为了尽量减少资源泄漏，强杀进程都要做stack rewind，这怎么做？
   terminal_fgcolor(CGA_COLOR_RED);
-  printf("task terminated with err code %d\n", ret);
+  printf("task %lld terminated with err code %d\n", (int64_t)task_current()->id,
+         ret);
   terminal_default_color();
   task_quit(ret);
 }

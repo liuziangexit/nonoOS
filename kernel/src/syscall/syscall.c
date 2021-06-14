@@ -177,12 +177,12 @@ void syscall_dispatch(struct trapframe *tf) {
     uint32_t action = arg[0];
     switch (action) {
     case USER_CV_ACTION_CREATE: {
-      printf("condition_variable_create\n");
+      //  printf("condition_variable_create\n");
       int32_t obj = (int32_t)condition_variable_create();
       syscall_return(tf, obj);
     } break;
     case USER_CV_ACTION_WAIT: {
-      printf("condition_variable_wait\n");
+      // printf("condition_variable_wait\n");
       condition_variable_wait(arg[1], arg[2]);
       syscall_return(tf, 0);
     } break;
@@ -191,18 +191,18 @@ void syscall_dispatch(struct trapframe *tf) {
       uint64_t ms = arg[3];
       ms <<= 32;
       ms |= arg[4];
-      printf("condition_variable_timedwait\n");
+      // printf("condition_variable_timedwait\n");
       // printf("cv timedwait: %lldms\n", (int64_t)ms);
       bool ret = condition_variable_timedwait(cv, mut, ms);
       syscall_return(tf, (int32_t)ret);
     } break;
     case USER_CV_ACTION_NOTIFY_ONE: {
-      printf("condition_variable_notify_one\n");
+      // printf("condition_variable_notify_one\n");
       condition_variable_notify_one(arg[1], arg[2]);
       syscall_return(tf, 0);
     } break;
     case USER_CV_ACTION_NOTIFY_ALL: {
-      printf("condition_variable_notify_all\n");
+      // printf("condition_variable_notify_all\n");
       condition_variable_notify_all(arg[1], arg[2]);
       syscall_return(tf, 0);
     } break;

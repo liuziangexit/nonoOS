@@ -143,16 +143,16 @@ void kernel_object_delete(uint32_t id) {
   SMART_CRITICAL_REGION
   struct id_ctx *ctx = get_ctx(id, false);
   assert(ctx);
-  void (*dtor)(void *) = get_dtor(ctx->type);
-  assert(dtor);
-  avl_tree_remove(&id_tree, ctx);
-  dtor(ctx->object);
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_CYAN);
   printf("kernel_object_delete: delete kernel object %s %lld\n",
          type2str(ctx->type), (int64_t)id);
   terminal_default_color();
 #endif
+  void (*dtor)(void *) = get_dtor(ctx->type);
+  assert(dtor);
+  avl_tree_remove(&id_tree, ctx);
+  dtor(ctx->object);
   free(ctx);
 }
 

@@ -1,4 +1,5 @@
 #include <compiler_helper.h>
+#include <condition_variable.h>
 #include <mutex.h>
 #include <shared_memory.h>
 #include <stdbool.h>
@@ -10,6 +11,9 @@
 #include <unistd.h>
 
 uint32_t mut_id;
+uint32_t cv;
+uint32_t cv_mut;
+bool quit;
 
 int thr_main() {
   printf("new_thread: pid is %lld\n", (int64_t)get_pid());
@@ -29,6 +33,26 @@ int thr_main() {
   mtx_unlock(mut_id);
   printf("new_thread: quit\n");
   return 888;
+}
+
+int thr_cv_main() {
+  printf("new_cv_thread %lld: start\n", (int64_t)get_pid());
+  printf("new_cv_thread %lld: lock %d\n", (int64_t)get_pid(), cv_mut);
+  mtx_lock(cv_mut);
+  while (true) {
+    if (quit) {
+      printf("new_cv_thread %lld: condition met\n", (int64_t)get_pid());
+      mtx_unlock(cv_mut);
+      break;
+    } else {
+      printf("new_cv_thread %lld: condition not met\n", (int64_t)get_pid());
+    }
+    printf("new_cv_thread %lld: wait\n", (int64_t)get_pid());
+    cv_wait(cv, cv_mut);
+    printf("new_cv_thread %lld: been notified\n", (int64_t)get_pid());
+  }
+  printf("new_cv_thread %lld: quit\n", (int64_t)get_pid());
+  return 8898;
 }
 
 int main(int argc, char **argv) {
@@ -94,6 +118,22 @@ int main(int argc, char **argv) {
   sleep(2000);
   printf("task_test: mtx_unlock()\n");
   mtx_unlock(mut_id);
+
+  cv = cv_create();
+  cv_mut = mtx_create();
+  quit = false;
+  create_task(0, 0, "new_cv_thread", false, (uintptr_t)thr_cv_main, 0, 0, 0);
+  create_task(0, 0, "new_cv_thread", false, (uintptr_t)thr_cv_main, 0, 0, 0);
+
+  // cv_notify_one(cv, cv_mut);
+  printf("task_test: notify all while condition not set\n");
+  cv_notify_all(cv, cv_mut);
+  sleep(2000);
+  mtx_lock(cv_mut);
+  printf("task_test: set condition to true then notify all\n");
+  quit = true;
+  mtx_unlock(cv_mut);
+  cv_notify_all(cv, cv_mut);
 
   printf("task_test: exit\n");
   return 0;
