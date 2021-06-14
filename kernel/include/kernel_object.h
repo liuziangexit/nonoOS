@@ -17,7 +17,7 @@ enum _kernel_object_type {
 typedef enum _kernel_object_type kernel_object_type;
 
 void kernel_object_init();
-void *kernel_object_get(uint32_t id);
+void *kernel_object_get(uint32_t id, bool unsafe);
 uint32_t kernel_object_new(kernel_object_type t, void *obj);
 bool kernel_object_has_ref(task_group_t *task, uint32_t kobj_id);
 bool kernel_object_ref(task_group_t *task, uint32_t kobj_id);

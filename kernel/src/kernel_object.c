@@ -89,8 +89,10 @@ void kernel_object_init() {
   avl_tree_init(&id_tree, compare_id, sizeof(struct id_ctx), 0);
 }
 
-void *kernel_object_get(uint32_t id) {
-  make_sure_schd_disabled();
+// 如果unsafe为true，表示对于这个object的访问由用户来保证并发安全
+void *kernel_object_get(uint32_t id, bool unsafe) {
+  if (!unsafe)
+    make_sure_schd_disabled();
   return get_ctx(id)->object;
 }
 

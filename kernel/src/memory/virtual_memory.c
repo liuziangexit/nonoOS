@@ -962,7 +962,7 @@ void shared_memory_destroy(struct shared_memory *sh) {
 
 // 获得共享内存的上下文
 struct shared_memory *shared_memory_ctx(uint32_t id) {
-  return kernel_object_get(id);
+  return kernel_object_get(id, false);
 }
 
 // map共享内存到当前地址空间
