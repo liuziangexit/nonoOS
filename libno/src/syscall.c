@@ -17,6 +17,7 @@ uint32_t syscall(int call, int cnt, ...) {
   va_end(ap);
 
   uint32_t ret;
+  // nop是为了调试
   asm volatile("int %1;nop;nop;nop"
                : "=a"(ret)
                : "i"(T_SYSCALL), "a"(call), "d"(a[0]), "c"(a[1]), "b"(a[2]),
