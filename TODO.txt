@@ -71,7 +71,7 @@ OK-notify
 -实现task的系统调用（join用一个条件变量来实现）
 -检查vm和vma是否存在不安全访问
 
--解决偶然出现的page not found问题
+-解决偶然出现的page not found问题(搜索“case T_PGFLT:”，是不是那里说的问题？)
 
 -内存不够的时候打印slab和buddy的情况
 -有没有其他地方需要更新tlb却没更新？找一下
