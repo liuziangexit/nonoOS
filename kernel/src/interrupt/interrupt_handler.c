@@ -102,10 +102,14 @@ static inline void print_pgfault(struct trapframe *tf) {
          "%lld\n************************************\n",
          (int64_t)rcr3(), (int64_t)task_current()->id);
   printf("page fault at virtual 0x%08llx / physical 0x%08llx: %c/%c "
-         "[%s]\n************************************\n\n",
+         "[%s]\n************************************\n",
          (int64_t)rcr2(), (int64_t)physical, (tf->tf_err & 4) ? 'U' : 'K',
          (tf->tf_err & 2) ? 'W' : 'R',
          (tf->tf_err & 1) ? "protection fault" : "no page found");
+#ifndef NDEBUG
+  printf("current syscall: %d\n\n",
+         (uint32_t)task_current()->debug_current_syscall);
+#endif
   terminal_default_color();
 }
 

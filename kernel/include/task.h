@@ -147,6 +147,9 @@ struct ktask {
   vector_t joining;
   // 返回值
   int32_t ret_val;
+#ifndef NDEBUG
+  uint32_t debug_current_syscall;
+#endif
 };
 typedef struct ktask ktask_t;
 

@@ -11,7 +11,7 @@
 uint32_t syscall(int call, int cnt, ...) {
   /*
   几个月后完全忘了ring级别的改变和任务切换之间的关系，现在记录在这里
-  
+
   ring0到ring3的改变是通过interruput_handler文件里的TO_USER那里实现的，也就是处理中断T_SWITCH_USER的地方
   ring3到ring0的改变是通过idt表来实现的，当我们在ring3时，通过触发一个中断，就可以转到ring0（具体逻辑看中断相关的代码，注释还是很清楚的）
 
@@ -20,6 +20,9 @@ uint32_t syscall(int call, int cnt, ...) {
   实际上在task_switch时一定是在内核态的，然后栈上面有一个中断是从用户切到内核的中断。
   当从中断返回时，就自动切换ring级别了，因此不需要task_switch去做这件事
    */
+
+  //测试代码
+  //#ifndef NDEBUG
   uint16_t reg[6];
   uint32_t exx[2];
   asm volatile("mov %%cs, %0;"
@@ -33,6 +36,7 @@ uint32_t syscall(int call, int cnt, ...) {
                : "=m"(reg[0]), "=m"(reg[1]), "=m"(reg[2]), "=m"(reg[3]),
                  "=m"(reg[4]), "=m"(reg[5]), "=m"(exx[0]), "=m"(exx[1]));
   assert((reg[0] & 3) == 3);
+  //#endif
 
   va_list ap;
   va_start(ap, cnt);

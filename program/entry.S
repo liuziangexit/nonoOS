@@ -10,7 +10,7 @@ user_entry:
     # 设置exit的参数
     movl %eax, %ecx
     # 设置系统调用号为SYSCALL_TASK
-    movl $0, %eax
+    movl $1, %eax
     # 设置arg[0]为USER_TASK_ACTION_EXIT
     movl $6, %edx
     int $122
