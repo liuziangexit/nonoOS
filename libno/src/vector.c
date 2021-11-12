@@ -25,7 +25,10 @@ void vector_init(vector_t *vec, uint32_t obj_size) {
   check_mem(vec->mem);
 }
 
-void vector_destroy(vector_t *vec) { free(vec->mem); }
+void vector_destroy(vector_t *vec) {
+  if (vec->mem)
+    free(vec->mem);
+}
 
 uint32_t vector_count(vector_t *vec) { return vec->count; }
 

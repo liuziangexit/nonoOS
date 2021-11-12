@@ -321,13 +321,18 @@ void task_destroy(ktask_t *t) {
     task_args_destroy(t->args, t->group->is_kernel);
     free(t->args);
   }
-  kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
-  task_group_remove(t);
-  if (!t->group->is_kernel) {
-    utask_t *ut = (utask_t *)t;
-    kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
+  if (t->kstack) {
+    kmem_page_free((void *)t->kstack, TASK_STACK_SIZE);
   }
-  free(t->name);
+  if (t->group) {
+    if (!t->group->is_kernel) {
+      utask_t *ut = (utask_t *)t;
+      kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
+    }
+    task_group_remove(t);
+  }
+  if (t->name)
+    free(t->name);
   vector_destroy(&t->joining);
   free(t);
 }
