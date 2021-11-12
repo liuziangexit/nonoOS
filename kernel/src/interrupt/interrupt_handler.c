@@ -97,18 +97,18 @@ static inline void print_pgfault(struct trapframe *tf) {
    * */
   uintptr_t physical = linear2physical((const void *)P2V(rcr3()), rcr2());
   terminal_fgcolor(CGA_COLOR_RED);
-  printf("\n\nUNHANDLED PAGE "
-         "FAULT | current pd: 0x%08llx | current pid: "
-         "%lld\n************************************\n",
-         (int64_t)rcr3(), (int64_t)task_current()->id);
+  printf("\n\nUNHANDLED PAGE FAULT\n"
+         "************************************\n");
   printf("page fault at virtual 0x%08llx / physical 0x%08llx: %c/%c "
          "[%s]\n************************************\n",
          (int64_t)rcr2(), (int64_t)physical, (tf->tf_err & 4) ? 'U' : 'K',
          (tf->tf_err & 2) ? 'W' : 'R',
          (tf->tf_err & 1) ? "protection fault" : "no page found");
 #ifndef NDEBUG
-  printf("current syscall: %d\n\n",
-         (uint32_t)task_current()->debug_current_syscall);
+  printf("current syscall: %d\ncurrent page directory: 0x%08llx\ncurrent "
+         "pid:%lld\n\n",
+         (uint32_t)task_current()->debug_current_syscall, (int64_t)rcr3(),
+         (int64_t)task_current()->id);
 #endif
   terminal_default_color();
 }
@@ -219,7 +219,7 @@ void interrupt_handler(struct trapframe *tf) {
      这样每个任务有他自己的cr2
      */
     SMART_CRITICAL_REGION
-    uintptr_t addr = rcr2();
+    uintptr_t vaddr = rcr2();
     if ((tf->tf_err & 1) == 0 && tf->tf_err & 4) {
       // 是用户态异常并且是not found
       assert(task_inited == TASK_INITED_MAGIC);
@@ -228,7 +228,7 @@ void interrupt_handler(struct trapframe *tf) {
       assert(!task->group->is_kernel);
       // 找到vma
       struct virtual_memory_area *vma =
-          virtual_memory_get_vma(task->group->vm, addr);
+          virtual_memory_get_vma(task->group->vm, vaddr);
       if (vma && vma->type == UMALLOC) {
         // 处理MALLOC缺页
         upfault(task->group->vm, vma);
@@ -243,7 +243,20 @@ void interrupt_handler(struct trapframe *tf) {
       __builtin_unreachable();
     }
     print_pgfault(tf);
-    panic(trapname(T_PGFLT));
+    if (ROUNDDOWN(vaddr, _4K) == 0) {
+      if (task_inited == TASK_INITED_MAGIC &&
+          !task_current()->group->is_kernel) {
+        // FIXME: test
+        panic("user process trying to dereference a null pointer");
+        task_terminate(TASK_TERMINATE_BAD_ACCESS);
+        abort();
+      } else {
+        panic("system process trying to dereference a null pointer");
+      }
+      __builtin_unreachable();
+    } else {
+      panic(trapname(T_PGFLT));
+    }
   } break;
   default:
     if ((tf->tf_cs & 3) == 0) {
