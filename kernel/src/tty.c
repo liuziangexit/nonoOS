@@ -93,7 +93,11 @@ static void ob_cut() {
   memcpy(output_buffer, output_buffer + TER_OUT_BUF_LEN / 2,
          TER_OUT_BUF_LEN / 2);
   memcpy(output_color, output_color + TER_OUT_BUF_LEN / 2, TER_OUT_BUF_LEN / 2);
-  viewport = 0;
+  if (viewport > TER_OUT_BUF_LEN / 2) {
+    viewport -= TER_OUT_BUF_LEN / 2;
+  } else {
+    viewport = 0;
+  }
   ob_wpos = TER_OUT_BUF_LEN / 2;
 }
 
@@ -110,6 +114,8 @@ void terminal_putchar(char c) {
     if (ob_wpos == TER_OUT_BUF_LEN) {
       ob_cut();
       write_pos = ob_wpos;
+      viewport_update();
+      viewport_update_cursor();
     }
     //显示出来
     if (in_viewport(write_pos + CRT_COLS)) {
@@ -136,6 +142,8 @@ void terminal_putchar(char c) {
     if (ob_wpos == TER_OUT_BUF_LEN) {
       ob_cut();
       write_pos = ob_wpos;
+      viewport_update();
+      viewport_update_cursor();
     }
     //显示出来
     if (in_viewport(write_pos)) {
