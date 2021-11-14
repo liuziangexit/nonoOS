@@ -497,6 +497,7 @@ void virtual_memory_map(struct virtual_memory *vm,
       uint32_t *pt = kmem_page_alloc(1);
       // FIXME
       // 这里失败的时候，应该要回收本次函数调用已分配的结构，并且返回false
+      // 所有调用本函数的地方都要修改
       assert(pt);
       memset(pt, 0, _4K);
       union {
