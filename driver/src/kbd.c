@@ -351,6 +351,8 @@ void kbd_isr(void) {
       ring_buffer_write(terminal_input_buffer(), false, &c, 1);
       // echo
       terminal_write((char *)&c, 1);
+      // 因为现在假如viewport不在最底下的时候就不刷viewport了，所以输入时候要手动刷viewport
+      terminal_viewport_bottom();
     }
   }
 }

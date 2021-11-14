@@ -117,8 +117,15 @@ void terminal_putchar(char c) {
       //更新光标位置
       viewport_update_cursor();
     } else {
-      //如果下一行不在viewport中，则需要1.将viewport移动到最底下2.重绘整个viewport
-      terminal_viewport_bottom();
+      // 如果写位置不在viewport中
+      if ((write_pos + CRT_COLS) - (write_pos % CRT_COLS) ==
+          viewport + (uint32_t)CRT_SIZE) {
+        // 并且现在在viewport最底部
+        // 则需要1.将viewport移动到最底下2.重绘整个viewport
+        terminal_viewport_bottom();
+      } else {
+        //若不在最底部，则不要移动viewport
+      }
     }
   } else {
     //写进buffer
@@ -137,8 +144,14 @@ void terminal_putchar(char c) {
       //更新光标位置
       viewport_update_cursor();
     } else {
-      //如果写位置不在viewport中，则需要1.将viewport移动到最底下2.重绘整个viewport
-      terminal_viewport_bottom();
+      // 如果写位置不在viewport中
+      if (write_pos == viewport + (uint32_t)CRT_SIZE) {
+        // 并且现在在viewport最底部
+        // 则需要1.将viewport移动到最底下2.重绘整个viewport
+        terminal_viewport_bottom();
+      } else {
+        //若不在最底部，则不要移动viewport
+      }
     }
   }
 }
