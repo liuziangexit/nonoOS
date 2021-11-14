@@ -166,13 +166,13 @@ void kmem_page_init() {
 #endif
 }
 
-void kmem_page_add_free_region(uintptr_t addr, uint32_t len) {
+void kmem_page_init_free_region(uintptr_t addr, uint32_t len) {
   uintptr_t p = addr;
   //这里的页都是小页
   uint32_t page_cnt = len / _4K;
 
 #ifndef NDEBUG
-  printf("kmem_page_add_free_region: memory starts at 0x%08llx (total %d 4k "
+  printf("kmem_page_init_free_region: memory starts at 0x%08llx (total %d 4k "
          "pages) are "
          "being split into ",
          (int64_t)p, page_cnt);

@@ -52,7 +52,7 @@ void free_region_init(struct e820map_t *memlayout) {
       page_count = (0xFFFFFFFF - (uint64_t)(uintptr_t)addr) / _4M;
     }
     // 加入kmem_page
-    kmem_page_add_free_region((uintptr_t)addr, page_count * 4096 * 1024);
+    kmem_page_init_free_region((uintptr_t)addr, page_count * 4096 * 1024);
     printf("adding 0x%09llx length %lld to free region\n",
            (int64_t)(uintptr_t)addr, (int64_t)page_count * 4096 * 1024);
     terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);

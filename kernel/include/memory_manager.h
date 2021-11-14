@@ -22,7 +22,7 @@ bool kmem_free(void *);
 */
 void kmem_page_debug();
 void kmem_page_init();
-void kmem_page_add_free_region(uintptr_t addr, uint32_t len);
+void kmem_page_init_free_region(uintptr_t addr, uint32_t len);
 void *kmem_page_alloc(size_t cnt);
 void kmem_page_free(void *, size_t cnt);
 void kmem_page_dump(void *dst, uint32_t dst_len);
