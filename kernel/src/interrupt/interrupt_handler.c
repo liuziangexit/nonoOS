@@ -8,6 +8,7 @@
 #include <memlayout.h>
 #include <mmu.h>
 #include <panic.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <sync.h>
@@ -215,6 +216,8 @@ void interrupt_handler(struct trapframe *tf) {
     SMART_CRITICAL_REGION
     const uintptr_t cr2 = rcr2();
     lcr2(0);
+
+    // 处理malloc的缺页
     if ((tf->tf_err & 1) == 0 && tf->tf_err & 4) {
       // 是用户态异常并且是not found
       assert(task_inited == TASK_INITED_MAGIC);
@@ -230,27 +233,35 @@ void interrupt_handler(struct trapframe *tf) {
         break;
       }
     }
-    if (task_inited == TASK_INITED_MAGIC && !task_current()->group->is_kernel) {
+
+    const bool is_user =
+        task_inited == TASK_INITED_MAGIC && !task_current()->group->is_kernel;
+
+    // 处理访问0的缺页
+    if (ROUNDDOWN(cr2, _4K) == 0) {
+      if (is_user) {
+        // FIXME 正式处理是重新调度
+        print_pgfault(tf, cr2);
+        panic("user process trying to dereference a null pointer");
+        task_terminate(TASK_TERMINATE_BAD_ACCESS);
+        abort();
+      } else {
+        print_pgfault(tf, cr2);
+        panic("system process trying to dereference a null pointer");
+      }
+      __builtin_unreachable();
+    }
+
+    if (is_user) {
       // 如果是未处理的用户异常，那么杀进程
       print_pgfault(tf, cr2);
       task_terminate(TASK_TERMINATE_BAD_ACCESS);
       // FIXME 这里正常是要重新调度吧，现在abort是为了调试
       abort();
       __builtin_unreachable();
-    }
-    print_pgfault(tf, cr2);
-    if (ROUNDDOWN(cr2, _4K) == 0) {
-      if (task_inited == TASK_INITED_MAGIC &&
-          !task_current()->group->is_kernel) {
-        // FIXME 正式处理是重新调度
-        panic("user process trying to dereference a null pointer");
-        task_terminate(TASK_TERMINATE_BAD_ACCESS);
-        abort();
-      } else {
-        panic("system process trying to dereference a null pointer");
-      }
-      __builtin_unreachable();
     } else {
+      // 如果是未处理的内核
+      print_pgfault(tf, cr2);
       panic(trapname(T_PGFLT));
     }
   } break;
