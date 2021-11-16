@@ -907,6 +907,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
             false);
     // FIXME 触发率非常低的bug是在这里发生的，lcr3之后有可能出现一个访问0x24位置的异常
     // 需要1.搞清楚为什么会访问0x24  2.为什么页表坏掉了
+    // 也许是显示错误呢，其实并不是在访问0x24时缺页？先把cr2争用的问题改一下，将cr2算作上下文
     lcr3(cr3.val);
 
     // 2.切换tss栈
