@@ -135,6 +135,8 @@ struct ktask {
   uintptr_t kstack;
   // 寄存器
   struct gp_registers regs;
+  // CR2
+  uintptr_t cr2;
   // 命令行参数
   struct task_args *args;
   // 已使用的时间片

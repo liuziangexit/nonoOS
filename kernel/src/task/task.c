@@ -940,12 +940,21 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   // terminal_default_color();
 
   // 保存cr2
-
+  if (prev->state != EXITED) {
+    uintptr_t cr2 = rcr2();
+    if (cr2) {
+      prev->cr2 = cr2;
+    }
+  }
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
+  assert(prev->state != EXITED);
 
   // 恢复cr2
+  if (next->cr2) {
+    lcr2(next->cr2);
+  }
 }
 
 // 初始化任务系统

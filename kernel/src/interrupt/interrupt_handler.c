@@ -83,12 +83,6 @@ bool trap_in_kernel(struct trapframe *tf) {
   return (tf->tf_cs == (uint16_t)KERNEL_CS);
 }
 
-static __always_inline uintptr_t rcr2(void) {
-  uintptr_t cr2;
-  asm volatile("mov %%cr2, %0" : "=r"(cr2)::"memory");
-  return cr2;
-}
-
 static inline void print_pgfault(struct trapframe *tf) {
   /* error_code:
    * bit 0 == 0 means no page found, 1 means protection fault
@@ -210,7 +204,7 @@ void interrupt_handler(struct trapframe *tf) {
     panic(trapname(T_GPFLT));
   } break;
   case T_PGFLT: {
-    /* FIXME
+    /* FIXED in task_switch()
      这里有一个争用条件，考虑一个缺页已经发生，处理该缺页的isr还未来的及
      关中断，时钟中断就引起了任务切换，切到另一个任务去了，另一个任务也发生了缺页
      于是覆盖了cr2。当我们回到首个缺页的isr中时，我们想要的cr2值已经没了
@@ -220,6 +214,7 @@ void interrupt_handler(struct trapframe *tf) {
      */
     SMART_CRITICAL_REGION
     uintptr_t vaddr = rcr2();
+    lcr2(0);
     if ((tf->tf_err & 1) == 0 && tf->tf_err & 4) {
       // 是用户态异常并且是not found
       assert(task_inited == TASK_INITED_MAGIC);
