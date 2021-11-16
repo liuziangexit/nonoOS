@@ -946,6 +946,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
       prev->cr2 = cr2;
     }
   }
+  
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
