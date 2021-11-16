@@ -909,7 +909,16 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     // 触发率非常低的bug是在这里发生的，lcr3之后有可能出现一个访问0x24位置的异常
     // 需要1.搞清楚为什么会访问0x24  2.为什么页表坏掉了
     // 也许是显示错误呢，其实并不是在访问0x24时缺页？先把cr2争用的问题改一下，将cr2算作上下文
+    if (cr3.val == 0x24) {
+      panic("got you");
+    }
+    printf("PD Virtual: 0x%09llx\nPhysical:0x%09llx\n",
+           (int64_t)next->group->vm->page_directory,
+           (int64_t)V2P((uintptr_t)next->group->vm->page_directory));
+    //page_directory_debug(next->group->vm->page_directory);
+    printf("lcr3...\n");
     lcr3(cr3.val);
+    printf("OK!\n");
 
     // 2.切换tss栈
     if (!next->group->is_kernel) {
@@ -946,7 +955,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
       prev->cr2 = cr2;
     }
   }
-  
+
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
