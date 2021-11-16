@@ -83,19 +83,19 @@ bool trap_in_kernel(struct trapframe *tf) {
   return (tf->tf_cs == (uint16_t)KERNEL_CS);
 }
 
-static inline void print_pgfault(struct trapframe *tf) {
+static inline void print_pgfault(struct trapframe *tf, uintptr_t cr2) {
   /* error_code:
    * bit 0 == 0 means no page found, 1 means protection fault
    * bit 1 == 0 means read, 1 means write
    * bit 2 == 0 means kernel, 1 means user
    * */
-  uintptr_t physical = linear2physical((const void *)P2V(rcr3()), rcr2());
+  uintptr_t physical = linear2physical((const void *)P2V(rcr3()), cr2);
   terminal_fgcolor(CGA_COLOR_RED);
   printf("\n\nUNHANDLED PAGE FAULT\n"
          "************************************\n");
   printf("page fault at virtual 0x%08llx / physical 0x%08llx: %c/%c "
          "[%s]\n************************************\n",
-         (int64_t)rcr2(), (int64_t)physical, (tf->tf_err & 4) ? 'U' : 'K',
+         (int64_t)cr2, (int64_t)physical, (tf->tf_err & 4) ? 'U' : 'K',
          (tf->tf_err & 2) ? 'W' : 'R',
          (tf->tf_err & 1) ? "protection fault" : "no page found");
 #ifndef NDEBUG
@@ -213,7 +213,7 @@ void interrupt_handler(struct trapframe *tf) {
      这样每个任务有他自己的cr2
      */
     SMART_CRITICAL_REGION
-    uintptr_t vaddr = rcr2();
+    const uintptr_t cr2 = rcr2();
     lcr2(0);
     if ((tf->tf_err & 1) == 0 && tf->tf_err & 4) {
       // 是用户态异常并且是not found
@@ -223,7 +223,7 @@ void interrupt_handler(struct trapframe *tf) {
       assert(!task->group->is_kernel);
       // 找到vma
       struct virtual_memory_area *vma =
-          virtual_memory_get_vma(task->group->vm, vaddr);
+          virtual_memory_get_vma(task->group->vm, cr2);
       if (vma && vma->type == UMALLOC) {
         // 处理MALLOC缺页
         upfault(task->group->vm, vma);
@@ -232,16 +232,17 @@ void interrupt_handler(struct trapframe *tf) {
     }
     if (task_inited == TASK_INITED_MAGIC && !task_current()->group->is_kernel) {
       // 如果是未处理的用户异常，那么杀进程
-      print_pgfault(tf);
+      print_pgfault(tf, cr2);
       task_terminate(TASK_TERMINATE_BAD_ACCESS);
+      // FIXME 这里正常是要重新调度吧，现在abort是为了调试
       abort();
       __builtin_unreachable();
     }
-    print_pgfault(tf);
-    if (ROUNDDOWN(vaddr, _4K) == 0) {
+    print_pgfault(tf, cr2);
+    if (ROUNDDOWN(cr2, _4K) == 0) {
       if (task_inited == TASK_INITED_MAGIC &&
           !task_current()->group->is_kernel) {
-        // FIXME: test
+        // FIXME 正式处理是重新调度
         panic("user process trying to dereference a null pointer");
         task_terminate(TASK_TERMINATE_BAD_ACCESS);
         abort();
