@@ -696,7 +696,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                      _4K * TASK_STACK_SIZE, V2P(new_task->pustack));
 
   //设置上下文和内核栈
-  memset(&new_task->base.regs, 0, sizeof(struct registers));
+  memset(&new_task->base.regs, 0, sizeof(struct gp_registers));
   new_task->base.regs.eip = (uint32_t)(uintptr_t)user_task_entry;
   new_task->base.regs.ebp = 0;
   uintptr_t kstack_top = new_task->base.kstack + _4K * TASK_STACK_SIZE;
@@ -771,7 +771,7 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name,
   }
 
   //设置上下文和内核栈
-  memset(&new_task->regs, 0, sizeof(struct registers));
+  memset(&new_task->regs, 0, sizeof(struct gp_registers));
   new_task->regs.eip = (uint32_t)(uintptr_t)kernel_task_entry;
   new_task->regs.ebp = new_task->kstack + _4K * TASK_STACK_SIZE;
   new_task->regs.esp = new_task->regs.ebp - 3 * sizeof(void *);
@@ -883,7 +883,7 @@ void task_terminate(int32_t ret) {
   task_quit(ret);
 }
 
-//切换到另一个task
+// 切换到另一个task
 void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   SMART_NOINT_REGION
   assert(current);
@@ -895,7 +895,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   extern uint32_t kernel_pd[];
   current->state = tostate;
   if (!current->group->is_kernel || !next->group->is_kernel) {
-    //不是内核到内核的切换
+    // 不是内核到内核的切换
     // 1. 切换页表
     union {
       struct CR3 cr3;
@@ -905,7 +905,8 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     // 切换到PCB里的页表
     set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
             false);
-    // FIXME 触发率非常低的bug是在这里发生的，lcr3之后有可能出现一个访问0x24位置的异常
+    // FIXME
+    // 触发率非常低的bug是在这里发生的，lcr3之后有可能出现一个访问0x24位置的异常
     // 需要1.搞清楚为什么会访问0x24  2.为什么页表坏掉了
     // 也许是显示错误呢，其实并不是在访问0x24时缺页？先把cr2争用的问题改一下，将cr2算作上下文
     lcr3(cr3.val);
@@ -937,9 +938,14 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   // printf("switch from %s(%lld) to %s(%lld)\n", prev->name, (int64_t)prev->id,
   //        next->name, (int64_t)next->id);
   // terminal_default_color();
+
+  // 保存cr2
+
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
+
+  // 恢复cr2
 }
 
 // 初始化任务系统
