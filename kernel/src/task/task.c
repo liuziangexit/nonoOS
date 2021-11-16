@@ -905,6 +905,8 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     // 切换到PCB里的页表
     set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
             false);
+    // FIXME 触发率非常低的bug是在这里发生的，lcr3之后有可能出现一个访问0x24位置的异常
+    // 需要1.搞清楚为什么会访问0x24  2.为什么页表坏掉了
     lcr3(cr3.val);
 
     // 2.切换tss栈
