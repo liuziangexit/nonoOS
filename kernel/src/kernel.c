@@ -187,100 +187,108 @@ void ktask0() {
   clock_init();
   enable_interrupt();
 
-  if (true) {
-    // 创建共享内存，把countdown程序的代码拷贝进去，让task_test来启动它
-    extern char _binary____program_count_down_main_exe_start[],
-        _binary____program_count_down_main_exe_size[];
-    const char *test_string = "count_down";
-    // 创建共享内存
-    uint32_t shid_str = shared_memory_create(strlen(test_string));
-    uint32_t shid_prog = shared_memory_create(
-        (uint32_t)_binary____program_count_down_main_exe_size);
-    // 拷贝测试字符串
-    struct shared_memory *sh_str = shared_memory_ctx(shid_str);
-    void *access_str =
-        free_region_access(sh_str->physical, sh_str->pgcnt * _4K);
-    memcpy(access_str, test_string, strlen(test_string));
-    // 拷贝countdown程序
-    struct shared_memory *sh_prog = shared_memory_ctx(shid_prog);
-    void *access_prog =
-        free_region_access(sh_prog->physical, sh_prog->pgcnt * _4K);
-    memcpy(access_prog, _binary____program_count_down_main_exe_start,
-           (uint32_t)_binary____program_count_down_main_exe_size);
-    free_region_no_access(access_str);
-    free_region_no_access(access_prog);
-
-    // 通过程序参数传进去共享内存的id
-    union {
-      uint32_t integer;
-      unsigned char str[5];
-    } punning;
-    struct task_args args;
-    task_args_init(&args);
-    punning.str[4] = '\0';
-    // 字符串共享内存的id
-    punning.integer = shid_str;
-    task_args_add(&args, (const char *)&punning.str, 0, false);
-    // 程序共享内存的id
-    punning.integer = shid_prog;
-    task_args_add(&args, (const char *)&punning.str, 0, false);
-    // 程序长度
-    punning.integer = (uint32_t)_binary____program_count_down_main_exe_size;
-    task_args_add(&args, (const char *)&punning.str, 0, false);
-    extern char _binary____program_task_test_main_exe_start[],
-        _binary____program_task_test_main_exe_size[];
-    SMART_CRITICAL_REGION
-    pid_t pid =
-        task_create_user((void *)_binary____program_task_test_main_exe_start,
-                         (uint32_t)_binary____program_task_test_main_exe_size,
-                         "task_test", 0, DEFAULT_ENTRY, false, &args);
-    kernel_object_ref_safe(pid, shid_str);
-    kernel_object_ref_safe(pid, shid_prog);
-    kernel_object_unref(task_current()->group, shid_str, true);
-    kernel_object_unref(task_current()->group, shid_prog, true);
-    task_args_destroy(&args, true);
-  }
-
-  if (true) {
-    struct task_args args;
-    task_args_init(&args);
-    task_args_add(&args, "I AM KERNEL! (1)", 0, false);
-    task_args_add(&args, "I AM KERNEL! (2)", 0, false);
-    extern char _binary____program_count_down_main_exe_start[],
-        _binary____program_count_down_main_exe_size[];
-    task_create_user((void *)_binary____program_count_down_main_exe_start,
-                     (uint32_t)_binary____program_count_down_main_exe_size,
-                     "count_down_1", 0, DEFAULT_ENTRY, false, &args);
-    task_create_user((void *)_binary____program_count_down_main_exe_start,
-                     (uint32_t)_binary____program_count_down_main_exe_size,
-                     "count_down_2", 0, DEFAULT_ENTRY, false, &args);
-    task_create_user((void *)_binary____program_count_down_main_exe_start,
-                     (uint32_t)_binary____program_count_down_main_exe_size,
-                     "count_down_3", 0, DEFAULT_ENTRY, false, &args);
-    task_args_destroy(&args, true);
-  }
-
-  if (true) {
-    extern char _binary____program_schd_test_main_exe_start[],
-        _binary____program_schd_test_main_exe_size[];
-    struct task_args args;
-    task_args_init(&args);
-    task_args_add(&args, "1", 0, false);
-    struct task_args args2;
-    task_args_init(&args2);
-    task_args_add(&args2, "0", 0, false);
-    task_create_user((void *)_binary____program_schd_test_main_exe_start,
-                     (uint32_t)_binary____program_schd_test_main_exe_size,
-                     "schd_test_1", 0, DEFAULT_ENTRY, false, &args);
-    task_create_user((void *)_binary____program_schd_test_main_exe_start,
-                     (uint32_t)_binary____program_schd_test_main_exe_size,
-                     "schd_test_2", 0, DEFAULT_ENTRY, false, &args2);
-    task_args_destroy(&args, true);
-    task_args_destroy(&args2, true);
-  }
-
   printf("nonoOS:$ ");
   // task_display();
+
+  for (int i = 0; i < 128; i++) {
+    if (false) {
+      // 创建共享内存，把countdown程序的代码拷贝进去，让task_test来启动它
+      extern char _binary____program_count_down_main_exe_start[],
+          _binary____program_count_down_main_exe_size[];
+      const char *test_string = "count_down";
+      // 创建共享内存
+      uint32_t shid_str = shared_memory_create(strlen(test_string));
+      uint32_t shid_prog = shared_memory_create(
+          (uint32_t)_binary____program_count_down_main_exe_size);
+      // 拷贝测试字符串
+      struct shared_memory *sh_str = shared_memory_ctx(shid_str);
+      void *access_str =
+          free_region_access(sh_str->physical, sh_str->pgcnt * _4K);
+      memcpy(access_str, test_string, strlen(test_string));
+      // 拷贝countdown程序
+      struct shared_memory *sh_prog = shared_memory_ctx(shid_prog);
+      void *access_prog =
+          free_region_access(sh_prog->physical, sh_prog->pgcnt * _4K);
+      memcpy(access_prog, _binary____program_count_down_main_exe_start,
+             (uint32_t)_binary____program_count_down_main_exe_size);
+      free_region_no_access(access_str);
+      free_region_no_access(access_prog);
+
+      // 通过程序参数传进去共享内存的id
+      union {
+        uint32_t integer;
+        unsigned char str[5];
+      } punning;
+      struct task_args args;
+      task_args_init(&args);
+      punning.str[4] = '\0';
+      // 字符串共享内存的id
+      punning.integer = shid_str;
+      task_args_add(&args, (const char *)&punning.str, 0, false);
+      // 程序共享内存的id
+      punning.integer = shid_prog;
+      task_args_add(&args, (const char *)&punning.str, 0, false);
+      // 程序长度
+      punning.integer = (uint32_t)_binary____program_count_down_main_exe_size;
+      task_args_add(&args, (const char *)&punning.str, 0, false);
+      extern char _binary____program_task_test_main_exe_start[],
+          _binary____program_task_test_main_exe_size[];
+      SMART_CRITICAL_REGION
+      pid_t pid =
+          task_create_user((void *)_binary____program_task_test_main_exe_start,
+                           (uint32_t)_binary____program_task_test_main_exe_size,
+                           "task_test", 0, DEFAULT_ENTRY, false, &args);
+      kernel_object_ref_safe(pid, shid_str);
+      kernel_object_ref_safe(pid, shid_prog);
+      kernel_object_unref(task_current()->group, shid_str, true);
+      kernel_object_unref(task_current()->group, shid_prog, true);
+      task_args_destroy(&args, true);
+    }
+
+    if (false) {
+      struct task_args args;
+      task_args_init(&args);
+      task_args_add(&args, "I AM KERNEL! (1)", 0, false);
+      task_args_add(&args, "I AM KERNEL! (2)", 0, false);
+      extern char _binary____program_count_down_main_exe_start[],
+          _binary____program_count_down_main_exe_size[];
+      task_create_user((void *)_binary____program_count_down_main_exe_start,
+                       (uint32_t)_binary____program_count_down_main_exe_size,
+                       "count_down_1", 0, DEFAULT_ENTRY, false, &args);
+      task_create_user((void *)_binary____program_count_down_main_exe_start,
+                       (uint32_t)_binary____program_count_down_main_exe_size,
+                       "count_down_2", 0, DEFAULT_ENTRY, false, &args);
+      task_create_user((void *)_binary____program_count_down_main_exe_start,
+                       (uint32_t)_binary____program_count_down_main_exe_size,
+                       "count_down_3", 0, DEFAULT_ENTRY, false, &args);
+      task_args_destroy(&args, true);
+    }
+
+    if (true) {
+      extern char _binary____program_schd_test_main_exe_start[],
+          _binary____program_schd_test_main_exe_size[];
+      struct task_args args;
+      task_args_init(&args);
+      task_args_add(&args, "1", 0, false);
+      struct task_args args2;
+      task_args_init(&args2);
+      task_args_add(&args2, "0", 0, false);
+      pid_t result =
+          task_create_user((void *)_binary____program_schd_test_main_exe_start,
+                           (uint32_t)_binary____program_schd_test_main_exe_size,
+                           "schd_test_1", 0, DEFAULT_ENTRY, false, &args);
+      if (!result) {
+        printf("");
+      }
+      result =
+          task_create_user((void *)_binary____program_schd_test_main_exe_start,
+                           (uint32_t)_binary____program_schd_test_main_exe_size,
+                           "schd_test_2", 0, DEFAULT_ENTRY, false, &args2);
+      task_args_destroy(&args, true);
+      task_args_destroy(&args2, true);
+    }
+    printf("i=%d\n", i);
+  }
 
   task_idle();
 

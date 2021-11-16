@@ -15,7 +15,7 @@
 */
 
 // 这个指的是4k页数
-#define TASK_STACK_SIZE 1024
+#define TASK_STACK_SIZE 256
 // 用户代码的虚拟地址
 #define USER_SPACE_BEGIN (0x0)
 #define USER_CODE_BEGIN (0x8000000)
