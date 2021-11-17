@@ -915,10 +915,10 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     printf("PD Virtual: 0x%09llx\nPhysical:0x%09llx\n",
            (int64_t)next->group->vm->page_directory,
            (int64_t)V2P((uintptr_t)next->group->vm->page_directory));
-    //page_directory_debug(next->group->vm->page_directory);
+    // page_directory_debug(next->group->vm->page_directory);
     printf("lcr3...\n");
     lcr3(cr3.val);
-    printf("OK!\n");
+    printf("lcr3 ok\n");
 
     // 2.切换tss栈
     if (!next->group->is_kernel) {
@@ -926,6 +926,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     } else {
       load_esp0(0);
     }
+    printf("switch tss ok\n");
   }
   next->state = RUNNING;
   ktask_t *prev = current;
@@ -935,18 +936,25 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   assert(next->ready_queue_head.next != 0 && next->ready_queue_head.prev != 0);
   assert(prev->ready_queue_head.next == 0 && prev->ready_queue_head.prev == 0);
   // 从队列移除next
+  printf("111\n");
+  if (next->ready_queue_head.prev == 0x8) {
+    printf("www\n");
+  }
   list_del(&next->ready_queue_head);
+  printf("222\n");
   next->ready_queue_head.next = 0;
+  printf("333\n");
   next->ready_queue_head.prev = 0;
   // 向队列加入prev
   if (prev->state == YIELDED) {
     ready_queue_put(prev);
   }
   task_preemptive_set(schd);
-  // terminal_fgcolor(CGA_COLOR_BLUE);
-  // printf("switch from %s(%lld) to %s(%lld)\n", prev->name, (int64_t)prev->id,
-  //        next->name, (int64_t)next->id);
-  // terminal_default_color();
+
+  terminal_fgcolor(CGA_COLOR_BLUE);
+  printf("switch from %s(%lld) to %s(%lld)\n", prev->name, (int64_t)prev->id,
+         next->name, (int64_t)next->id);
+  terminal_default_color();
 
   // 保存cr2
   if (prev->state != EXITED) {
@@ -955,6 +963,8 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
       prev->cr2 = cr2;
     }
   }
+
+  printf("save cr2 ok\n");
 
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
@@ -965,6 +975,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   if (next->cr2) {
     lcr2(next->cr2);
   }
+  printf("restore cr2 ok\n");
 }
 
 // 初始化任务系统
