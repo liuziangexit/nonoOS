@@ -886,13 +886,14 @@ void task_terminate(int32_t ret) {
 // 切换到另一个task
 void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   SMART_NOINT_REGION
-  assert(current);
+  assert(current && next);
   assert(next != current);
   assert(next && (next->state == CREATED || next->state == YIELDED));
   if (next == current) {
     panic("task_switch");
   }
   extern uint32_t kernel_pd[];
+  ktask_t *const prev = current;
   current->state = tostate;
   if (!current->group->is_kernel || !next->group->is_kernel) {
     // 不是内核到内核的切换
@@ -902,59 +903,55 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
       uintptr_t val;
     } cr3;
     cr3.val = 0;
-    // 切换到PCB里的页表
     set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
             false);
     // FIXME
     // 触发率非常低的bug是在这里发生的，lcr3之后有可能出现一个访问0x24位置的异常
     // 需要1.搞清楚为什么会访问0x24  2.为什么页表坏掉了
     // 也许是显示错误呢，其实并不是在访问0x24时缺页？先把cr2争用的问题改一下，将cr2算作上下文
-    if (cr3.val == 0x24) {
-      panic("got you");
-    }
-    printf("PD Virtual: 0x%09llx\nPhysical:0x%09llx\n",
-           (int64_t)next->group->vm->page_directory,
-           (int64_t)V2P((uintptr_t)next->group->vm->page_directory));
-    // page_directory_debug(next->group->vm->page_directory);
-    printf("lcr3...\n");
+    printf("111");
+    const uintptr_t old_cr3 = rcr3();
+    terminal_fgcolor(CGA_COLOR_BLUE);
+    printf("%s(id=%lld,cr3=0x%08llx) -> %s(id=%lld,cr3=0x%08llx)\n",
+           prev->name, (int64_t)prev->id, (int64_t)old_cr3, next->name,
+           (int64_t)next->id, (int64_t)cr3.val);
+    terminal_default_color();
+    // 切换到PCB里的页表
     lcr3(cr3.val);
-    printf("lcr3 ok\n");
+
+    /*
+    b task.c:929
+    b task.c:945
+     */
 
     // 2.切换tss栈
+    if (next <= 1000 || next->group <= 1000) {
+      printf("fff!");
+    }
     if (!next->group->is_kernel) {
       load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
     } else {
       load_esp0(0);
     }
-    printf("switch tss ok\n");
   }
   next->state = RUNNING;
-  ktask_t *prev = current;
   current = next;
   current_vm = next->group->vm;
   // next在ready队列里面，prev不在队列里面
   assert(next->ready_queue_head.next != 0 && next->ready_queue_head.prev != 0);
   assert(prev->ready_queue_head.next == 0 && prev->ready_queue_head.prev == 0);
   // 从队列移除next
-  printf("111\n");
   if (next->ready_queue_head.prev == 0x8) {
     printf("www\n");
   }
   list_del(&next->ready_queue_head);
-  printf("222\n");
   next->ready_queue_head.next = 0;
-  printf("333\n");
   next->ready_queue_head.prev = 0;
   // 向队列加入prev
   if (prev->state == YIELDED) {
     ready_queue_put(prev);
   }
   task_preemptive_set(schd);
-
-  terminal_fgcolor(CGA_COLOR_BLUE);
-  printf("switch from %s(%lld) to %s(%lld)\n", prev->name, (int64_t)prev->id,
-         next->name, (int64_t)next->id);
-  terminal_default_color();
 
   // 保存cr2
   if (prev->state != EXITED) {
@@ -963,8 +960,6 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
       prev->cr2 = cr2;
     }
   }
-
-  printf("save cr2 ok\n");
 
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
@@ -975,7 +970,6 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   if (next->cr2) {
     lcr2(next->cr2);
   }
-  printf("restore cr2 ok\n");
 }
 
 // 初始化任务系统
