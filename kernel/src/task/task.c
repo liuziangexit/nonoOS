@@ -909,12 +909,12 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     // 触发率非常低的bug是在这里发生的，lcr3之后有可能出现一个访问0x24位置的异常
     // 需要1.搞清楚为什么会访问0x24  2.为什么页表坏掉了
     // 也许是显示错误呢，其实并不是在访问0x24时缺页？先把cr2争用的问题改一下，将cr2算作上下文
-    printf("111");
+    printf("this output can help reproduce the bug somehow\n");
     const uintptr_t old_cr3 = rcr3();
     terminal_fgcolor(CGA_COLOR_BLUE);
-    printf("%s(id=%lld,cr3=0x%08llx) -> %s(id=%lld,cr3=0x%08llx)\n",
-           prev->name, (int64_t)prev->id, (int64_t)old_cr3, next->name,
-           (int64_t)next->id, (int64_t)cr3.val);
+    printf("%s(id=%lld,cr3=0x%08llx) -> %s(id=%lld,cr3=0x%08llx)\n", prev->name,
+           (int64_t)prev->id, (int64_t)old_cr3, next->name, (int64_t)next->id,
+           (int64_t)cr3.val);
     terminal_default_color();
     // 切换到PCB里的页表
     lcr3(cr3.val);
