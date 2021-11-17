@@ -1,6 +1,7 @@
 #ifndef __LIBNO_LIST_H__
 #define __LIBNO_LIST_H__
 
+#include <assert.h>
 #include <compiler_helper.h>
 #include <defs.h>
 #include <stdio.h>
@@ -125,6 +126,7 @@ static __always_inline void __list_add(list_entry_t *elm, list_entry_t *prev,
  * the prev/next entries already!
  * */
 static __always_inline void __list_del(list_entry_t *prev, list_entry_t *next) {
+  assert(prev && next);
   prev->next = next;
   next->prev = prev;
 }
