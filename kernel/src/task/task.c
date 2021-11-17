@@ -921,12 +921,21 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
 
     /*
     b task.c:929
-    b task.c:945
+    b task.c:935
      */
 
     // 2.切换tss栈
     if (next <= 1000 || next->group <= 1000) {
-      printf("fff!");
+      printf("fff! make sure old cr3 loaded\n");
+      printf("old cr3=0x%08llx, new cr3=0x%08llx), is that correct?\n",
+             (int64_t)old_cr3, (int64_t)cr3.val);
+      page_directory_debug(P2V(cr3.val));
+    }
+    if (next->ready_queue_head.prev == 0x8) {
+      printf("www! make sure old cr3 loaded\n");
+      printf("old cr3=0x%08llx, new cr3=0x%08llx), is that correct?\n",
+             (int64_t)old_cr3, (int64_t)cr3.val);
+      page_directory_debug(P2V(cr3.val));
     }
     if (!next->group->is_kernel) {
       load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
@@ -941,9 +950,6 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   assert(next->ready_queue_head.next != 0 && next->ready_queue_head.prev != 0);
   assert(prev->ready_queue_head.next == 0 && prev->ready_queue_head.prev == 0);
   // 从队列移除next
-  if (next->ready_queue_head.prev == 0x8) {
-    printf("www\n");
-  }
   list_del(&next->ready_queue_head);
   next->ready_queue_head.next = 0;
   next->ready_queue_head.prev = 0;
