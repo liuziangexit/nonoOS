@@ -904,7 +904,6 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   if (next == current) {
     panic("task_switch");
   }
-  extern uint32_t kernel_pd[];
   ktask_t *const prev = current;
   current->state = tostate;
   if (!current->group->is_kernel || !next->group->is_kernel) {
