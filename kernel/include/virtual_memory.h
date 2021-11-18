@@ -62,6 +62,7 @@ struct virtual_memory_area {
   uint16_t flags;  // 页表里的flags
   enum virtual_memory_area_type type;
   // TODO 下面应该改成union
+
   // malloc类型时用的额外信息
   list_entry_t list_node; // 串在virtual_memory.partial或full
   list_entry_t
@@ -71,6 +72,7 @@ struct virtual_memory_area {
   uint32_t max_free_area_len;          // 最大的freearea是多大
   struct avl_tree allocated_free_area; // 已分配的free_area信息
   uintptr_t physical;                  // 物理页地址
+
   // 共享内存类型时用的额外信息
   uint32_t shid; // shared memory id
 };

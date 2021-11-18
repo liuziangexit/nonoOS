@@ -3,6 +3,10 @@
 #include <memlayout.h>
 #include <stdint.h>
 
+/*
+用来运行kmain的栈，主要用于调用各种init，等到创建task idle之后就没有用了
+*/
+
 uintptr_t boot_stack_paddr;
 
 static uintptr_t in_page_offset(uintptr_t addr) {

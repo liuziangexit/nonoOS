@@ -41,6 +41,7 @@ void kentry() {
   lcr3((uintptr_t)temp_pd);
 
   // 现在只map了内核代码的前4M，我们需要map完整的内核映像
+  // 假如内核映像没有用完最后一个4M页怎么办？这已经考虑过了，不会有影响的
   for (uintptr_t p = ((uintptr_t)program_begin) + _4M;
        p < (uintptr_t)program_end; p += _4M) {
     kernel_pd[p >> PDXSHIFT] = V2P(p) | PTE_P | PTE_PS | PTE_W;
@@ -51,17 +52,16 @@ void kentry() {
     kernel_pd[p >> PDXSHIFT] = p | PTE_P | PTE_PS | PTE_W;
     kernel_pd[P2V(p) >> PDXSHIFT] = p | PTE_P | PTE_PS | PTE_W;
   }
-  // 现在用的还是bootloader栈，要换成boot栈，它是内核映像结束之后第一个物理4M页
+  // 现在用的还是bootloader栈。要换成boot栈，它是内核映像结束之后第一个对齐的物理4M页
   // 把它map到虚拟内存最后一个4M页上
-  uintptr_t pstack = V2P(ROUNDUP((uint32_t)program_end, _4M));
-  // 把这个物理大页map到虚拟地址最后一个大页的位置，也就是KERNEL_BOOT_STACK
-  kernel_pd[1023] = (pstack & ~0x3FFFFF) | PTE_P | PTE_PS | PTE_W;
+  const uintptr_t physical_boot_stack =
+      V2P(ROUNDUP((uint32_t)program_end, _4M));
+  kernel_pd[1023] = (physical_boot_stack & ~0x3FFFFF) | PTE_P | PTE_PS | PTE_W;
 
-  // 切回kernel_pd
+  // kernel_pd改好了，从temp_pd切回kernel_pd
   lcr3(V2P((uintptr_t)kernel_pd));
 
   // 确定kernel_pd是在bss外面的
-  extern uint32_t kernel_pd[];
   extern char bss_begin[], bss_end[];
   assert((uintptr_t)V2P(kernel_pd) >= (uintptr_t)bss_end ||
          (uintptr_t)V2P(kernel_pd) < (uintptr_t)bss_begin);
@@ -69,7 +69,7 @@ void kentry() {
   extern char bss_begin[], bss_end[];
   memset(bss_begin, 0, bss_end - bss_begin);
 
-  boot_stack_paddr = pstack;
+  boot_stack_paddr = physical_boot_stack;
 
   // 在新栈上调kmain
   asm volatile("movl 0, %%ebp;movl $0xFFFFFFFF, %%esp;call kmain;" ::
@@ -111,13 +111,15 @@ void kmain() {
   new_ebp = new_esp + current_stack_frame_size;
 
   memcpy((void *)new_esp, (void *)esp, used_stack);
-  // 然后unmap清空原来的内核栈，这样如果还有代码访问那个地方，就会被暴露出来
+  // 然后unmap原来的内核栈，这样如果还有代码访问那个地方，就会被暴露出来
+  // 首先还需要将kernel_pd的内容拷到temp_pd，然后临时使用temp_pd
   memcpy(temp_pd, kernel_pd, _4K);
   lcr3(linear2physical(kernel_pd, (uintptr_t)temp_pd));
+  // 改kernel_pd
   kernel_pd[1023] = 0;
   // 取消0-4M的映射，要访问0-4M，请访问3G - 3G+4M
   kernel_pd[0] = 0;
-  // cga需要去高地址访问他的buffer了
+  // 所以cga需要去高地址访问他的buffer了
   cga_enable_indirect_mem();
   // 在任务栈上调ktask0
   asm volatile("movl %0, %%ebp;movl %1, %%esp;call ktask0;"
@@ -130,26 +132,39 @@ void kmain() {
 // 此函数用的是task1的任务栈
 void ktask0() {
   {
+    /*
+     有同学会说了，你到现在才从temp_pd切换回kernel_pd，而temp_pd是在kmain函数的栈上的，
+     不会出事吗？这里我要说，因为kmain调用是在在boot栈上做的，而boot栈没人会去动，所以没关系的
+    */
     extern uint32_t kernel_pd[];
     lcr3(V2P((uintptr_t)kernel_pd));
-    // 将old ebp和ret address设为0
+    // 将old ebp和ret address设为0，方便stacktrace停止
     uint32_t ebp;
     rebp(&ebp);
     *(uint32_t *)ebp = 0;
     *(uint32_t *)(ebp + 4) = 0;
     // 设置内核vm
     virtual_memory_init(&kernel_vm, kernel_pd);
+    // 前3GB都是给用户程序用的
     virtual_memory_alloc(&kernel_vm, 0, (uint32_t)3 * 1024 * 1024 * 1024, 0,
                          KUSER, 0);
+    // 3GB到3GB+16MB是给内核DMA用的
     virtual_memory_alloc(&kernel_vm, (uintptr_t)3 * 1024 * 1024 * 1024,
                          16 * 1024 * 1024, 0, KDMA, 0);
+    // 然后是内核代码
     extern uint32_t program_begin[], program_end[];
     virtual_memory_alloc(
         &kernel_vm, KERNEL_VIRTUAL_BASE + 16 * 1024 * 1024,
         ROUNDUP((uintptr_t)program_end - (uintptr_t)program_begin, _4M), 0,
         KCODE, 0);
+    // 然后是normal内存区
     virtual_memory_alloc(&kernel_vm, normal_region_vaddr, normal_region_size, 0,
                          KNORMAL, 0);
+    /*
+    最后是map区，就是有时候系统需要访问free
+    region的东西，就把它临时map到这个map区
+    看看free_region_access函数就懂了
+     */
     struct virtual_memory_area *map_vma = virtual_memory_alloc(
         &kernel_vm, map_region_vaddr, map_region_size, 0, KMAP, 0);
     virtual_memory_print(&kernel_vm);

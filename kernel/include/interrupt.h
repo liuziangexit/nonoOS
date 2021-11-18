@@ -55,47 +55,47 @@ struct gprs {
 } __attribute__((packed));
 
 struct trapframe_kernel {
-  struct gprs tf_gprs;
-  uint16_t tf_gs;
-  uint16_t tf_padding0;
-  uint16_t tf_fs;
-  uint16_t tf_padding1;
-  uint16_t tf_es;
-  uint16_t tf_padding2;
-  uint16_t tf_ds;
-  uint16_t tf_padding3;
-  uint32_t tf_trapno;
+  struct gprs gprs;
+  uint16_t gs;
+  uint16_t padding0;
+  uint16_t fs;
+  uint16_t padding1;
+  uint16_t es;
+  uint16_t padding2;
+  uint16_t ds;
+  uint16_t padding3;
+  uint32_t trapno;
   /* below here are pushed by x86 hardware */
-  uint32_t tf_err;
-  uintptr_t tf_eip;
-  uint16_t tf_cs;
-  uint16_t tf_padding4;
-  uint32_t tf_eflags;
+  uint32_t err;
+  uintptr_t eip;
+  uint16_t cs;
+  uint16_t padding4;
+  uint32_t eflags;
 } __attribute__((packed));
 
 struct trapframe {
-  struct gprs tf_gprs;
-  uint16_t tf_gs;
-  uint16_t tf_padding0;
-  uint16_t tf_fs;
-  uint16_t tf_padding1;
-  uint16_t tf_es;
-  uint16_t tf_padding2;
-  uint16_t tf_ds;
-  uint16_t tf_padding3;
-  uint32_t tf_trapno;
+  struct gprs gprs;
+  uint16_t gs;
+  uint16_t padding0;
+  uint16_t fs;
+  uint16_t padding1;
+  uint16_t es;
+  uint16_t padding2;
+  uint16_t ds;
+  uint16_t padding3;
+  uint32_t trapno;
   /* below here are pushed by x86 hardware */
-  uint32_t tf_err;
-  uintptr_t tf_eip;
-  uint16_t tf_cs;
-  uint16_t tf_padding4;
-  uint32_t tf_eflags;
+  uint32_t err;
+  uintptr_t eip;
+  uint16_t cs;
+  uint16_t padding4;
+  uint32_t eflags;
   /* below here only when crossing rings, such as from user to kernel */
   // int指令发生的时候，处理器会检查RPL(由IDT里gate的seg指示)是否小于CPL
   //如果小于的话 1.将CPL切到RPL  2.使用TSS里指定的RPL(ring0)栈  3.会额外push下面8字节的数据
-  uintptr_t tf_esp;
-  uint16_t tf_ss;
-  uint16_t tf_padding5;
+  uintptr_t esp;
+  uint16_t ss;
+  uint16_t padding5;
 } __attribute__((packed));
 
 void idt_init(void);

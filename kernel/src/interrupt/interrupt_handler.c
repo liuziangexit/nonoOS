@@ -8,6 +8,7 @@
 #include <memlayout.h>
 #include <mmu.h>
 #include <panic.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <sync.h>
@@ -80,30 +81,24 @@ static const char *trapname(unsigned int trapno) {
 
 /* trap_in_kernel - test if trap happened in kernel */
 bool trap_in_kernel(struct trapframe *tf) {
-  return (tf->tf_cs == (uint16_t)KERNEL_CS);
+  return (tf->cs == (uint16_t)KERNEL_CS);
 }
 
-static __always_inline uintptr_t rcr2(void) {
-  uintptr_t cr2;
-  asm volatile("mov %%cr2, %0" : "=r"(cr2)::"memory");
-  return cr2;
-}
-
-static inline void print_pgfault(struct trapframe *tf) {
+static inline void print_pgfault(struct trapframe *tf, uintptr_t cr2) {
   /* error_code:
    * bit 0 == 0 means no page found, 1 means protection fault
    * bit 1 == 0 means read, 1 means write
    * bit 2 == 0 means kernel, 1 means user
    * */
-  uintptr_t physical = linear2physical((const void *)P2V(rcr3()), rcr2());
+  uintptr_t physical = linear2physical((const void *)P2V(rcr3()), cr2);
   terminal_fgcolor(CGA_COLOR_RED);
   printf("\n\nUNHANDLED PAGE FAULT\n"
          "************************************\n");
   printf("page fault at virtual 0x%08llx / physical 0x%08llx: %c/%c "
          "[%s]\n************************************\n",
-         (int64_t)rcr2(), (int64_t)physical, (tf->tf_err & 4) ? 'U' : 'K',
-         (tf->tf_err & 2) ? 'W' : 'R',
-         (tf->tf_err & 1) ? "protection fault" : "no page found");
+         (int64_t)cr2, (int64_t)physical, (tf->err & 4) ? 'U' : 'K',
+         (tf->err & 2) ? 'W' : 'R',
+         (tf->err & 1) ? "protection fault" : "no page found");
 #ifndef NDEBUG
   printf("current syscall: %d\ncurrent page directory: 0x%08llx\ncurrent "
          "pid:%lld\n\n",
@@ -118,7 +113,7 @@ static struct trapframe switchk2u;
 
 /* trap_dispatch - dispatch based on what type of trap occurred */
 void interrupt_handler(struct trapframe *tf) {
-  switch (tf->tf_trapno) {
+  switch (tf->trapno) {
   case IRQ_OFFSET + IRQ_KBD:
     kbd_isr();
     break;
@@ -140,25 +135,25 @@ void interrupt_handler(struct trapframe *tf) {
     syscall_dispatch(tf);
     break;
   case T_SWITCH_USER:
-    if (tf->tf_cs != USER_CS) {
+    if (tf->cs != USER_CS) {
       SMART_CRITICAL_REGION
       //将tf的内容拷贝到switchk2u，然后把寄存器们都改成用户权限
       *(struct trapframe_kernel *)&switchk2u = *(struct trapframe_kernel *)tf;
-      switchk2u.tf_cs = USER_CS;
-      switchk2u.tf_ds = switchk2u.tf_es = USER_DS;
-      switchk2u.tf_ss = USER_DS;
+      switchk2u.cs = USER_CS;
+      switchk2u.ds = switchk2u.es = USER_DS;
+      switchk2u.ss = USER_DS;
       // set eflags, make sure ucore can use io under user mode.
       // if CPL > IOPL, then cpu will generate a general protection.
       // nonoOS里的io都要走系统调用，不给用户这权限
       // switchk2u.tf_eflags |= FL_IOPL_MASK;
-      tf->tf_eflags &= ~FL_IOPL_MASK;
+      tf->eflags &= ~FL_IOPL_MASK;
 
       /*
       为了解决下面说的esp错误指向switchk2u附近的问题，我们在这里把switchk2u.tf_esp设置为esp应该指向的正确位置，也就是tf之前()
       (“tf之前”是从栈的角度讲的，如果是从地址空间的角度讲，应该是“tf之后”)
       又：T_SWITCH_USER的tf是没有最后8字节的
       */
-      switchk2u.tf_esp = (uint32_t)tf + sizeof(struct trapframe) - 8;
+      switchk2u.esp = (uint32_t)tf + sizeof(struct trapframe) - 8;
 
       /*
       这个*((uint32_t *)tf - 1)是指向我们在__interrupt_entry里call
@@ -210,7 +205,7 @@ void interrupt_handler(struct trapframe *tf) {
     panic(trapname(T_GPFLT));
   } break;
   case T_PGFLT: {
-    /* FIXME
+    /* FIXED in task_switch()
      这里有一个争用条件，考虑一个缺页已经发生，处理该缺页的isr还未来的及
      关中断，时钟中断就引起了任务切换，切到另一个任务去了，另一个任务也发生了缺页
      于是覆盖了cr2。当我们回到首个缺页的isr中时，我们想要的cr2值已经没了
@@ -219,8 +214,11 @@ void interrupt_handler(struct trapframe *tf) {
      这样每个任务有他自己的cr2
      */
     SMART_CRITICAL_REGION
-    uintptr_t vaddr = rcr2();
-    if ((tf->tf_err & 1) == 0 && tf->tf_err & 4) {
+    const uintptr_t cr2 = rcr2();
+    lcr2(0);
+
+    // 处理malloc的缺页
+    if ((tf->err & 1) == 0 && tf->err & 4) {
       // 是用户态异常并且是not found
       assert(task_inited == TASK_INITED_MAGIC);
       // 找到task
@@ -228,45 +226,54 @@ void interrupt_handler(struct trapframe *tf) {
       assert(!task->group->is_kernel);
       // 找到vma
       struct virtual_memory_area *vma =
-          virtual_memory_get_vma(task->group->vm, vaddr);
+          virtual_memory_get_vma(task->group->vm, cr2);
       if (vma && vma->type == UMALLOC) {
         // 处理MALLOC缺页
         upfault(task->group->vm, vma);
         break;
       }
     }
-    if (task_inited == TASK_INITED_MAGIC && !task_current()->group->is_kernel) {
-      // 如果是未处理的用户异常，那么杀进程
-      print_pgfault(tf);
-      task_terminate(TASK_TERMINATE_BAD_ACCESS);
-      abort();
-      __builtin_unreachable();
-    }
-    print_pgfault(tf);
-    if (ROUNDDOWN(vaddr, _4K) == 0) {
-      if (task_inited == TASK_INITED_MAGIC &&
-          !task_current()->group->is_kernel) {
-        // FIXME: test
+
+    const bool is_user =
+        task_inited == TASK_INITED_MAGIC && !task_current()->group->is_kernel;
+
+    // 处理访问0的缺页
+    if (ROUNDDOWN(cr2, _4K) == 0) {
+      if (is_user) {
+        // FIXME 正式处理是重新调度
+        print_pgfault(tf, cr2);
         panic("user process trying to dereference a null pointer");
         task_terminate(TASK_TERMINATE_BAD_ACCESS);
         abort();
       } else {
+        print_pgfault(tf, cr2);
         panic("system process trying to dereference a null pointer");
       }
       __builtin_unreachable();
+    }
+
+    if (is_user) {
+      // 如果是未处理的用户异常，那么杀进程
+      print_pgfault(tf, cr2);
+      task_terminate(TASK_TERMINATE_BAD_ACCESS);
+      // FIXME 这里正常是要重新调度吧，现在abort是为了调试
+      abort();
+      __builtin_unreachable();
     } else {
+      // 如果是未处理的内核
+      print_pgfault(tf, cr2);
       panic(trapname(T_PGFLT));
     }
   } break;
   default:
-    if ((tf->tf_cs & 3) == 0) {
+    if ((tf->cs & 3) == 0) {
       /*
       TODO
       这里我想打印一下trap的number，所以在这里必须用一个sprintf去组装一个字符串，
       然后再丢到panic里面，但是printf那边还比较乱，没有办法搞一个sprintf出来
       必须先重构printf那块，做出sprintf，然后再改这个地方
       */
-      printf("%s\n", trapname(tf->tf_trapno));
+      printf("%s\n", trapname(tf->trapno));
       panic("unexpected trap in kernel.\n");
     }
   }

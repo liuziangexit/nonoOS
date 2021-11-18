@@ -93,7 +93,7 @@ void task_args_add(struct task_args *dst, const char *str,
                    struct virtual_memory *vm, bool use_umalloc);
 void task_args_destroy(struct task_args *dst, bool free_data);
 
-struct registers {
+struct gp_registers {
   uint32_t eip;
   uint32_t esp;
   uint32_t ebx;
@@ -134,7 +134,9 @@ struct ktask {
   // 内核栈
   uintptr_t kstack;
   // 寄存器
-  struct registers regs;
+  struct gp_registers regs;
+  // CR2
+  uintptr_t cr2;
   // 命令行参数
   struct task_args *args;
   // 已使用的时间片

@@ -502,6 +502,30 @@ bool task_schd(bool force, bool allow_idle, enum task_state tostate) {
     if (allow_idle || t->id != 1) {
       if (force || t->tslice < task_current()->tslice) {
         // 如果t不如当前任务的时间片，就执行它
+        {
+          /*
+           在切换前，还需确认当前使用的是内核栈。
+           如果当前是用户栈，切换到别的进程页表时会无法访问当前用户栈，以至于出错
+
+           比如，在用户程序刚开始执行但尚未通过系统调用切换到用户态前，
+           如果出现时钟中断，就会以用户栈走到这个地方，最后出错
+
+           或者甚至是用户进程完成系统调用，已离开criticalregion但还未切换回ring3时也会出错
+          */
+          uint32_t esp;
+          resp(&esp);
+          if (esp >= ((utask_t *)task_current())->vustack &&
+              esp < ((utask_t *)task_current())->vustack +
+                        TASK_STACK_SIZE * 4096) {
+            // 为了解决这问题，如果发现现在是是用户栈，那么这次不switch
+            return false;
+          } else if (!(esp >= task_current()->kstack &&
+                       esp < task_current()->kstack + TASK_STACK_SIZE * 4096)) {
+            // 不是用户栈，但竟然也不是内核栈
+            abort();
+          }
+          //是内核栈
+        }
         task_switch(t, true, tostate);
         return true;
       } else {
@@ -672,9 +696,21 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
       }
     }
 
-    extern uint32_t kernel_pd[];
-    // 复制内核页表
-    virtual_memory_clone(new_task->base.group->vm, kernel_pd, UKERNEL);
+    _Alignas(4096) uint32_t copy_pd[1024];
+    {
+      // 按照内核页表的样子建立vm，因为用户程序的vm也需要map进内核
+      // 但是不能把kernal_pd的map区域也映射了，因为每个进程的map区域都是独立的
+      extern uint32_t kernel_pd[];
+      // 所以就需要先拷贝kernel_pd
+      memcpy(copy_pd, kernel_pd, 4096);
+      // 然后把拷贝里的map区域全部设0
+      // 其实就是把map_region_vaddr的页一直到最后一页全部设0
+      // (虽然其实map区域并不包含最后一个4k页，这也是为什么
+      // map_region_size/4M != 1024-map_region_vaddr/4M)
+      memset(&copy_pd[map_region_vaddr / _4M], 0,
+             (1024 - map_region_vaddr / _4M) * 4);
+    }
+    virtual_memory_clone(new_task->base.group->vm, copy_pd, UKERNEL);
     // 把new_task->program映射到128MB的地方
     struct virtual_memory_area *vma = virtual_memory_alloc(
         new_task->base.group->vm, USER_CODE_BEGIN, ROUNDUP(program_size, _4K),
@@ -696,7 +732,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                      _4K * TASK_STACK_SIZE, V2P(new_task->pustack));
 
   //设置上下文和内核栈
-  memset(&new_task->base.regs, 0, sizeof(struct registers));
+  memset(&new_task->base.regs, 0, sizeof(struct gp_registers));
   new_task->base.regs.eip = (uint32_t)(uintptr_t)user_task_entry;
   new_task->base.regs.ebp = 0;
   uintptr_t kstack_top = new_task->base.kstack + _4K * TASK_STACK_SIZE;
@@ -771,7 +807,7 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name,
   }
 
   //设置上下文和内核栈
-  memset(&new_task->regs, 0, sizeof(struct registers));
+  memset(&new_task->regs, 0, sizeof(struct gp_registers));
   new_task->regs.eip = (uint32_t)(uintptr_t)kernel_task_entry;
   new_task->regs.ebp = new_task->kstack + _4K * TASK_STACK_SIZE;
   new_task->regs.esp = new_task->regs.ebp - 3 * sizeof(void *);
@@ -883,41 +919,48 @@ void task_terminate(int32_t ret) {
   task_quit(ret);
 }
 
-//切换到另一个task
+// 切换到另一个task
 void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   SMART_NOINT_REGION
-  assert(current);
+  assert(current && next);
   assert(next != current);
   assert(next && (next->state == CREATED || next->state == YIELDED));
   if (next == current) {
     panic("task_switch");
   }
-  extern uint32_t kernel_pd[];
+  {
+    uint32_t esp;
+    resp(&esp);
+    if (!(esp >= task_current()->kstack &&
+          esp < task_current()->kstack + TASK_STACK_SIZE * 4096)) {
+      // 不是内核栈
+      abort();
+    }
+  }
+  ktask_t *const prev = current;
   current->state = tostate;
   if (!current->group->is_kernel || !next->group->is_kernel) {
-    //不是内核到内核的切换
+    // 不是内核到内核的切换
     // 1. 切换页表
     union {
       struct CR3 cr3;
       uintptr_t val;
     } cr3;
     cr3.val = 0;
-    // 切换到PCB里的页表
     set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
             false);
-    // FIXME 触发率非常低的bug是在这里发生的，lcr3之后有可能出现一个访问0x24位置的异常
-    // 需要1.搞清楚为什么会访问0x24  2.为什么页表坏掉了
     lcr3(cr3.val);
 
     // 2.切换tss栈
     if (!next->group->is_kernel) {
+      // 如果下一个进程不是内核，加载该进程的内核栈到esp0
+      // 这样该进程在遇到中断而陷入内核态时会使用esp0指示的栈
       load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
     } else {
       load_esp0(0);
     }
   }
   next->state = RUNNING;
-  ktask_t *prev = current;
   current = next;
   current_vm = next->group->vm;
   // next在ready队列里面，prev不在队列里面
@@ -932,13 +975,29 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     ready_queue_put(prev);
   }
   task_preemptive_set(schd);
+
+  // 保存cr2
+  if (prev->state != EXITED) {
+    uintptr_t cr2 = rcr2();
+    if (cr2) {
+      prev->cr2 = cr2;
+    }
+  }
+
   // terminal_fgcolor(CGA_COLOR_BLUE);
-  // printf("switch from %s(%lld) to %s(%lld)\n", prev->name, (int64_t)prev->id,
+  // printf("%s(id=%lld) -> %s(id=%lld)\n", prev->name, (int64_t)prev->id,
   //        next->name, (int64_t)next->id);
   // terminal_default_color();
+
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
+  assert(prev->state != EXITED);
+
+  // 恢复cr2
+  if (next->cr2) {
+    lcr2(next->cr2);
+  }
 }
 
 // 初始化任务系统
