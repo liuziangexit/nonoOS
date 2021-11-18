@@ -509,13 +509,15 @@ bool task_schd(bool force, bool allow_idle, enum task_state tostate) {
 
            比如，在用户程序刚开始执行但尚未通过系统调用切换到用户态前，
            如果出现时钟中断，就会以用户栈走到这个地方，最后出错
+
+           或者甚至是用户进程完成系统调用，已离开criticalregion但还未切换回ring3时也会出错
           */
           uint32_t esp;
           resp(&esp);
           if (esp >= ((utask_t *)task_current())->vustack &&
               esp < ((utask_t *)task_current())->vustack +
                         TASK_STACK_SIZE * 4096) {
-            // 是用户栈
+            // 为了解决这问题，如果发现现在是是用户栈，那么这次不switch
             return false;
           } else if (!(esp >= task_current()->kstack &&
                        esp < task_current()->kstack + TASK_STACK_SIZE * 4096)) {
@@ -952,6 +954,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     // 2.切换tss栈
     if (!next->group->is_kernel) {
       // 如果下一个进程不是内核，加载该进程的内核栈到esp0
+      // 这样该进程在遇到中断而陷入内核态时会使用esp0指示的栈
       load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
     } else {
       load_esp0(0);
