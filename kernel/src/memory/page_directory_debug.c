@@ -1,3 +1,4 @@
+#include <memlayout.h>
 #include <mmu.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -41,6 +42,7 @@ void page_directory_debug(const uint32_t *pd) {
       } else {
         // 4K页
         uint32_t *pt = (uint32_t *)(pd[pd_idx] & ~0xFFF);
+        pt = (uint32_t *)P2V((uintptr_t)pt);
         for (uint32_t pt_idx = 0; pt_idx < 1024; pt_idx++) {
           if ((pt[pt_idx] & PTE_P)) {
             uintptr_t page_frame = (uintptr_t)(pt[pt_idx] & ~0xFFF);
