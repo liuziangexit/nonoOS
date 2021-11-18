@@ -182,11 +182,8 @@ void ktask0() {
 
   {
     extern uint32_t kernel_pd[];
-    page_directory_debug(kernel_pd);
+    // page_directory_debug(kernel_pd);
   }
-
-  while (1)
-    ;
 
   // 跑测试
   ring_buffer_test();
