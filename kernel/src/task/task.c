@@ -502,6 +502,28 @@ bool task_schd(bool force, bool allow_idle, enum task_state tostate) {
     if (allow_idle || t->id != 1) {
       if (force || t->tslice < task_current()->tslice) {
         // 如果t不如当前任务的时间片，就执行它
+        {
+          /*
+           在切换前，还需确认当前使用的是内核栈。
+           如果当前是用户栈，切换到别的进程页表时会无法访问当前用户栈，以至于出错
+
+           比如，在用户程序刚开始执行但尚未通过系统调用切换到用户态前，
+           如果出现时钟中断，就会以用户栈走到这个地方，最后出错
+          */
+          uint32_t esp;
+          resp(&esp);
+          if (esp >= ((utask_t *)task_current())->vustack &&
+              esp < ((utask_t *)task_current())->vustack +
+                        TASK_STACK_SIZE * 4096) {
+            // 是用户栈
+            return false;
+          } else if (!(esp >= task_current()->kstack &&
+                       esp < task_current()->kstack + TASK_STACK_SIZE * 4096)) {
+            // 不是用户栈，但竟然也不是内核栈
+            abort();
+          }
+          //是内核栈
+        }
         task_switch(t, true, tostate);
         return true;
       } else {
@@ -904,6 +926,15 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   if (next == current) {
     panic("task_switch");
   }
+  {
+    uint32_t esp;
+    resp(&esp);
+    if (!(esp >= task_current()->kstack &&
+          esp < task_current()->kstack + TASK_STACK_SIZE * 4096)) {
+      // 不是内核栈
+      abort();
+    }
+  }
   ktask_t *const prev = current;
   current->state = tostate;
   if (!current->group->is_kernel || !next->group->is_kernel) {
@@ -916,39 +947,67 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     cr3.val = 0;
     set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
             false);
-    // FIXME
-    // 触发率非常低的bug是在这里发生的，lcr3之后有可能出现一个访问0x24位置的异常
-    // 需要1.搞清楚为什么会访问0x24  2.为什么页表坏掉了
-    // 也许是显示错误呢，其实并不是在访问0x24时缺页？先把cr2争用的问题改一下，将cr2算作上下文
     printf("this output can help reproduce the bug somehow\n");
+
     const uintptr_t old_cr3 = rcr3();
     terminal_fgcolor(CGA_COLOR_BLUE);
     printf("%s(id=%lld,cr3=0x%08llx) -> %s(id=%lld,cr3=0x%08llx)\n", prev->name,
            (int64_t)prev->id, (int64_t)old_cr3, next->name, (int64_t)next->id,
            (int64_t)cr3.val);
     terminal_default_color();
+
+    uintptr_t addr_of_next = (uintptr_t)&next;
+    uintptr_t old_result =
+        linear2physical((const void *)P2V(old_cr3), addr_of_next);
+    uintptr_t new_result =
+        linear2physical((const void *)P2V(cr3.val), addr_of_next);
+    // b task.c:970
+    if (old_result == new_result) {
+      printf("old_result=0x%08llx, new_result=0x%08llx   SAME\n",
+             (int64_t)old_result, (int64_t)new_result);
+    } else {
+      printf("old_result=0x%08llx, new_result=0x%08llx   FUCK!!!\n",
+             (int64_t)old_result, (int64_t)new_result);
+    }
+
     // 切换到PCB里的页表
     lcr3(cr3.val);
 
-    /*
-    b task.c:929
-    b task.c:935
-     */
-
     // 2.切换tss栈
-    if (next <= 1000 || next->group <= 1000) {
+    if ((uintptr_t)next <= 1000 || (uintptr_t)next->group <= 1000) {
       printf("fff! make sure old cr3 loaded\n");
       printf("old cr3=0x%08llx, new cr3=0x%08llx), is that correct?\n",
              (int64_t)old_cr3, (int64_t)cr3.val);
-      page_directory_debug(P2V(cr3.val));
+      uintptr_t addr_of_next = (uintptr_t)&next;
+      uintptr_t old_result =
+          linear2physical((const void *)P2V(old_cr3), addr_of_next);
+      uintptr_t new_result =
+          linear2physical((const void *)P2V(cr3.val), addr_of_next);
+      printf("old_result=0x%08llx, new_result=0x%08llx\n", (int64_t)old_result,
+             (int64_t)new_result);
+      // struct virtual_memory *old_vm = virtual_memory_create();
+      // virtual_memory_clone(old_vm, (const uint32_t *)P2V(old_cr3), KKTEST);
+      // virtual_memory_print(old_vm);
+      // struct virtual_memory *new_vm = virtual_memory_create();
+      // virtual_memory_clone(new_vm, (const uint32_t *)P2V(cr3.val), KKTEST);
+      // virtual_memory_print(new_vm);
+
+      // page_directory_debug((const uint32_t *)P2V(cr3.val));
     }
-    if (next->ready_queue_head.prev == 0x8) {
+    if ((uintptr_t)next->ready_queue_head.prev == 0x8) {
       printf("www! make sure old cr3 loaded\n");
       printf("old cr3=0x%08llx, new cr3=0x%08llx), is that correct?\n",
              (int64_t)old_cr3, (int64_t)cr3.val);
-      page_directory_debug(P2V(cr3.val));
+      uintptr_t addr_of_next = (uintptr_t)&next;
+      uintptr_t old_result =
+          linear2physical((const void *)P2V(old_cr3), addr_of_next);
+      uintptr_t new_result =
+          linear2physical((const void *)P2V(cr3.val), addr_of_next);
+      printf("old_result=0x%08llx, new_result=0x%08llx\n", (int64_t)old_result,
+             (int64_t)new_result);
     }
     if (!next->group->is_kernel) {
+      // 如果下一个进程不是内核，加载该进程的内核栈到esp0
       load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
     } else {
       load_esp0(0);
@@ -982,6 +1041,8 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
   assert(prev->state != EXITED);
+
+  // b task.c:1043
 
   // 恢复cr2
   if (next->cr2) {

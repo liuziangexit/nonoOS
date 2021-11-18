@@ -33,6 +33,16 @@ void syscall_dispatch(struct trapframe *tf) {
   task->debug_current_syscall = no;
 #endif
 
+  {
+    uint32_t esp;
+    resp(&esp);
+    if (!(esp >= task_current()->kstack &&
+          esp < task_current()->kstack + TASK_STACK_SIZE * 4096)) {
+      // 不是内核栈
+      abort();
+    }
+  }
+
   switch (no) {
   case SYSCALL_TASK: {
     uint32_t action = arg[0];
