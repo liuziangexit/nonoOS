@@ -947,65 +947,9 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     cr3.val = 0;
     set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
             false);
-    printf("this output can help reproduce the bug somehow\n");
-
-    const uintptr_t old_cr3 = rcr3();
-    terminal_fgcolor(CGA_COLOR_BLUE);
-    printf("%s(id=%lld,cr3=0x%08llx) -> %s(id=%lld,cr3=0x%08llx)\n", prev->name,
-           (int64_t)prev->id, (int64_t)old_cr3, next->name, (int64_t)next->id,
-           (int64_t)cr3.val);
-    terminal_default_color();
-
-    uintptr_t addr_of_next = (uintptr_t)&next;
-    uintptr_t old_result =
-        linear2physical((const void *)P2V(old_cr3), addr_of_next);
-    uintptr_t new_result =
-        linear2physical((const void *)P2V(cr3.val), addr_of_next);
-    // b task.c:970
-    if (old_result == new_result) {
-      printf("old_result=0x%08llx, new_result=0x%08llx   SAME\n",
-             (int64_t)old_result, (int64_t)new_result);
-    } else {
-      printf("old_result=0x%08llx, new_result=0x%08llx   FUCK!!!\n",
-             (int64_t)old_result, (int64_t)new_result);
-    }
-
-    // 切换到PCB里的页表
     lcr3(cr3.val);
 
     // 2.切换tss栈
-    if ((uintptr_t)next <= 1000 || (uintptr_t)next->group <= 1000) {
-      printf("fff! make sure old cr3 loaded\n");
-      printf("old cr3=0x%08llx, new cr3=0x%08llx), is that correct?\n",
-             (int64_t)old_cr3, (int64_t)cr3.val);
-      uintptr_t addr_of_next = (uintptr_t)&next;
-      uintptr_t old_result =
-          linear2physical((const void *)P2V(old_cr3), addr_of_next);
-      uintptr_t new_result =
-          linear2physical((const void *)P2V(cr3.val), addr_of_next);
-      printf("old_result=0x%08llx, new_result=0x%08llx\n", (int64_t)old_result,
-             (int64_t)new_result);
-      // struct virtual_memory *old_vm = virtual_memory_create();
-      // virtual_memory_clone(old_vm, (const uint32_t *)P2V(old_cr3), KKTEST);
-      // virtual_memory_print(old_vm);
-      // struct virtual_memory *new_vm = virtual_memory_create();
-      // virtual_memory_clone(new_vm, (const uint32_t *)P2V(cr3.val), KKTEST);
-      // virtual_memory_print(new_vm);
-
-      // page_directory_debug((const uint32_t *)P2V(cr3.val));
-    }
-    if ((uintptr_t)next->ready_queue_head.prev == 0x8) {
-      printf("www! make sure old cr3 loaded\n");
-      printf("old cr3=0x%08llx, new cr3=0x%08llx), is that correct?\n",
-             (int64_t)old_cr3, (int64_t)cr3.val);
-      uintptr_t addr_of_next = (uintptr_t)&next;
-      uintptr_t old_result =
-          linear2physical((const void *)P2V(old_cr3), addr_of_next);
-      uintptr_t new_result =
-          linear2physical((const void *)P2V(cr3.val), addr_of_next);
-      printf("old_result=0x%08llx, new_result=0x%08llx\n", (int64_t)old_result,
-             (int64_t)new_result);
-    }
     if (!next->group->is_kernel) {
       // 如果下一个进程不是内核，加载该进程的内核栈到esp0
       load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
@@ -1037,12 +981,15 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
     }
   }
 
+  // terminal_fgcolor(CGA_COLOR_BLUE);
+  // printf("%s(id=%lld) -> %s(id=%lld)\n", prev->name, (int64_t)prev->id,
+  //        next->name, (int64_t)next->id);
+  // terminal_default_color();
+
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
   assert((reflags() & FL_IF) == 0);
   assert(prev->state != EXITED);
-
-  // b task.c:1043
 
   // 恢复cr2
   if (next->cr2) {
