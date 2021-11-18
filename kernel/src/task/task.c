@@ -672,9 +672,21 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
       }
     }
 
-    extern uint32_t kernel_pd[];
-    // 复制内核页表
-    virtual_memory_clone(new_task->base.group->vm, kernel_pd, UKERNEL);
+    _Alignas(4096) uint32_t copy_pd[1024];
+    {
+      // 按照内核页表的样子建立vm，因为用户程序的vm也需要map进内核
+      // 但是不能把kernal_pd的map区域也映射了，因为每个进程的map区域都是独立的
+      extern uint32_t kernel_pd[];
+      // 所以就需要先拷贝kernel_pd
+      memcpy(copy_pd, kernel_pd, 4096);
+      // 然后把拷贝里的map区域全部设0
+      // 其实就是把map_region_vaddr的页一直到最后一页全部设0
+      // (虽然其实map区域并不包含最后一个4k页，这也是为什么
+      // map_region_size/4M != 1024-map_region_vaddr/4M)
+      memset(&copy_pd[map_region_vaddr / _4M], 0,
+             (1024 - map_region_vaddr / _4M) * 4);
+    }
+    virtual_memory_clone(new_task->base.group->vm, copy_pd, UKERNEL);
     // 把new_task->program映射到128MB的地方
     struct virtual_memory_area *vma = virtual_memory_alloc(
         new_task->base.group->vm, USER_CODE_BEGIN, ROUNDUP(program_size, _4K),

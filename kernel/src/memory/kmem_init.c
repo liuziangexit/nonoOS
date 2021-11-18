@@ -177,6 +177,9 @@ void kmem_init(struct e820map_t *memlayout) {
   printf("normal_region write test passed\n");
   terminal_default_color();
   // 设置MAP REGION
+  // map区最后一个字节为什么不是0xffffffff而是0xfffff000呢？
+  // 因为很多地方需要一个"end"就是C++iterator语义的那种end()，如果你的最后一个字节是0xffffffff
+  // 那么你的end势必成了0xffffffff+1，而这就溢出成0了
   map_region_vaddr = ROUNDUP(normal_region_vaddr + normal_region_size, _4M);
   map_region_size = ROUNDDOWN(0xffffffff - map_region_vaddr, _4K);
   map_region_vend = map_region_vaddr + map_region_size;
