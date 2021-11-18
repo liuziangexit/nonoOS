@@ -19,14 +19,13 @@
 int printf_impl(void *format, void *parameters);
 
 void set_return_value(struct trapframe *tf, uint32_t ret) {
-  tf->tf_gprs.reg_eax = ret;
+  tf->gprs.reg_eax = ret;
 }
 
 void syscall_dispatch(struct trapframe *tf) {
-  uint32_t arg[5] = {tf->tf_gprs.reg_edx, tf->tf_gprs.reg_ecx,
-                     tf->tf_gprs.reg_ebx, tf->tf_gprs.reg_edi,
-                     tf->tf_gprs.reg_esi};
-  const int no = tf->tf_gprs.reg_eax;
+  uint32_t arg[5] = {tf->gprs.reg_edx, tf->gprs.reg_ecx, tf->gprs.reg_ebx,
+                     tf->gprs.reg_edi, tf->gprs.reg_esi};
+  const int no = tf->gprs.reg_eax;
   ktask_t *const task = task_current();
   assert(task && !task->group->is_kernel);
 #ifndef NDEBUG

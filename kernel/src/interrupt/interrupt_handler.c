@@ -81,7 +81,7 @@ static const char *trapname(unsigned int trapno) {
 
 /* trap_in_kernel - test if trap happened in kernel */
 bool trap_in_kernel(struct trapframe *tf) {
-  return (tf->tf_cs == (uint16_t)KERNEL_CS);
+  return (tf->cs == (uint16_t)KERNEL_CS);
 }
 
 static inline void print_pgfault(struct trapframe *tf, uintptr_t cr2) {
@@ -96,9 +96,9 @@ static inline void print_pgfault(struct trapframe *tf, uintptr_t cr2) {
          "************************************\n");
   printf("page fault at virtual 0x%08llx / physical 0x%08llx: %c/%c "
          "[%s]\n************************************\n",
-         (int64_t)cr2, (int64_t)physical, (tf->tf_err & 4) ? 'U' : 'K',
-         (tf->tf_err & 2) ? 'W' : 'R',
-         (tf->tf_err & 1) ? "protection fault" : "no page found");
+         (int64_t)cr2, (int64_t)physical, (tf->err & 4) ? 'U' : 'K',
+         (tf->err & 2) ? 'W' : 'R',
+         (tf->err & 1) ? "protection fault" : "no page found");
 #ifndef NDEBUG
   printf("current syscall: %d\ncurrent page directory: 0x%08llx\ncurrent "
          "pid:%lld\n\n",
@@ -113,7 +113,7 @@ static struct trapframe switchk2u;
 
 /* trap_dispatch - dispatch based on what type of trap occurred */
 void interrupt_handler(struct trapframe *tf) {
-  switch (tf->tf_trapno) {
+  switch (tf->trapno) {
   case IRQ_OFFSET + IRQ_KBD:
     kbd_isr();
     break;
@@ -135,25 +135,25 @@ void interrupt_handler(struct trapframe *tf) {
     syscall_dispatch(tf);
     break;
   case T_SWITCH_USER:
-    if (tf->tf_cs != USER_CS) {
+    if (tf->cs != USER_CS) {
       SMART_CRITICAL_REGION
       //将tf的内容拷贝到switchk2u，然后把寄存器们都改成用户权限
       *(struct trapframe_kernel *)&switchk2u = *(struct trapframe_kernel *)tf;
-      switchk2u.tf_cs = USER_CS;
-      switchk2u.tf_ds = switchk2u.tf_es = USER_DS;
-      switchk2u.tf_ss = USER_DS;
+      switchk2u.cs = USER_CS;
+      switchk2u.ds = switchk2u.es = USER_DS;
+      switchk2u.ss = USER_DS;
       // set eflags, make sure ucore can use io under user mode.
       // if CPL > IOPL, then cpu will generate a general protection.
       // nonoOS里的io都要走系统调用，不给用户这权限
       // switchk2u.tf_eflags |= FL_IOPL_MASK;
-      tf->tf_eflags &= ~FL_IOPL_MASK;
+      tf->eflags &= ~FL_IOPL_MASK;
 
       /*
       为了解决下面说的esp错误指向switchk2u附近的问题，我们在这里把switchk2u.tf_esp设置为esp应该指向的正确位置，也就是tf之前()
       (“tf之前”是从栈的角度讲的，如果是从地址空间的角度讲，应该是“tf之后”)
       又：T_SWITCH_USER的tf是没有最后8字节的
       */
-      switchk2u.tf_esp = (uint32_t)tf + sizeof(struct trapframe) - 8;
+      switchk2u.esp = (uint32_t)tf + sizeof(struct trapframe) - 8;
 
       /*
       这个*((uint32_t *)tf - 1)是指向我们在__interrupt_entry里call
@@ -218,7 +218,7 @@ void interrupt_handler(struct trapframe *tf) {
     lcr2(0);
 
     // 处理malloc的缺页
-    if ((tf->tf_err & 1) == 0 && tf->tf_err & 4) {
+    if ((tf->err & 1) == 0 && tf->err & 4) {
       // 是用户态异常并且是not found
       assert(task_inited == TASK_INITED_MAGIC);
       // 找到task
@@ -266,14 +266,14 @@ void interrupt_handler(struct trapframe *tf) {
     }
   } break;
   default:
-    if ((tf->tf_cs & 3) == 0) {
+    if ((tf->cs & 3) == 0) {
       /*
       TODO
       这里我想打印一下trap的number，所以在这里必须用一个sprintf去组装一个字符串，
       然后再丢到panic里面，但是printf那边还比较乱，没有办法搞一个sprintf出来
       必须先重构printf那块，做出sprintf，然后再改这个地方
       */
-      printf("%s\n", trapname(tf->tf_trapno));
+      printf("%s\n", trapname(tf->trapno));
       panic("unexpected trap in kernel.\n");
     }
   }
