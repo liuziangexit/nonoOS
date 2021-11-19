@@ -1,0 +1,45 @@
+<canvas style="outline: 1px solid red;
+margin: 30px;" width=500 height=500></canvas>
+
+<script>
+    //Midpoint circle algorithm
+    //http://en.wikipedia.org/wiki/Midpoint_circle_algorithm
+
+    var canvas = document.querySelector('canvas')
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'blue';
+
+    var DrawPixel = function (x, y) {
+        ctx.fillRect(x, y, 1, 1);
+    }
+
+    var DrawCirle = function (x0, y0, radius) {
+        var x = radius;
+        var y = 0;
+        var radiusError = 1 - x;
+
+        DrawPixel(x0, y0);
+
+        while (x >= y) {
+            DrawPixel(x + x0, y + y0);
+            DrawPixel(y + x0, x + y0);
+            DrawPixel(-x + x0, y + y0);
+            DrawPixel(-y + x0, x + y0);
+            DrawPixel(-x + x0, -y + y0);
+            DrawPixel(-y + x0, -x + y0);
+            DrawPixel(x + x0, -y + y0);
+            DrawPixel(y + x0, -x + y0);
+            y++;
+
+            if (radiusError < 0) {
+                radiusError += 2 * y + 1;
+            }
+            else {
+                x--;
+                radiusError += 2 * (y - x + 1);
+            }
+        }
+    };
+
+    DrawCirle(250, 250, 150)
+</script>
