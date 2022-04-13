@@ -149,10 +149,18 @@ void kernel_object_delete(uint32_t id) {
          type2str(ctx->type), (int64_t)id);
   terminal_default_color();
 #endif
-  void (*dtor)(void *) = get_dtor(ctx->type);
+  bool (*dtor)(void *) = get_dtor(ctx->type);
   assert(dtor);
+  // 如果dtor拒绝并且增加了至少一个引用，取消删除
+  if (!dtor(ctx->object)) {
+    if (*get_counter(ctx->type, ctx->object) != 0) {
+      return;
+    } else {
+      panic("kernel object's dtor refused to destruct but had not adding "
+            "reference to it");
+    }
+  }
   avl_tree_remove(&id_tree, ctx);
-  dtor(ctx->object);
   free(ctx);
 }
 

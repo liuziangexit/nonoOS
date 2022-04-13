@@ -955,10 +955,11 @@ uint32_t shared_memory_create(size_t size) {
   return sh->id;
 }
 
-void shared_memory_destroy(struct shared_memory *sh) {
+bool shared_memory_destroy(struct shared_memory *sh) {
   assert(sh->ref == 0);
   free_region_page_free(sh->physical, sh->pgcnt);
   free(sh);
+  return true;
 }
 
 // 获得共享内存的上下文

@@ -211,7 +211,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                        task_group_t *group, uintptr_t entry, bool ref,
                        struct task_args *args);
 
-void task_destroy(ktask_t *t);
+bool task_destroy(ktask_t *t);
 
 // 等待task结束
 // 返回被等待task的返回值

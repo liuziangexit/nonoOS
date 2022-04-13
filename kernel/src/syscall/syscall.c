@@ -90,6 +90,9 @@ void syscall_dispatch(struct trapframe *tf) {
       task_exit(arg[1]);
     } break;
     case USER_TASK_ACTION_ABORT: {
+      terminal_fgcolor(CGA_COLOR_RED);
+      printf("user called abort\n");
+      terminal_default_color();
       task_terminate(TASK_TERMINATE_ABORT);
     } break;
     default:

@@ -44,8 +44,10 @@ void leave_noint_region(uint32_t *save);
   enter_noint_region(&__smart_noint_region__);
 #endif
 
-// 使用下面的内核对象时，需要自己进行引用
-// 我们的mutex和cv从设计之初就支持多进程共享，但是目前cv的生命周期问题还没解决，什么时候一个进程应该引用cv，什么时候取消引用？
+// cv和mutex会自动被创建线程引用，除此之外的引用需要用户（这里指的是内核态的）自己管理
+// TODO:
+// 用户态目前的情况也是一样的，对于多进程共享mutex或cv的需求，我建议给用户态提供kernelobject接口，然后让用户自己管理引用。对于没有引用就共享内核对象的，行为未定义。
+// 但这也意味着kernelobject系统需要新增一个object的访问级别，用户态显然不能访问那些内核使用的内核对象，但这修改应该很容易
 
 // 参考C11线程支持库
 // TODO 做成可重入锁
@@ -59,7 +61,7 @@ struct mutex {
 typedef struct mutex mutex_t;
 pid_t mutex_owner(uint32_t mut_id);
 uint32_t mutex_create();
-void mutex_destroy(mutex_t *);
+bool mutex_destroy(mutex_t *);
 bool mutex_trylock(uint32_t mut_id);
 void mutex_lock(uint32_t mut_id);
 bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
@@ -77,7 +79,7 @@ struct condition_variable {
 };
 typedef struct condition_variable condition_variable_t;
 uint32_t condition_variable_create();
-void condition_variable_destroy(condition_variable_t *cv);
+bool condition_variable_destroy(condition_variable_t *cv);
 void condition_variable_wait(uint32_t cv_id, uint32_t mut_id);
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
                                   uint64_t timeout_ms);

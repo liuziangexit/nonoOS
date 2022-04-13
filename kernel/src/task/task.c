@@ -312,7 +312,7 @@ static void task_group_remove(ktask_t *t) {
 }
 
 // 析构task
-void task_destroy(ktask_t *t) {
+bool task_destroy(ktask_t *t) {
   assert(t);
   assert(t->ref_count == 0);
 #ifdef VERBOSE
@@ -336,6 +336,7 @@ void task_destroy(ktask_t *t) {
     free(t->name);
   vector_destroy(&t->joining);
   free(t);
+  return true;
 }
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
@@ -392,7 +393,8 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   // 内核栈
   new_task->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->kstack) {
-    task_destroy(new_task);
+    if (!task_destroy(new_task))
+      panic("task_destroy failed");
     return 0;
   }
 
@@ -645,7 +647,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   //用户栈
   new_task->pustack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->pustack) {
-    task_destroy((struct ktask *)new_task);
+    if (!task_destroy((struct ktask *)new_task))
+      panic("task_destroy failed");
     return 0;
   }
   //如果这是进程中首个线程，需要设置这个进程的虚拟内存
@@ -653,7 +656,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     //设置这个新group的虚拟内存
     group->vm = virtual_memory_create();
     if (!group->vm) {
-      task_destroy((struct ktask *)new_task);
+      if (!task_destroy((struct ktask *)new_task))
+        panic("task_destroy failed");
       return 0;
     }
     //存放程序映像的虚拟内存
@@ -664,15 +668,16 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
       new_task->base.group->program =
           aligned_alloc(1, ROUNDUP(program_size, _4K));
       if (!new_task->base.group->program) {
-        task_destroy((struct ktask *)new_task);
+        if (!task_destroy((struct ktask *)new_task))
+          panic("task_destroy failed");
         return 0;
       }
       memset(new_task->base.group->program, 0, ROUNDUP(program_size, _4K));
       //读elf
       struct elfhdr *elf_header = program;
       if (elf_header->e_magic != ELF_MAGIC) {
-        task_destroy((struct ktask *)new_task);
-        return 0;
+        if (!task_destroy((struct ktask *)new_task))
+          return 0;
       }
       // FIXME 这里data segment和code seg要分开map
       // data给W权限，而code不给

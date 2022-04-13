@@ -240,7 +240,7 @@ void interrupt_handler(struct trapframe *tf) {
     // 处理访问0的缺页
     if (ROUNDDOWN(cr2, _4K) == 0) {
       if (is_user) {
-        // print_pgfault(tf, cr2);
+        print_pgfault(tf, cr2);
         task_terminate(TASK_TERMINATE_BAD_ACCESS);
         abort();
       } else {

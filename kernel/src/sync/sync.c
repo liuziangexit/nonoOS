@@ -67,12 +67,23 @@ uint32_t mutex_create() {
   return mut->obj_id;
 }
 
-void mutex_destroy(mutex_t *mut) {
-  if (mut->ref_cnt != 0 || mut->locked != 0 || mut->owner != 0 ||
-      vector_count(&mut->waitors) != 0)
-    task_terminate(TASK_TERMINATE_ABORT);
+bool mutex_destroy(mutex_t *mut) {
+  if (mut->ref_cnt != 0) {
+    panic("mut->ref_cnt != 0");
+  }
+  if (mut->locked != 0 || mut->owner != 0 || vector_count(&mut->waitors) != 0) {
+    // 没有人引用这个内核对象，但是却有人在等待这个mutex，让一个等待者引用该对象，取消destroy
+    terminal_fgcolor(CGA_COLOR_RED);
+    printf("there are still tasks waiting on this mutex\n");
+    terminal_default_color();
+    bool succ = kernel_object_ref_safe(*(pid_t *)vector_get(&mut->waitors, 0),
+                                       mut->obj_id);
+    assert(succ);
+    return false;
+  }
   vector_destroy(&mut->waitors);
   free(mut);
+  return true;
 }
 
 bool mutex_trylock(uint32_t mut_id) {
@@ -83,8 +94,12 @@ bool mutex_trylock(uint32_t mut_id) {
   uint32_t expected = 0;
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
-    if (atomic_load(&mut->owner) == task_current()->id)
+    if (atomic_load(&mut->owner) == task_current()->id) {
+      terminal_fgcolor(CGA_COLOR_RED);
+      printf("mutex_trylock logic error\n");
+      terminal_default_color();
       task_terminate(TASK_TERMINATE_ABORT);
+    }
     return false;
   }
   atomic_store(&mut->owner, task_current()->id);
@@ -100,8 +115,12 @@ void mutex_lock(uint32_t mut_id) {
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
     SMART_NOINT_REGION
-    if (atomic_load(&mut->owner) == task_current()->id)
+    if (atomic_load(&mut->owner) == task_current()->id) {
+      terminal_fgcolor(CGA_COLOR_RED);
+      printf("mutex_lock logic error\n");
+      terminal_default_color();
       task_terminate(TASK_TERMINATE_ABORT);
+    }
     task_current()->tslice++;
     task_current()->wait_type = WAIT_MUTEX;
     task_current()->wait_ctx.mutex.after = 0; // 设置为0，表示没有超时
@@ -115,6 +134,9 @@ void mutex_lock(uint32_t mut_id) {
     // 获得锁
     expected = 0;
     if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
+      terminal_fgcolor(CGA_COLOR_RED);
+      printf("mutex_lock logic error 2\n");
+      terminal_default_color();
       task_terminate(TASK_TERMINATE_ABORT);
     }
   }
@@ -130,8 +152,12 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
     SMART_NOINT_REGION
-    if (atomic_load(&mut->owner) == task_current()->id)
+    if (atomic_load(&mut->owner) == task_current()->id) {
+      terminal_fgcolor(CGA_COLOR_RED);
+      printf("mutex_timedlock logic error\n");
+      terminal_default_color();
       task_terminate(TASK_TERMINATE_ABORT);
+    }
     task_current()->tslice++;
     task_current()->wait_type = WAIT_MUTEX;
     task_current()->wait_ctx.mutex.after =
@@ -150,6 +176,9 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
     // 获得锁
     expected = 0;
     if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
+      terminal_fgcolor(CGA_COLOR_RED);
+      printf("mutex_timedlock logic error 2\n");
+      terminal_default_color();
       task_terminate(TASK_TERMINATE_ABORT);
     }
   }
@@ -165,6 +194,9 @@ void mutex_unlock(uint32_t mut_id) {
   uint32_t owner = atomic_load(&mut->owner);
   // 首先验证owner是不是我
   if (owner != task_current()->id) {
+    terminal_fgcolor(CGA_COLOR_RED);
+    printf("mutex_unlock logic error\n");
+    terminal_default_color();
     task_terminate(TASK_TERMINATE_ABORT);
   }
   // 设置owner为0
@@ -188,16 +220,31 @@ uint32_t condition_variable_create() {
   return cv->obj_id;
 }
 
-void condition_variable_destroy(condition_variable_t *cv) {
-  if (cv->ref_cnt != 0 || vector_count(&cv->waitors) != 0)
-    task_terminate(TASK_TERMINATE_ABORT);
+bool condition_variable_destroy(condition_variable_t *cv) {
+  if (cv->ref_cnt != 0) {
+    panic("cv->ref_cnt != 0");
+  }
+  if (vector_count(&cv->waitors) != 0) {
+    // 没有人引用这个内核对象，但是却有人在等待这个cv，让一个等待者引用该对象，取消destroy
+    terminal_fgcolor(CGA_COLOR_RED);
+    printf("there are still tasks waiting on this cv\n");
+    terminal_default_color();
+    bool succ = kernel_object_ref_safe(*(pid_t *)vector_get(&cv->waitors, 0),
+                                       cv->obj_id);
+    assert(succ);
+    return false;
+  }
   vector_destroy(&cv->waitors);
   free(cv);
+  return true;
 }
 
 void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
   if (mutex_owner(mut_id) != task_current()->id) {
-    task_current(TASK_TERMINATE_ABORT);
+    terminal_fgcolor(CGA_COLOR_RED);
+    printf("condition_variable_wait logic error\n");
+    terminal_default_color();
+    task_terminate(TASK_TERMINATE_ABORT);
   }
   condition_variable_t *cv = kernel_object_get(cv_id, true);
   vector_add(&cv->waitors, &task_current()->id);
@@ -214,14 +261,20 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
   // 被唤醒了
   bool locked = mutex_trylock(mut_id);
   if (!locked) {
-    task_current(TASK_TERMINATE_ABORT);
+    terminal_fgcolor(CGA_COLOR_RED);
+    printf("condition_variable_wait logic error 2\n");
+    terminal_default_color();
+    task_terminate(TASK_TERMINATE_ABORT);
   }
 }
 
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
                                   uint64_t timeout_ms) {
   if (mutex_owner(mut_id) != task_current()->id) {
-    task_current(TASK_TERMINATE_ABORT);
+    terminal_fgcolor(CGA_COLOR_RED);
+    printf("condition_variable_timedwait logic error\n");
+    terminal_default_color();
+    task_terminate(TASK_TERMINATE_ABORT);
   }
   condition_variable_t *cv = kernel_object_get(cv_id, true);
   vector_add(&cv->waitors, &task_current()->id);
@@ -241,7 +294,10 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
   // 被唤醒了
   bool locked = mutex_trylock(mut_id);
   if (!locked) {
-    task_current(TASK_TERMINATE_ABORT);
+    terminal_fgcolor(CGA_COLOR_RED);
+    printf("condition_variable_timedwait logic error 2\n");
+    terminal_default_color();
+    task_terminate(TASK_TERMINATE_ABORT);
   }
   return true;
 }
