@@ -203,6 +203,8 @@ bool kernel_object_ref_safe(pid_t pid, uint32_t kobj_id) {
   return kernel_object_ref(task->group, kobj_id);
 }
 
+// remove_from_task_avl是为avl_tree_clear而设置的选项
+// 除此之外，这个选项几乎都选true
 void kernel_object_unref(task_group_t *group, uint32_t kobj_id,
                          bool remove_from_task_avl) {
   SMART_CRITICAL_REGION
@@ -243,3 +245,20 @@ void kernel_object_print() {
   printf("******************************\n");
   terminal_default_color();
 }
+
+// 主要是用于abort时解锁所有持有的锁
+// 但是因为mutex和cv对象在多进程共享时的生命周期问题还没解决，所以暂时没有用到
+// void kernel_object_release_mutexs(task_group_t *group) {
+//   assert(group);
+//   make_sure_int_disabled();
+//   for (struct id_ctx *ctx = avl_tree_first(&id_tree); ctx != 0;
+//        ctx = avl_tree_next(&id_tree, ctx)) {
+//     if (ctx->type == KERNEL_OBJECT_MUTEX) {
+//       mutex_t *mutex = ctx->object;
+//       if (mutex->locked && task_find(mutex->owner)->group == group) {
+//         // 如果这个锁被本进程锁住了，那么解锁
+//         mutex_unlock(mutex->obj_id);
+//       }
+//     }
+//   }
+// }

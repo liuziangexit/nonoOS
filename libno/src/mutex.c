@@ -2,8 +2,6 @@
 #include <mutex.h>
 #include <syscall.h>
 
-// lock时候也要引用
-
 uint32_t mtx_create() {
   return (uint32_t)syscall(SYSCALL_MTX, 1, USER_MTX_ACTION_CREATE);
 }

@@ -945,6 +945,8 @@ void task_terminate(int32_t ret) {
     }
   }
   terminal_default_color();
+  // 释放该进程持有的锁
+  // kernel_object_release_mutexs(task_current()->group);
   task_quit(ret);
 }
 
