@@ -39,7 +39,8 @@ static __always_inline uint32_t task_count() {
 // 从组链表node获得对象
 inline static ktask_t *task_group_head_retrieve(list_entry_t *head) {
   SMART_CRITICAL_REGION
-  return (ktask_t *)(((void *)head) - sizeof(struct avl_node) * 2);
+  return (ktask_t *)(((void *)head) - sizeof(struct avl_node) -
+                     sizeof(list_entry_t));
 }
 
 // 从ready链表node获得对象
