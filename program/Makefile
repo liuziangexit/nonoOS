@@ -13,7 +13,8 @@ PROG_EXE=\
 hello_world/hello.exe \
 schd_test/main.exe \
 count_down/main.exe \
-task_test/main.exe
+task_test/main.exe \
+abort/main.exe
 
 .PHONY: all clean crt
 .SUFFIXES: .o .c .S .exe

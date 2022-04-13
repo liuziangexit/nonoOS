@@ -221,8 +221,7 @@ void task_yield();
 // 将当前task挂起一段时间
 void task_sleep(uint64_t millisecond);
 
-// 退出当前task
-// aka exit
+// main函数正常返回值
 void task_exit(int32_t ret);
 // 非正常退出
 #define TASK_TERMINATE_ABORT (-1)

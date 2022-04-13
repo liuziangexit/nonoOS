@@ -14,7 +14,7 @@ void abort(void) { panic("kernel abort has been called"); }
 #include <task.h>
 
 void abort() {
-  printf("libno abort has been called");
+  // printf("libno abort has been called");
   syscall(SYSCALL_TASK, 1, USER_TASK_ACTION_ABORT);
 }
 

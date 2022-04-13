@@ -908,13 +908,14 @@ void task_terminate(int32_t ret) {
     panic("idle called terminate!");
   }
   if (ret >= 0) {
+    // 非正常退出返回值应该是负数
     panic("task_terminate ret >= 0");
   }
   // TODO 把同vm的其他线程全部杀了
   // TODO 为了尽量减少资源泄漏，强杀进程都要做stack rewind，这怎么做？
   terminal_fgcolor(CGA_COLOR_RED);
-  printf("task %lld terminated with err code %d\n", (int64_t)task_current()->id,
-         ret);
+  printf("\ntask %lld terminated with err code %d\n",
+         (int64_t)task_current()->id, ret);
   terminal_default_color();
   task_quit(ret);
 }

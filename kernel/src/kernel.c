@@ -202,7 +202,7 @@ void ktask0() {
   clock_init();
   enable_interrupt();
 
-  if (true) {
+  if (false) {
     // 创建共享内存，把countdown程序的代码拷贝进去，让task_test来启动它
     extern char _binary____program_count_down_main_exe_start[],
         _binary____program_count_down_main_exe_size[];
@@ -256,7 +256,7 @@ void ktask0() {
     task_args_destroy(&args, true);
   }
 
-  if (true) {
+  if (false) {
     struct task_args args;
     task_args_init(&args);
     task_args_add(&args, "I AM KERNEL! (1)", 0, false);
@@ -275,7 +275,7 @@ void ktask0() {
     task_args_destroy(&args, true);
   }
 
-  if (true) {
+  if (false) {
     extern char _binary____program_schd_test_main_exe_start[],
         _binary____program_schd_test_main_exe_size[];
     struct task_args args;
@@ -292,6 +292,14 @@ void ktask0() {
                      "schd_test_2", 0, DEFAULT_ENTRY, false, &args2);
     task_args_destroy(&args, true);
     task_args_destroy(&args2, true);
+  }
+
+  if (false) {
+    extern char _binary____program_abort_main_exe_start[],
+        _binary____program_abort_main_exe_size[];
+    task_create_user((void *)_binary____program_abort_main_exe_start,
+                     (uint32_t)_binary____program_abort_main_exe_size,
+                     "abort", 0, DEFAULT_ENTRY, false, 0);
   }
 
   printf("nonoOS:$ ");
