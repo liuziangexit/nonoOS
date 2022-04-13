@@ -84,7 +84,7 @@ void syscall_dispatch(struct trapframe *tf) {
       if (s)
         set_return_value(tf, ret);
       else
-        task_terminate(TASK_TERMINATE_JOIN_FAILED);
+        task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
     } break;
     case USER_TASK_ACTION_EXIT: {
       task_exit(arg[1]);

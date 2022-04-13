@@ -138,7 +138,7 @@ void virtual_memory_destroy(struct virtual_memory *vm) {
   }
   kmem_page_free(vm->page_directory, 1);
   //遍历二叉树，释放掉节点
-  //本来我还以为要自己写后序遍历，没想到云老师已经做了这个需求，祝他长命百岁
+  //本来我还以为要自己写后序遍历，没想到作者已经做了这个需求，祝他长命百岁
   {
     // 因为这里用一个static变量来模拟参数绑定，所以要关调度
     SMART_CRITICAL_REGION
@@ -968,6 +968,7 @@ struct shared_memory *shared_memory_ctx(uint32_t id) {
 
 // map共享内存到当前地址空间
 // 当addr为0时表示自动选择映射到的地址
+// 返回映射到的虚拟地址，返回0表示错误
 void *shared_memory_map(uint32_t id, void *addr) {
   struct virtual_memory *vm = virtual_memory_current();
   SMART_CRITICAL_REGION

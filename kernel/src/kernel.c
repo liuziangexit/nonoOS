@@ -298,8 +298,16 @@ void ktask0() {
     extern char _binary____program_abort_main_exe_start[],
         _binary____program_abort_main_exe_size[];
     task_create_user((void *)_binary____program_abort_main_exe_start,
-                     (uint32_t)_binary____program_abort_main_exe_size,
-                     "abort", 0, DEFAULT_ENTRY, false, 0);
+                     (uint32_t)_binary____program_abort_main_exe_size, "abort",
+                     0, DEFAULT_ENTRY, false, 0);
+  }
+
+  if (false) {
+    extern char _binary____program_bad_access_main_exe_start[],
+        _binary____program_bad_access_main_exe_size[];
+    task_create_user((void *)_binary____program_bad_access_main_exe_start,
+                     (uint32_t)_binary____program_bad_access_main_exe_size,
+                     "bad_access", 0, DEFAULT_ENTRY, false, 0);
   }
 
   printf("nonoOS:$ ");

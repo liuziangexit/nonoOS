@@ -65,6 +65,8 @@ const char *task_state_str(enum task_state);
 
 // task group中的tasks共享同一个地址空间
 // 每个task都必须属于一个task group，每个task group至少要有一个task
+// task_group的生命周期通过引用计数来控制。不过它不是一个kernel
+// object，它的引用计数是自己实现的
 struct task_group {
   list_entry_t tasks;
   uint32_t task_cnt;
@@ -223,11 +225,15 @@ void task_sleep(uint64_t millisecond);
 
 // main函数正常返回值
 void task_exit(int32_t ret);
+
 // 非正常退出
+
+// 用户态abort被调用
 #define TASK_TERMINATE_ABORT (-1)
+// 访问内存异常
 #define TASK_TERMINATE_BAD_ACCESS (-2)
-#define TASK_TERMINATE_JOIN_FAILED (-3)
-#define TASK_TERMINATE_INVALID_ARGUMENT (-4)
+// 系统调用参数非法
+#define TASK_TERMINATE_INVALID_ARGUMENT (-3)
 void task_terminate(int32_t ret);
 
 // 切换到另一个task

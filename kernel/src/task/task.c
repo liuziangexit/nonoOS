@@ -904,6 +904,17 @@ void task_exit(int32_t ret) {
   task_quit(ret);
 }
 
+static const char *task_terminate_reason_str(int32_t number) {
+  if (number == -1)
+    return "ABORT";
+  if (number == -2)
+    return "BAD ACCESS";
+  if (number == -3)
+    return "INVALID ARGUMENT";
+  panic("task_terminate_reason_str");
+  __builtin_unreachable();
+}
+
 void task_terminate(int32_t ret) {
   if (task_current()->id == 1) {
     panic("idle called terminate!");
@@ -912,11 +923,27 @@ void task_terminate(int32_t ret) {
     // 非正常退出返回值应该是负数
     panic("task_terminate ret >= 0");
   }
-  // TODO 把同vm的其他线程全部杀了
-  // TODO 为了尽量减少资源泄漏，强杀进程都要做stack rewind，这怎么做？
+
+  // 释放该进程持有的内核对象是通过引用计数的内核对象系统自动完成的
+  // 释放该进程的内存是在销毁线程组时进行的
+  disable_interrupt();
   terminal_fgcolor(CGA_COLOR_RED);
-  printf("\ntask %lld terminated with err code %d\n",
-         (int64_t)task_current()->id, ret);
+  printf("task %lld terminated with err code %d(%s), all of threads within the "
+         "same "
+         "thread group will be killed\n",
+         (int64_t)task_current()->id, ret, task_terminate_reason_str(ret));
+  // 把同vm的其他线程全部设为退出状态
+  for (list_entry_t *p = list_next(&task_current()->group->tasks);
+       p != &task_current()->group->tasks; p = list_next(p)) {
+    ktask_t *task = task_group_head_retrieve(p);
+    if (task != task_current()) {
+      // copy from task_quit
+      printf("task %lld killed\n", (int64_t)task->id, ret);
+      assert(task->ref_count != 0);
+      task->state = EXITED;
+      task->ret_val = ret;
+    }
+  }
   terminal_default_color();
   task_quit(ret);
 }

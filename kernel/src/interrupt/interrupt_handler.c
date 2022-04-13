@@ -240,9 +240,7 @@ void interrupt_handler(struct trapframe *tf) {
     // 处理访问0的缺页
     if (ROUNDDOWN(cr2, _4K) == 0) {
       if (is_user) {
-        // FIXME 正式处理是重新调度
-        print_pgfault(tf, cr2);
-        panic("user process trying to dereference a null pointer");
+        // print_pgfault(tf, cr2);
         task_terminate(TASK_TERMINATE_BAD_ACCESS);
         abort();
       } else {
@@ -256,7 +254,6 @@ void interrupt_handler(struct trapframe *tf) {
       // 如果是未处理的用户异常，那么杀进程
       print_pgfault(tf, cr2);
       task_terminate(TASK_TERMINATE_BAD_ACCESS);
-      // FIXME 这里正常是要重新调度吧，现在abort是为了调试
       abort();
       __builtin_unreachable();
     } else {
