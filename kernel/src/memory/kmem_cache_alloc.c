@@ -7,6 +7,8 @@
 #include <stdbool.h>
 #include <sync.h>
 
+#define NDEBUG
+
 // slab
 
 // FIXME 现在还没有正式的全面测试，应该给cache写一个类似于page那样的测试

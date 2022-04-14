@@ -18,7 +18,7 @@
 
 // buddy算法实现，管理页内存
 
-//#define NDEBUG 1
+#define NDEBUG
 
 struct page {
   struct list_entry head;
@@ -99,6 +99,7 @@ static uint32_t list_size(list_entry_t *head) {
 }
 #endif
 
+#ifndef NDEBUG
 void kmem_page_debug() {
   printf("\n\nkmem_page_debug\n");
   printf("******************************************\n");
@@ -109,6 +110,7 @@ void kmem_page_debug() {
   }
   printf("******************************************\n\n");
 }
+#endif
 
 void kmem_page_init() {
   // 初始化normal_region_zones
@@ -368,6 +370,8 @@ void free_page_impl(enum MEMORY_REGION r, uintptr_t p, size_t cnt) {
           get_region_zones_size(r));
 }
 
+#ifndef NDEBUG
+
 static bool write_dump(uint32_t *write_pos, void *dst, uint32_t dst_len,
                        uint32_t data) {
   if (*write_pos + sizeof(data) >= dst_len) {
@@ -385,7 +389,7 @@ static uint32_t pick_biggest(uint32_t *base, uint32_t *arr, uint32_t cnt) {
       pick = arr[cnt];
   }
   *base = pick;
-  return pick;
+  return
 }
 
 //成功的话require是0，如果失败是因为dst太小的缘故
@@ -397,7 +401,6 @@ zone:
 n*4:zone.pages
 */
 void kmem_page_dump(void *dst, uint32_t dst_len) {
-#ifndef NDEBUG
   uint32_t used = 0;
   assert(write_dump(&used, dst, dst_len,
                     sizeof(normal_region_zones) / sizeof(struct zone)));
@@ -414,14 +417,9 @@ void kmem_page_dump(void *dst, uint32_t dst_len) {
       }
     }
   }
-#else
-  abort();
-  __builtin_unreachable();
-#endif
 }
 
 bool kmem_page_compare_dump(void *a, void *b) {
-#ifndef NDEBUG
   uint32_t *aa = (uint32_t *)a, *bb = (uint32_t *)b;
   if (*aa != *bb)
     return false;
@@ -436,14 +434,9 @@ bool kmem_page_compare_dump(void *a, void *b) {
     }
   }
   return true;
-#else
-  abort();
-  __builtin_unreachable();
-#endif
 }
 
 void kmem_page_print_dump(void *dmp) {
-#ifndef NDEBUG
   printf("kmem_page_dump\n");
   printf("****************\n");
   uint32_t *dmmp = (uint32_t *)dmp;
@@ -459,8 +452,6 @@ void kmem_page_print_dump(void *dmp) {
     terminal_default_color();
   }
   printf("****************\n");
-#else
-  abort();
-  __builtin_unreachable();
-#endif
 }
+
+#endif

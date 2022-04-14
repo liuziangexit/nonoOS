@@ -10,6 +10,8 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
+//#define VERBOSE
+
 void free_region_init(struct e820map_t *memlayout) {
   // 开始将FREE REGION分配到kmem_page_alloc里
   for (uint32_t i = 0; i < memlayout->count; i++) {
@@ -53,8 +55,10 @@ void free_region_init(struct e820map_t *memlayout) {
     }
     // 加入kmem_page
     kmem_page_init_free_region((uintptr_t)addr, page_count * 4096 * 1024);
+#ifdef VERBOSE
     printf("adding 0x%09llx length %lld to free region\n",
            (int64_t)(uintptr_t)addr, (int64_t)page_count * 4096 * 1024);
+#endif
     terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
     printf("free region ok\n");
     terminal_default_color();

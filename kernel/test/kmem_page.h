@@ -8,6 +8,10 @@
 #undef NDEBUG
 #endif
 
+#define KMEM_PAGE_ALLOC_NDEBUG
+
+#ifndef KMEM_PAGE_ALLOC_NDEBUG
+
 void kmem_page_test() {
   printf("running kmem_page_test\n");
 
@@ -55,4 +59,6 @@ void kmem_page_test() {
 #ifdef __NDEBUG_BEEN_FUCKED
 #define NDEBUG
 #undef __NDEBUG_BEEN_FUCKED
+#endif
+
 #endif

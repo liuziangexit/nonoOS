@@ -27,6 +27,8 @@
 // 用来测试程序映像很大的时候会怎么样
 // static char fuck[1024 * 1024 * 32];
 
+//#define RUN_TEST
+
 void kmain();
 void ktask0();
 
@@ -88,7 +90,9 @@ void kmain() {
   printf("\n");
   kmem_init(e820map);
   kmem_page_init();
+#ifdef RUN_TEST
   kmem_page_debug();
+#endif
   kmem_alloc_init();
   kmem_cache_init();
   free_region_init(e820map);
@@ -167,12 +171,16 @@ void ktask0() {
      */
     struct virtual_memory_area *map_vma = virtual_memory_alloc(
         &kernel_vm, map_region_vaddr, map_region_size, 0, KMAP, 0);
+#ifdef RUN_TEST
     virtual_memory_print(&kernel_vm);
+#endif
     // mapregion要用的，必须free了
     virtual_memory_free(&kernel_vm, map_vma);
   }
   task_inited = TASK_INITED_MAGIC;
+#ifdef RUN_TEST
   task_test();
+#endif
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
   putchar(1);
@@ -185,7 +193,8 @@ void ktask0() {
     // page_directory_debug(kernel_pd);
   }
 
-  // 跑测试
+// 跑测试
+#ifdef RUN_TEST
   ring_buffer_test();
   kmem_page_test();
   bare_hashmap_test();
@@ -197,11 +206,13 @@ void ktask0() {
   printf("\n\n");
   print_cur_status();
   printf("\n\n");
+#endif
 
   task_preemptive_set(false);
   clock_init();
   enable_interrupt();
 
+#ifdef RUN_TEST
   if (true) {
     // 创建共享内存，把countdown程序的代码拷贝进去，让task_test来启动它
     extern char _binary____program_count_down_main_exe_start[],
@@ -309,6 +320,8 @@ void ktask0() {
                      (uint32_t)_binary____program_bad_access_main_exe_size,
                      "bad_access", 0, DEFAULT_ENTRY, false, 0);
   }
+
+#endif
 
   printf("nonoOS:$ ");
   // task_display();

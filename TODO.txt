@@ -78,7 +78,6 @@ OK-处理用户程序BAD ACCESS、执行错误的代码、seg fault等情况
 -实现系统调用scanf
 -实现nosh(nonoShell)
 -重新考虑输入输出，主要是如何判断输入属于哪个进程
--terminal增加右边的位置条，表示当前屏幕位置，类似于scroll bar
 -看看libno里有没有需要单独实现用户态版本的函数
 -运行 ASCII RayTracing
 -整理编译系统，支持配置tool prefix
