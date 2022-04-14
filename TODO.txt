@@ -83,6 +83,7 @@ OK-处理用户程序BAD ACCESS、执行错误的代码、seg fault等情况
 -整理编译系统，支持配置tool prefix
 -在物理机上运行
 -1.0版本！
+-实现C文件API
 -文件系统
 -实现页面swap
 
