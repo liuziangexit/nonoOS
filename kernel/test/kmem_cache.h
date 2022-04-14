@@ -9,7 +9,7 @@
 #undef NDEBUG
 #endif
 
-#define KMEM_PAGE_ALLOC_NDEBUG
+//#define KMEM_PAGE_ALLOC_NDEBUG
 
 // FIXME 现在还没有正式的全面测试，应该给cache写一个类似于page那样的测试
 #ifndef KMEM_PAGE_ALLOC_NDEBUG

@@ -18,7 +18,7 @@
 
 // buddy算法实现，管理页内存
 
-#define NDEBUG
+//#define NDEBUG
 
 struct page {
   struct list_entry head;
@@ -389,7 +389,7 @@ static uint32_t pick_biggest(uint32_t *base, uint32_t *arr, uint32_t cnt) {
       pick = arr[cnt];
   }
   *base = pick;
-  return
+  return pick;
 }
 
 //成功的话require是0，如果失败是因为dst太小的缘故

@@ -8,7 +8,7 @@
 #undef NDEBUG
 #endif
 
-#define KMEM_PAGE_ALLOC_NDEBUG
+//#define KMEM_PAGE_ALLOC_NDEBUG
 
 #ifndef KMEM_PAGE_ALLOC_NDEBUG
 
