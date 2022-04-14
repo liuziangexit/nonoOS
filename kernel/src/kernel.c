@@ -275,7 +275,7 @@ void ktask0() {
     task_args_destroy(&args, true);
   }
 
-  if (false) {
+  if (true) {
     extern char _binary____program_schd_test_main_exe_start[],
         _binary____program_schd_test_main_exe_size[];
     struct task_args args;
