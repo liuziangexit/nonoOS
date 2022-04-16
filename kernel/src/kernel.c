@@ -178,8 +178,18 @@ void ktask0() {
     virtual_memory_free(&kernel_vm, map_vma);
   }
   task_inited = TASK_INITED_MAGIC;
+
+  {
+    task_current()->group->vm_mutex = mutex_create();
+    bool ref_succ = kernel_object_ref(task_current()->group,
+                                      task_current()->group->vm_mutex);
+    assert(ref_succ);
+    kernel_object_unref(task_current()->group, task_current()->group->vm_mutex,
+                        true);
+  }
+
 #ifdef RUN_TEST
-  task_test();
+  // task_test();
 #endif
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);

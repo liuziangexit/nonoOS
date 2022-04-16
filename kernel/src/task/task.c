@@ -267,6 +267,12 @@ static task_group_t *task_group_create(bool is_kernel) {
   // 初始化记录内核对象id的avl树
   avl_tree_init(&group->kernel_objects, compare_kern_obj_id,
                 sizeof(struct kern_obj_id), 0);
+  if (task_inited == TASK_INITED_MAGIC) {
+    group->vm_mutex = mutex_create();
+    bool ref_succ = kernel_object_ref(group, group->vm_mutex);
+    assert(ref_succ);
+    kernel_object_unref(task_current()->group, group->vm_mutex, true);
+  }
   return group;
 }
 
@@ -407,7 +413,7 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   new_task->name = malloc(strlen(name) + 1);
   strcpy(new_task->name, name);
   // 生成id
-  new_task->id = kernel_object_new(KERNEL_OBJECT_TASK, new_task, true);
+  new_task->id = kernel_object_new(KERNEL_OBJECT_TASK, new_task);
   // 加入group
   task_group_add(group, new_task);
   // 自己引用自己

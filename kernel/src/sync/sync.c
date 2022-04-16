@@ -52,18 +52,18 @@ void leave_noint_region(uint32_t *save) {
 
 pid_t mutex_owner(uint32_t mut_id) {
   SMART_CRITICAL_REGION
-  mutex_t *mut = kernel_object_get(mut_id, false);
+  mutex_t *mut = kernel_object_get(mut_id);
   return atomic_load(&mut->owner);
 }
 
-uint32_t mutex_create(bool auto_lifecycle) {
+uint32_t mutex_create() {
   mutex_t *mut = malloc(sizeof(mutex_t));
   assert(mut);
   mut->locked = 0;
   mut->owner = 0;
   mut->ref_cnt = 0;
   vector_init(&mut->waitors, sizeof(pid_t));
-  mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut, auto_lifecycle);
+  mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut);
   return mut->obj_id;
 }
 
@@ -89,7 +89,7 @@ bool mutex_destroy(mutex_t *mut) {
 
 bool mutex_trylock(uint32_t mut_id) {
   SMART_CRITICAL_REGION
-  mutex_t *mut = kernel_object_get(mut_id, false);
+  mutex_t *mut = kernel_object_get(mut_id);
   if (!mut)
     task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t expected = 0;
@@ -109,7 +109,7 @@ bool mutex_trylock(uint32_t mut_id) {
 
 void mutex_lock(uint32_t mut_id) {
   SMART_CRITICAL_REGION
-  mutex_t *mut = kernel_object_get(mut_id, false);
+  mutex_t *mut = kernel_object_get(mut_id);
   if (!mut)
     task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t expected = 0;
@@ -146,7 +146,7 @@ void mutex_lock(uint32_t mut_id) {
 
 bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
   SMART_CRITICAL_REGION
-  mutex_t *mut = kernel_object_get(mut_id, false);
+  mutex_t *mut = kernel_object_get(mut_id);
   if (!mut)
     task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t expected = 0;
@@ -189,7 +189,7 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
 
 void mutex_unlock(uint32_t mut_id) {
   SMART_CRITICAL_REGION
-  mutex_t *mut = kernel_object_get(mut_id, false);
+  mutex_t *mut = kernel_object_get(mut_id);
   if (!mut)
     task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t owner = atomic_load(&mut->owner);
@@ -220,7 +220,7 @@ uint32_t condition_variable_create() {
   assert(cv);
   cv->ref_cnt = 0;
   vector_init(&cv->waitors, sizeof(pid_t));
-  cv->obj_id = kernel_object_new(KERNEL_OBJECT_CONDITION_VARIABLE, cv, true);
+  cv->obj_id = kernel_object_new(KERNEL_OBJECT_CONDITION_VARIABLE, cv);
   return cv->obj_id;
 }
 
@@ -251,7 +251,7 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
     terminal_default_color();
     task_terminate(TASK_TERMINATE_ABORT);
   }
-  condition_variable_t *cv = kernel_object_get(cv_id, true);
+  condition_variable_t *cv = kernel_object_get(cv_id);
   vector_add(&cv->waitors, &task_current()->id);
   // 关中断是为了确保此线程陷入等待对于另一个线程的notify具有happens-before
   SMART_CRITICAL_REGION
@@ -281,7 +281,7 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
     terminal_default_color();
     task_terminate(TASK_TERMINATE_ABORT);
   }
-  condition_variable_t *cv = kernel_object_get(cv_id, true);
+  condition_variable_t *cv = kernel_object_get(cv_id);
   vector_add(&cv->waitors, &task_current()->id);
   // 关中断是为了确保此线程陷入等待对于另一个线程的notify具有happens-before
   SMART_CRITICAL_REGION
@@ -309,7 +309,7 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
 
 void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id) {
   mutex_lock(mut_id);
-  condition_variable_t *cv = kernel_object_get(cv_id, true);
+  condition_variable_t *cv = kernel_object_get(cv_id);
   if (vector_count(&cv->waitors) != 0) {
     SMART_CRITICAL_REGION
     ktask_t *t = task_find(*(pid_t *)vector_get(&cv->waitors, 0));
@@ -322,7 +322,7 @@ void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id) {
 
 void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id) {
   mutex_lock(mut_id);
-  condition_variable_t *cv = kernel_object_get(cv_id, true);
+  condition_variable_t *cv = kernel_object_get(cv_id);
   if (vector_count(&cv->waitors) != 0) {
     SMART_CRITICAL_REGION
     for (uint32_t i = 0; i < vector_count(&cv->waitors); i++) {

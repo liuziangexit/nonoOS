@@ -17,14 +17,14 @@ enum _kernel_object_type {
 typedef enum _kernel_object_type kernel_object_type;
 
 void kernel_object_init();
-void *kernel_object_get(uint32_t id, bool unsafe);
-uint32_t kernel_object_new(kernel_object_type t, void *obj,
-                           bool auto_lifecycle);
+void *kernel_object_get(uint32_t id);
+uint32_t kernel_object_new(kernel_object_type t, void *obj);
 // bool kernel_object_has_ref(task_group_t *group, uint32_t kobj_id);
 bool kernel_object_ref(task_group_t *group, uint32_t kobj_id);
 bool kernel_object_ref_safe(pid_t pid, uint32_t kobj_id);
 void kernel_object_unref(task_group_t *group, uint32_t kobj_id,
                          bool remove_from_task_avl);
+void kernel_object_unref_safe(pid_t pid, uint32_t kobj_id);
 void kernel_object_print();
 void kernel_object_release_mutexs(task_group_t *group);
 

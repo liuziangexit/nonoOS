@@ -60,7 +60,7 @@ struct mutex {
 };
 typedef struct mutex mutex_t;
 pid_t mutex_owner(uint32_t mut_id);
-uint32_t mutex_create(bool auto_lifecycle);
+uint32_t mutex_create();
 bool mutex_destroy(mutex_t *);
 bool mutex_trylock(uint32_t mut_id);
 void mutex_lock(uint32_t mut_id);

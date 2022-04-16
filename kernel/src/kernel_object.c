@@ -16,7 +16,6 @@ struct id_ctx {
   uint32_t id;
   kernel_object_type type;
   void *object;
-  bool auto_lifecycle; // 自动生命周期管理(引用计数)
 };
 
 static const char *type2str(kernel_object_type t) {
@@ -44,9 +43,7 @@ static int compare_id(const void *a, const void *b) {
   return 0;
 }
 
-static struct id_ctx *get_ctx(uint32_t id, bool unsafe) {
-  if (!unsafe)
-    make_sure_schd_disabled();
+static struct id_ctx *get_ctx(uint32_t id) {
   struct id_ctx find;
   find.id = id;
   SMART_CRITICAL_REGION
@@ -95,15 +92,14 @@ void kernel_object_init() {
   avl_tree_init(&id_tree, compare_id, sizeof(struct id_ctx), 0);
 }
 
-// 如果unsafe为true，表示对于这个object的访问由用户来保证并发安全
-void *kernel_object_get(uint32_t id, bool unsafe) {
-  if (!unsafe)
-    make_sure_schd_disabled();
-  return get_ctx(id, unsafe)->object;
+void *kernel_object_get(uint32_t id) {
+  struct id_ctx *ctx = get_ctx(id);
+  if (!ctx)
+    return 0;
+  return ctx->object;
 }
 
-uint32_t kernel_object_new(kernel_object_type t, void *obj,
-                           bool auto_lifecycle) {
+uint32_t kernel_object_new(kernel_object_type t, void *obj) {
   SMART_CRITICAL_REGION
   // 生成唯一id
   uint32_t result;
@@ -125,7 +121,6 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj,
   ctx->id = result;
   ctx->object = obj;
   ctx->type = t;
-  ctx->auto_lifecycle = auto_lifecycle;
   (*get_counter(ctx->type, obj)) = 0;
   avl_tree_add(&id_tree, ctx);
 #ifdef VERBOSE
@@ -134,20 +129,19 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj,
          (int64_t)result);
   terminal_default_color();
 #endif
-  if (auto_lifecycle) {
-    if (t != KERNEL_OBJECT_TASK) {
-      // 当前的进程引用这个内核对象
-      bool abs = kernel_object_ref(task_current()->group, result);
-      if (!abs)
-        abort();
-    }
+  // 当前的进程引用这个内核对象
+  if (t != KERNEL_OBJECT_TASK) {
+    bool succ = kernel_object_ref(task_current()->group, result);
+    if (!succ)
+      abort();
   }
+
   return result;
 }
 
 void kernel_object_delete(uint32_t id) {
   SMART_CRITICAL_REGION
-  struct id_ctx *ctx = get_ctx(id, false);
+  struct id_ctx *ctx = get_ctx(id);
   assert(ctx);
   if (*get_counter(ctx->type, ctx->object) != 0) {
     panic("kernel_object_delete ref_cnt!=0");
@@ -157,19 +151,12 @@ void kernel_object_delete(uint32_t id) {
 
   if (!dtor(ctx->object)) {
     // 如果dtor拒绝删除
-    if (ctx->auto_lifecycle) {
-      // 自动生命周期的
-      if (*get_counter(ctx->type, ctx->object) != 0) {
-        // 如果dtor增加了至少一个引用，取消删除
-        return;
-      } else {
-        panic("kernel object's dtor refused to destruct but had not adding "
-              "reference to it");
-      }
+    if (*get_counter(ctx->type, ctx->object) != 0) {
+      // 如果dtor增加了至少一个引用，取消删除
+      return;
     } else {
-      // 手动生命周期的
-      panic(
-          "kernel object's dtor has refused to destruct a non-ref-cnt object");
+      panic("kernel object's dtor refused to destruct but had not adding "
+            "reference to it");
     }
   }
 #ifdef VERBOSE
@@ -195,12 +182,9 @@ void kernel_object_delete(uint32_t id) {
 
 bool kernel_object_ref(task_group_t *group, uint32_t kobj_id) {
   SMART_CRITICAL_REGION
-  struct id_ctx *ctx = get_ctx(kobj_id, false);
+  struct id_ctx *ctx = get_ctx(kobj_id);
   if (!ctx)
     return false;
-  if (!ctx->auto_lifecycle) {
-    panic("trying to reference a non-ref-cnt obj");
-  }
   // task这边记录对象id
   struct kern_obj_id *id_record = malloc(sizeof(struct kern_obj_id));
   assert(id_record);
@@ -239,12 +223,9 @@ void kernel_object_unref(task_group_t *group, uint32_t kobj_id,
                          bool remove_from_task_avl) {
   SMART_CRITICAL_REGION
   // 减引用计数
-  struct id_ctx *ctx = get_ctx(kobj_id, false);
+  struct id_ctx *ctx = get_ctx(kobj_id);
   if (!ctx) {
     panic("kernel_object_unref get_ctx returns 0");
-  }
-  if (!ctx->auto_lifecycle) {
-    panic("trying to unreference a non-ref-cnt obj");
   }
   uint32_t *counter = get_counter(ctx->type, ctx->object);
   (*counter)--;
@@ -267,6 +248,13 @@ void kernel_object_unref(task_group_t *group, uint32_t kobj_id,
   if (*counter == 0) {
     kernel_object_delete(kobj_id);
   }
+}
+
+void kernel_object_unref_safe(pid_t pid, uint32_t kobj_id) {
+  SMART_CRITICAL_REGION
+  ktask_t *task = task_find(pid);
+  assert(task);
+  kernel_object_unref(task->group, kobj_id, true);
 }
 
 void kernel_object_print() {

@@ -952,7 +952,7 @@ uint32_t shared_memory_create(size_t size) {
   }
   sh->ref = 0;
   avl_node_init(&sh->head);
-  sh->id = kernel_object_new(KERNEL_OBJECT_SHARED_MEMORY, sh, true);
+  sh->id = kernel_object_new(KERNEL_OBJECT_SHARED_MEMORY, sh);
   return sh->id;
 }
 
@@ -966,7 +966,7 @@ bool shared_memory_destroy(struct shared_memory *sh) {
 
 // 获得共享内存的上下文
 struct shared_memory *shared_memory_ctx(uint32_t id) {
-  return kernel_object_get(id, false);
+  return kernel_object_get(id);
 }
 
 // map共享内存到当前地址空间
