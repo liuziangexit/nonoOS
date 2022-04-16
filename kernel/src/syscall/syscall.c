@@ -60,7 +60,7 @@ void syscall_dispatch(struct trapframe *tf) {
       struct task_args args;
       task_args_init(&args);
       for (uint32_t i = 0; i < arg_pack->parameter_cnt; i++) {
-        task_args_add(&args, va_arg(*parmaters, const char *), 0, false);
+        task_args_add(&args, va_arg(*parmaters, const char *), 0, false, 0);
       }
       pid_t id = task_create_user(
           arg_pack->program, arg_pack->program_size, arg_pack->name, group,
@@ -107,7 +107,8 @@ void syscall_dispatch(struct trapframe *tf) {
     terminal_default_color();
 #endif
     // arg[0]也就是alignment不需要用到，因为umalloc直接是平台最大对齐的
-    uintptr_t vaddr = umalloc(task->group->vm, arg[1], true, 0, 0);
+    uintptr_t vaddr = umalloc(task->group->vm_modify, arg[1], true, 0, 0,
+                              task->group->vm_mutex);
 #ifdef VERBOSE
     terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
     printf("aligned_alloc() returned: 0x%09llx\n", (int64_t)vaddr);
@@ -122,7 +123,7 @@ void syscall_dispatch(struct trapframe *tf) {
            arg[3], arg[4]);
     terminal_default_color();
 #endif
-    ufree(task->group->vm, arg[0]);
+    ufree(task->group->vm_modify, arg[0], task->group->vm_mutex);
     set_return_value(tf, 0);
   } break;
   case SYSCALL_PRINTF: {

@@ -607,10 +607,10 @@ static int compare_malloc_vma(const void *a, const void *b) {
 在函数返回了非0值并有提供out_physical参数时，out_physical将被设置为分配内存的物理地址
 */
 uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
-                  struct virtual_memory_area **out_vma,
-                  uintptr_t *out_physical) {
+                  struct virtual_memory_area **out_vma, uintptr_t *out_physical,
+                  uint32_t vm_mutex) {
   assert(vm && size > 0);
-  SMART_CRITICAL_REGION
+  SMART_LOCK(l, vm_mutex)
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
   printf("****umalloc(vm, %lld, %s)****\n", (int64_t)size,
@@ -792,8 +792,8 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
 }
 
 // malloc的vma缺页时候，把一整个vma都映射上物理内存
+// 调用者需要确保已经加vm mutex锁
 void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
-  SMART_CRITICAL_REGION
   assert(vma->type == UMALLOC);
   assert(vma->size >= 4096 && vma->size % 4096 == 0);
   uintptr_t physical = free_region_page_alloc(vma->size / 4096);
@@ -814,8 +814,8 @@ void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
 }
 
 // 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
-void ufree(struct virtual_memory *vm, uintptr_t addr) {
-  SMART_CRITICAL_REGION
+void ufree(struct virtual_memory *vm, uintptr_t addr, uint32_t vm_mut) {
+  SMART_LOCK(l, vm_mut)
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_LIGHT_YELLOW);
   printf("****ufree(vm, 0x%08llx)****\n", (int64_t)addr);

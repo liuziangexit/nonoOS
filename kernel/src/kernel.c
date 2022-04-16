@@ -246,13 +246,13 @@ void ktask0() {
     punning.str[4] = '\0';
     // 字符串共享内存的id
     punning.integer = shid_str;
-    task_args_add(&args, (const char *)&punning.str, 0, false);
+    task_args_add(&args, (const char *)&punning.str, 0, false, 0);
     // 程序共享内存的id
     punning.integer = shid_prog;
-    task_args_add(&args, (const char *)&punning.str, 0, false);
+    task_args_add(&args, (const char *)&punning.str, 0, false, 0);
     // 程序长度
     punning.integer = (uint32_t)_binary____program_count_down_main_exe_size;
-    task_args_add(&args, (const char *)&punning.str, 0, false);
+    task_args_add(&args, (const char *)&punning.str, 0, false, 0);
     extern char _binary____program_task_test_main_exe_start[],
         _binary____program_task_test_main_exe_size[];
     SMART_CRITICAL_REGION
@@ -270,8 +270,8 @@ void ktask0() {
   if (true) {
     struct task_args args;
     task_args_init(&args);
-    task_args_add(&args, "I AM KERNEL! (1)", 0, false);
-    task_args_add(&args, "I AM KERNEL! (2)", 0, false);
+    task_args_add(&args, "I AM KERNEL! (1)", 0, false, 0);
+    task_args_add(&args, "I AM KERNEL! (2)", 0, false, 0);
     extern char _binary____program_count_down_main_exe_start[],
         _binary____program_count_down_main_exe_size[];
     task_create_user((void *)_binary____program_count_down_main_exe_start,
@@ -291,10 +291,10 @@ void ktask0() {
         _binary____program_schd_test_main_exe_size[];
     struct task_args args;
     task_args_init(&args);
-    task_args_add(&args, "1", 0, false);
+    task_args_add(&args, "1", 0, false, 0);
     struct task_args args2;
     task_args_init(&args2);
-    task_args_add(&args2, "0", 0, false);
+    task_args_add(&args2, "0", 0, false, 0);
     task_create_user((void *)_binary____program_schd_test_main_exe_start,
                      (uint32_t)_binary____program_schd_test_main_exe_size,
                      "schd_test_1", 0, DEFAULT_ENTRY, false, &args);

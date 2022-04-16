@@ -147,10 +147,10 @@ struct umalloc_free_area {
 };
 
 uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
-                  struct virtual_memory_area **out_vma,
-                  uintptr_t *out_physical);
+                  struct virtual_memory_area **out_vma, uintptr_t *out_physical,
+                  uint32_t vm_mutex);
 void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma);
-void ufree(struct virtual_memory *vm, uintptr_t addr);
+void ufree(struct virtual_memory *vm, uintptr_t addr, uint32_t vm_mutex);
 
 // 共享内存
 // 使用引用计数标记有多少个进程正在访问，当此值归0时(进程退出或显式调用shmunmap)，共享内存被删除

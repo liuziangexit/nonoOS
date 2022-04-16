@@ -67,6 +67,16 @@ void mutex_lock(uint32_t mut_id);
 bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms);
 void mutex_unlock(uint32_t mut_id);
 
+void enter_smart_lock(uint32_t *mut_id);
+void leave_smart_lock(uint32_t *mut_id);
+
+#ifdef __GNUC__
+#define SMART_LOCK(UNIQUE_ID, MUTEX_ID)                                        \
+  uint32_t UNIQUE_ID __attribute__((cleanup(leave_smart_lock)));               \
+  UNIQUE_ID = MUTEX_ID;                                                        \
+  enter_smart_lock(&UNIQUE_ID);
+#endif
+
 // 条件变量
 // 为什么notify不传入一个mutex，也就是强制先notify再unlock，来保证绝对不会丢通知呢？因为这是以性能为代价的，比如有的实现下，wait那边会有一次假唤醒。因此，将这个决定给程序员做
 // 考虑在我的线程池worker里，以及task_join里，能不能不需要锁？稍有常识的人都能看出，不能。我只想说懂的都懂，我也不想解释了

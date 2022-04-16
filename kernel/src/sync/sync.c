@@ -212,6 +212,9 @@ void mutex_unlock(uint32_t mut_id) {
   atomic_store(&mut->locked, 0);
 }
 
+void enter_smart_lock(uint32_t *mut_id) { mutex_lock(*mut_id); }
+void leave_smart_lock(uint32_t *mut_id) { mutex_unlock(*mut_id); }
+
 uint32_t condition_variable_create() {
   condition_variable_t *cv = malloc(sizeof(condition_variable_t));
   assert(cv);

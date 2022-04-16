@@ -132,7 +132,8 @@ void task_args_init(struct task_args *dst) {
 }
 
 void task_args_add(struct task_args *dst, const char *str,
-                   struct virtual_memory *vm, bool use_umalloc) {
+                   struct virtual_memory *vm, bool use_umalloc,
+                   uint32_t vm_mut) {
   struct task_arg *holder = (struct task_arg *)malloc(sizeof(struct task_arg));
   assert(holder);
   memset(holder, 0, sizeof(struct task_arg));
@@ -142,7 +143,8 @@ void task_args_add(struct task_args *dst, const char *str,
     holder->vdata = (uintptr_t)holder->data;
   } else {
     uintptr_t virtual, physical;
-    if (!(virtual = umalloc(vm, holder->strlen + 1, false, 0, &physical))) {
+    if (!(virtual =
+              umalloc(vm, holder->strlen + 1, false, 0, &physical, vm_mut))) {
       abort();
     }
     holder->data = physical;
@@ -165,14 +167,14 @@ void task_args_add(struct task_args *dst, const char *str,
 }
 
 static void task_args_pack(struct task_args *dst, struct virtual_memory *vm,
-                           bool use_umalloc) {
+                           bool use_umalloc, uint32_t mut_id) {
   assert(dst->packed == 0);
   if (!use_umalloc) {
     dst->packed = (uintptr_t)malloc(sizeof(char *) * dst->cnt);
   } else {
     uintptr_t virtual, physical;
-    if (!(virtual =
-              umalloc(vm, sizeof(char *) * dst->cnt, false, 0, &physical))) {
+    if (!(virtual = umalloc(vm, sizeof(char *) * dst->cnt, false, 0, &physical,
+                            mut_id))) {
       abort();
     }
     dst->packed = physical;
@@ -288,8 +290,8 @@ static void task_group_destroy(task_group_t *g) {
 #ifdef VERBOSE
   printf("task_group_destroy 0x%08llx\n", (int64_t)(uint64_t)(uintptr_t)g);
 #endif
-  if (g->vm) {
-    virtual_memory_destroy(g->vm);
+  if (g->vm_modify) {
+    virtual_memory_destroy(g->vm_modify);
   }
   if (!g->is_kernel) {
     free(g->program);
@@ -655,8 +657,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   //如果这是进程中首个线程，需要设置这个进程的虚拟内存
   if (is_first) {
     //设置这个新group的虚拟内存
-    group->vm = virtual_memory_create();
-    if (!group->vm) {
+    group->vm_modify = virtual_memory_create();
+    if (!group->vm_modify) {
       if (!task_destroy((struct ktask *)new_task))
         panic("task_destroy failed");
       return 0;
@@ -717,25 +719,25 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
       memset(&copy_pd[map_region_vaddr / _4M], 0,
              (1024 - map_region_vaddr / _4M) * 4);
     }
-    virtual_memory_clone(new_task->base.group->vm, copy_pd, UKERNEL);
+    virtual_memory_clone(new_task->base.group->vm_modify, copy_pd, UKERNEL);
     // 把new_task->program映射到128MB的地方
     struct virtual_memory_area *vma = virtual_memory_alloc(
-        new_task->base.group->vm, USER_CODE_BEGIN, ROUNDUP(program_size, _4K),
-        PTE_P | PTE_W | PTE_U, UCODE, false);
+        new_task->base.group->vm_modify, USER_CODE_BEGIN,
+        ROUNDUP(program_size, _4K), PTE_P | PTE_W | PTE_U, UCODE, false);
     assert(vma);
-    virtual_memory_map(new_task->base.group->vm, vma, USER_CODE_BEGIN,
+    virtual_memory_map(new_task->base.group->vm_modify, vma, USER_CODE_BEGIN,
                        ROUNDUP(program_size, _4K),
                        V2P((uintptr_t)new_task->base.group->program));
   }
   //在虚拟内存中的用户栈
   new_task->vustack = virtual_memory_find_fit(
-      new_task->base.group->vm, _4K * TASK_STACK_SIZE, USER_SPACE_BEGIN,
+      new_task->base.group->vm_modify, _4K * TASK_STACK_SIZE, USER_SPACE_BEGIN,
       USER_CODE_BEGIN, PTE_P | PTE_W | PTE_U, USTACK);
   struct virtual_memory_area *vma = virtual_memory_alloc(
-      new_task->base.group->vm, new_task->vustack, _4K * TASK_STACK_SIZE,
+      new_task->base.group->vm_modify, new_task->vustack, _4K * TASK_STACK_SIZE,
       PTE_P | PTE_W | PTE_U, USTACK, false);
   assert(vma);
-  virtual_memory_map(new_task->base.group->vm, vma, new_task->vustack,
+  virtual_memory_map(new_task->base.group->vm_modify, vma, new_task->vustack,
                      _4K * TASK_STACK_SIZE, V2P(new_task->pustack));
 
   //设置上下文和内核栈
@@ -758,9 +760,11 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
          p = list_next(p)) {
       struct task_arg *arg = (struct task_arg *)p;
       task_args_add(new_task->base.args, (const char *)arg->data,
-                    new_task->base.group->vm, true);
+                    new_task->base.group->vm_modify, true,
+                    new_task->base.group->vm_mutex);
     }
-    task_args_pack(new_task->base.args, new_task->base.group->vm, true);
+    task_args_pack(new_task->base.args, new_task->base.group->vm_modify, true,
+                   new_task->base.group->vm_mutex);
     *(uint32_t *)(new_task->base.regs.esp + 4) =
         new_task->base.args->cnt; // argc
     *(uintptr_t *)(new_task->base.regs.esp) =
@@ -807,7 +811,7 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name,
 
   // 在task_destroy时候销毁args
   if (args) {
-    task_args_pack(args, 0, false);
+    task_args_pack(args, 0, false, 0);
     new_task->args = args;
   } else {
     new_task->args = 0;
@@ -984,8 +988,8 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
       uintptr_t val;
     } cr3;
     cr3.val = 0;
-    set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
-            false);
+    set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm_modify->page_directory),
+            false, false);
     lcr3(cr3.val);
 
     // 2.切换tss栈
@@ -999,7 +1003,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   }
   next->state = RUNNING;
   current = next;
-  current_vm = next->group->vm;
+  current_vm = next->group->vm_modify;
   // next在ready队列里面，prev不在队列里面
   assert(next->ready_queue_head.next != 0 && next->ready_queue_head.prev != 0);
   assert(prev->ready_queue_head.next == 0 && prev->ready_queue_head.prev == 0);
@@ -1056,7 +1060,7 @@ void task_init() {
   current = init;
   load_esp0(0);
   // 设置当前vm为kernelvm
-  init->group->vm = &kernel_vm;
+  init->group->vm_modify = &kernel_vm;
   current_vm = &kernel_vm;
   // 从队列移除init
   list_del(&init->ready_queue_head);
