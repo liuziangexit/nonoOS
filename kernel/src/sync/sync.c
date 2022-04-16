@@ -63,14 +63,15 @@ uint32_t mutex_create() {
   mut->owner = 0;
   mut->ref_cnt = 0;
   vector_init(&mut->waitors, sizeof(pid_t));
-  mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut);
+  mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut, true);
   return mut->obj_id;
 }
 
 bool mutex_destroy(mutex_t *mut) {
-  if (mut->ref_cnt != 0) {
-    panic("mut->ref_cnt != 0");
-  }
+  // 这个检查已经在kernel_object框架里做了
+  // if (mut->ref_cnt != 0) {
+  //   panic("mut->ref_cnt != 0");
+  // }
   if (mut->locked != 0 || mut->owner != 0 || vector_count(&mut->waitors) != 0) {
     // 没有人引用这个内核对象，但是却有人在等待这个mutex，让一个等待者引用该对象，取消destroy
     terminal_fgcolor(CGA_COLOR_RED);
@@ -216,14 +217,15 @@ uint32_t condition_variable_create() {
   assert(cv);
   cv->ref_cnt = 0;
   vector_init(&cv->waitors, sizeof(pid_t));
-  cv->obj_id = kernel_object_new(KERNEL_OBJECT_CONDITION_VARIABLE, cv);
+  cv->obj_id = kernel_object_new(KERNEL_OBJECT_CONDITION_VARIABLE, cv, true);
   return cv->obj_id;
 }
 
 bool condition_variable_destroy(condition_variable_t *cv) {
-  if (cv->ref_cnt != 0) {
-    panic("cv->ref_cnt != 0");
-  }
+  // 这个检查已经在kernel_object框架里做了
+  // if (cv->ref_cnt != 0) {
+  //   panic("cv->ref_cnt != 0");
+  // }
   if (vector_count(&cv->waitors) != 0) {
     // 没有人引用这个内核对象，但是却有人在等待这个cv，让一个等待者引用该对象，取消destroy
     terminal_fgcolor(CGA_COLOR_RED);

@@ -314,7 +314,8 @@ static void task_group_remove(ktask_t *t) {
 // 析构task
 bool task_destroy(ktask_t *t) {
   assert(t);
-  assert(t->ref_count == 0);
+  // 这个检查已经在kernel_object框架里做了
+  // assert(t->ref_count == 0);
 #ifdef VERBOSE
   printf("task_destroy: destroy task %s(%lld)\n", t->name, (int64_t)t->id);
 #endif
@@ -404,7 +405,7 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   new_task->name = malloc(strlen(name) + 1);
   strcpy(new_task->name, name);
   // 生成id
-  new_task->id = kernel_object_new(KERNEL_OBJECT_TASK, new_task);
+  new_task->id = kernel_object_new(KERNEL_OBJECT_TASK, new_task, true);
   // 加入group
   task_group_add(group, new_task);
   // 自己引用自己

@@ -951,12 +951,13 @@ uint32_t shared_memory_create(size_t size) {
   }
   sh->ref = 0;
   avl_node_init(&sh->head);
-  sh->id = kernel_object_new(KERNEL_OBJECT_SHARED_MEMORY, sh);
+  sh->id = kernel_object_new(KERNEL_OBJECT_SHARED_MEMORY, sh, true);
   return sh->id;
 }
 
 bool shared_memory_destroy(struct shared_memory *sh) {
-  assert(sh->ref == 0);
+  // 这个检查已经在kernel_object框架里做了
+  // assert(sh->ref == 0);
   free_region_page_free(sh->physical, sh->pgcnt);
   free(sh);
   return true;
