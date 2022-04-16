@@ -126,6 +126,7 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj,
   ctx->object = obj;
   ctx->type = t;
   ctx->auto_lifecycle = auto_lifecycle;
+  (*get_counter(ctx->type, obj)) = 0;
   avl_tree_add(&id_tree, ctx);
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_CYAN);

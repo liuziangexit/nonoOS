@@ -56,14 +56,14 @@ pid_t mutex_owner(uint32_t mut_id) {
   return atomic_load(&mut->owner);
 }
 
-uint32_t mutex_create() {
+uint32_t mutex_create(bool auto_lifecycle) {
   mutex_t *mut = malloc(sizeof(mutex_t));
   assert(mut);
   mut->locked = 0;
   mut->owner = 0;
   mut->ref_cnt = 0;
   vector_init(&mut->waitors, sizeof(pid_t));
-  mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut, true);
+  mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut, auto_lifecycle);
   return mut->obj_id;
 }
 

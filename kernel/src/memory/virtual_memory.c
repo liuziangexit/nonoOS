@@ -23,6 +23,7 @@ TODO 合并邻近的VMA，小页表全部存的是物理地址，支持大小页
 
 //#define VERBOSE
 
+// 这个函数只会用来比较同vm里的vma，不会用来比较不同vm里的vma
 int vma_compare(const void *a, const void *b) {
   const struct virtual_memory_area *ta = (const struct virtual_memory_area *)a;
   const struct virtual_memory_area *tb = (const struct virtual_memory_area *)b;

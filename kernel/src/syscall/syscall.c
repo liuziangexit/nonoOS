@@ -156,7 +156,7 @@ void syscall_dispatch(struct trapframe *tf) {
     switch (action) {
     case USER_MTX_ACTION_CREATE: {
       // printf("mutex create\n");
-      int32_t obj = (int32_t)mutex_create();
+      int32_t obj = (int32_t)mutex_create(true);
       // printf("mutex create return %d\n", obj);
       set_return_value(tf, obj);
     } break;
