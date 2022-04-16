@@ -189,7 +189,7 @@ void ktask0() {
   }
 
 #ifdef RUN_TEST
-  // task_test();
+  task_test();
 #endif
   // https://en.wikipedia.org/wiki/Code_page_437
   putchar(1);
