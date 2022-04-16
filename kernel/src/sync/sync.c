@@ -264,13 +264,8 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
   task_schd(true, true, WAITING);
   assert(!task_current()->wait_ctx.cv.timeout);
   // 被唤醒了
-  bool locked = mutex_trylock(mut_id);
-  if (!locked) {
-    terminal_fgcolor(CGA_COLOR_RED);
-    printf("condition_variable_wait logic error 2\n");
-    terminal_default_color();
-    task_terminate(TASK_TERMINATE_ABORT);
-  }
+  // 这里不用try_lock而是lock是因为当notify_all时，某个try_lock可能失败，从而导致逻辑错误
+  mutex_lock(mut_id);
 }
 
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
@@ -297,13 +292,8 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
     return false;
   }
   // 被唤醒了
-  bool locked = mutex_trylock(mut_id);
-  if (!locked) {
-    terminal_fgcolor(CGA_COLOR_RED);
-    printf("condition_variable_timedwait logic error 2\n");
-    terminal_default_color();
-    task_terminate(TASK_TERMINATE_ABORT);
-  }
+  // 这里不用try_lock而是lock是因为当notify_all时，某个try_lock可能失败，从而导致逻辑错误
+  mutex_lock(mut_id);
   return true;
 }
 
