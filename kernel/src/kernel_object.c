@@ -16,6 +16,7 @@ struct id_ctx {
   uint32_t id;
   kernel_object_type type;
   void *object;
+  bool auto_lifecycle; // 自动生命周期管理(引用计数)
 };
 
 static const char *type2str(kernel_object_type t) {
@@ -26,7 +27,7 @@ static const char *type2str(kernel_object_type t) {
   if (t == KERNEL_OBJECT_MUTEX)
     return "MUTEX";
   if (t == KERNEL_OBJECT_CONDITION_VARIABLE)
-    return "CONVAR";
+    return "CONDVAR";
   abort();
   __builtin_unreachable();
 }
@@ -101,14 +102,15 @@ void *kernel_object_get(uint32_t id, bool unsafe) {
   return get_ctx(id, unsafe)->object;
 }
 
-uint32_t kernel_object_new(kernel_object_type t, void *obj) {
+uint32_t kernel_object_new(kernel_object_type t, void *obj,
+                           bool auto_lifecycle) {
   SMART_CRITICAL_REGION
   // 生成唯一id
   uint32_t result;
-  const pid_t begins = atomic_load(&id_seq);
+  const pid_t begins = id_seq;
   struct id_ctx find;
   do {
-    result = atomic_add(&id_seq, 1);
+    result = ++id_seq;
     if (result == begins) {
       panic("running out of id");
     }
@@ -123,6 +125,7 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj) {
   ctx->id = result;
   ctx->object = obj;
   ctx->type = t;
+  ctx->auto_lifecycle = auto_lifecycle;
   avl_tree_add(&id_tree, ctx);
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_CYAN);
@@ -130,11 +133,13 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj) {
          (int64_t)result);
   terminal_default_color();
 #endif
-  if (t != KERNEL_OBJECT_TASK) {
-    // 当前的进程引用这个内核对象
-    bool abs = kernel_object_ref(task_current()->group, result);
-    if (!abs)
-      abort();
+  if (auto_lifecycle) {
+    if (t != KERNEL_OBJECT_TASK) {
+      // 当前的进程引用这个内核对象
+      bool abs = kernel_object_ref(task_current()->group, result);
+      if (!abs)
+        abort();
+    }
   }
   return result;
 }
@@ -143,42 +148,58 @@ void kernel_object_delete(uint32_t id) {
   SMART_CRITICAL_REGION
   struct id_ctx *ctx = get_ctx(id, false);
   assert(ctx);
+  if (*get_counter(ctx->type, ctx->object) != 0) {
+    panic("kernel_object_delete ref_cnt!=0");
+  }
+  bool (*dtor)(void *) = get_dtor(ctx->type);
+  assert(dtor);
+
+  if (!dtor(ctx->object)) {
+    // 如果dtor拒绝删除
+    if (ctx->auto_lifecycle) {
+      // 自动生命周期的
+      if (*get_counter(ctx->type, ctx->object) != 0) {
+        // 如果dtor增加了至少一个引用，取消删除
+        return;
+      } else {
+        panic("kernel object's dtor refused to destruct but had not adding "
+              "reference to it");
+      }
+    } else {
+      // 手动生命周期的
+      panic(
+          "kernel object's dtor has refused to destruct a non-ref-cnt object");
+    }
+  }
 #ifdef VERBOSE
   terminal_fgcolor(CGA_COLOR_CYAN);
   printf("kernel_object_delete: delete kernel object %s %lld\n",
          type2str(ctx->type), (int64_t)id);
   terminal_default_color();
 #endif
-  bool (*dtor)(void *) = get_dtor(ctx->type);
-  assert(dtor);
-  // 如果dtor拒绝并且增加了至少一个引用，取消删除
-  if (!dtor(ctx->object)) {
-    if (*get_counter(ctx->type, ctx->object) != 0) {
-      return;
-    } else {
-      panic("kernel object's dtor refused to destruct but had not adding "
-            "reference to it");
-    }
-  }
   avl_tree_remove(&id_tree, ctx);
   free(ctx);
 }
 
-bool kernel_object_has_ref(task_group_t *group, uint32_t kobj_id) {
-  SMART_CRITICAL_REGION
-  if (task_inited == TASK_INITED_MAGIC) {
-    struct id_ctx find;
-    find.id = kobj_id;
-    return 0 != avl_tree_find(&group->kernel_objects, &find);
-  }
-  return true;
-}
+// 我都忘了这个函数是干啥的，好像没有用，注释掉先
+// bool kernel_object_has_ref(task_group_t *group, uint32_t kobj_id) {
+//   SMART_CRITICAL_REGION
+//   if (task_inited == TASK_INITED_MAGIC) {
+//     struct id_ctx find;
+//     find.id = kobj_id;
+//     return 0 != avl_tree_find(&group->kernel_objects, &find);
+//   }
+//   return true;
+// }
 
 bool kernel_object_ref(task_group_t *group, uint32_t kobj_id) {
   SMART_CRITICAL_REGION
   struct id_ctx *ctx = get_ctx(kobj_id, false);
   if (!ctx)
     return false;
+  if (!ctx->auto_lifecycle) {
+    panic("trying to reference a non-ref-cnt obj");
+  }
   // task这边记录对象id
   struct kern_obj_id *id_record = malloc(sizeof(struct kern_obj_id));
   assert(id_record);
@@ -218,6 +239,12 @@ void kernel_object_unref(task_group_t *group, uint32_t kobj_id,
   SMART_CRITICAL_REGION
   // 减引用计数
   struct id_ctx *ctx = get_ctx(kobj_id, false);
+  if (!ctx) {
+    panic("kernel_object_unref get_ctx returns 0");
+  }
+  if (!ctx->auto_lifecycle) {
+    panic("trying to unreference a non-ref-cnt obj");
+  }
   uint32_t *counter = get_counter(ctx->type, ctx->object);
   (*counter)--;
   // task这边移除对象id
