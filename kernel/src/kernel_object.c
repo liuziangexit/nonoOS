@@ -135,7 +135,6 @@ uint32_t kernel_object_new(kernel_object_type t, void *obj) {
     if (!succ)
       abort();
   }
-
   return result;
 }
 
@@ -208,7 +207,7 @@ bool kernel_object_ref(task_group_t *group, uint32_t kobj_id) {
   return true;
 }
 
-// 因为引用的时候需要关调度，所以封装一个“安全”版本出来
+// 其实就是根据pid找到group结构，然后再调用所以封装一个“安全”版本出来
 bool kernel_object_ref_safe(pid_t pid, uint32_t kobj_id) {
   SMART_CRITICAL_REGION
   ktask_t *task = task_find(pid);
@@ -250,6 +249,7 @@ void kernel_object_unref(task_group_t *group, uint32_t kobj_id,
   }
 }
 
+// 其实就是根据pid找到group结构，然后再调用所以封装一个“安全”版本出来
 void kernel_object_unref_safe(pid_t pid, uint32_t kobj_id) {
   SMART_CRITICAL_REGION
   ktask_t *task = task_find(pid);
