@@ -243,8 +243,8 @@ void ktask0() {
         free_region_access(sh_prog->physical, sh_prog->pgcnt * _4K);
     memcpy(access_prog, _binary____program_count_down_main_exe_start,
            (uint32_t)_binary____program_count_down_main_exe_size);
-    free_region_no_access(access_str);
-    free_region_no_access(access_prog);
+    free_region_finish_access(access_str);
+    free_region_finish_access(access_prog);
 
     // 通过程序参数传进去共享内存的id
     union {

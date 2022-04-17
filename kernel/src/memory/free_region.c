@@ -93,7 +93,7 @@ void *free_region_access(uintptr_t physical, size_t length) {
   return (void *)vaddr + round_diff;
 }
 
-void free_region_no_access(void *virtual) {
+void free_region_finish_access(void *virtual) {
   SMART_CRITICAL_REGION
   struct virtual_memory *current_vm = virtual_memory_current();
   struct virtual_memory_area *vma =

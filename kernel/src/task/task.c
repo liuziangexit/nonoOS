@@ -161,7 +161,7 @@ void task_args_add(struct task_args *dst, const char *str,
   memcpy(data_access, str, holder->strlen);
   data_access[holder->strlen] = '\0';
   if (use_umalloc)
-    free_region_no_access(data_access);
+    free_region_finish_access(data_access);
   list_add_before(&dst->args, &holder->head);
   dst->cnt++;
 }
@@ -193,7 +193,7 @@ static void task_args_pack(struct task_args *dst, struct virtual_memory *vm,
     data_access[i++] = (const char *)arg->vdata;
   }
   if (use_umalloc) {
-    free_region_no_access(data_access);
+    free_region_finish_access(data_access);
   }
 }
 

@@ -347,7 +347,7 @@ void *alloc_page_impl(enum MEMORY_REGION r, size_t cnt) {
     if (r == FREE_REGION) {
       void *access = free_region_access((uintptr_t)p, cnt * _4K);
       memset(access, 0, cnt * _4K);
-      free_region_no_access(access);
+      free_region_finish_access(access);
     }
   }
   return p;
