@@ -729,8 +729,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     virtual_memory_clone(new_task->base.group->vm, copy_pd, UKERNEL);
     // 把new_task->program映射到128MB的地方
     struct virtual_memory_area *vma = virtual_memory_alloc(
-        new_task->base.group->vm, USER_CODE_BEGIN,
-        ROUNDUP(program_size, _4K), PTE_P | PTE_W | PTE_U, UCODE, false);
+        new_task->base.group->vm, USER_CODE_BEGIN, ROUNDUP(program_size, _4K),
+        PTE_P | PTE_W | PTE_U, UCODE, false);
     assert(vma);
     virtual_memory_map(new_task->base.group->vm, vma, USER_CODE_BEGIN,
                        ROUNDUP(program_size, _4K),
@@ -995,8 +995,8 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
       uintptr_t val;
     } cr3;
     cr3.val = 0;
-    set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory),
-            false, false);
+    set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
+            false);
     lcr3(cr3.val);
 
     // 2.切换tss栈
