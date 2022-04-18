@@ -973,8 +973,8 @@ struct shared_memory *shared_memory_ctx(uint32_t id) {
 // 当addr为0时表示自动选择映射到的地址
 // 返回映射到的虚拟地址，返回0表示错误
 void *shared_memory_map(uint32_t id, void *addr) {
-  struct virtual_memory *vm = virtual_memory_current();
-  SMART_CRITICAL_REGION
+  SMART_LOCK(l, task_current()->group->vm_mutex)
+  struct virtual_memory *vm = task_current()->group->vm;
   struct shared_memory *sh = shared_memory_ctx(id);
   assert(sh && vm);
   if (!addr) {
@@ -997,8 +997,10 @@ void *shared_memory_map(uint32_t id, void *addr) {
 }
 
 void shared_memory_unmap(void *addr) {
-  struct virtual_memory *vm = virtual_memory_current();
-  assert(vm);
+  SMART_LOCK(l, task_current()->group->vm_mutex)
+  struct virtual_memory *vm = task_current()->group->vm;
+  //为了防止这里修改vm时，别的线程被调进来运行
+  SMART_CRITICAL_REGION
   struct virtual_memory_area *vma = virtual_memory_get_vma(vm, (uintptr_t)addr);
   assert(vma);
   if (vma->type != SHM)
