@@ -273,8 +273,10 @@ static task_group_t *task_group_create(bool is_kernel) {
                 sizeof(struct kern_obj_id), 0);
   if (task_inited == TASK_INITED_MAGIC) {
     group->vm_mutex = mutex_create();
+    // 用当前正在创建的线程组引用该mutex
     bool ref_succ = kernel_object_ref(group, group->vm_mutex);
     assert(ref_succ);
+    // 当前正运行的线程组取消引用该mutex
     kernel_object_unref(task_current()->group, group->vm_mutex, true);
   }
   return group;
