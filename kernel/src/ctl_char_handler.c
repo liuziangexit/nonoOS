@@ -4,6 +4,15 @@
 
 void control_character_handler(int32_t *c, uint32_t *shift) {
   // 控制屏幕滚动
+
+  // CTL+UP/DN = PGUP/PGDN
+  if (!(~*shift & (CTL)) && *c == KEY_DN) {
+    terminal_viewport_down(CRT_ROWS);
+  }
+  if (!(~*shift & (CTL)) && *c == KEY_UP) {
+    terminal_viewport_up(CRT_ROWS);
+  }
+
   switch (*c) {
   case KEY_UP:
     *c = -1;
