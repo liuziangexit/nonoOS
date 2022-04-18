@@ -337,8 +337,8 @@ static uint32_t get_region_zones_size(enum MEMORY_REGION r) {
 }
 
 void *alloc_page_impl(enum MEMORY_REGION r, size_t cnt) {
-  SMART_CRITICAL_REGION
   cnt = next_pow2(cnt);
+  SMART_CRITICAL_REGION
   void *p = split(log2(cnt), get_region_zones(r), get_region_zones_size(r));
   if (p) {
     if (r == NORMAL_REGION) {

@@ -38,14 +38,12 @@ static __always_inline uint32_t task_count() {
 
 // 从组链表node获得对象
 inline static ktask_t *task_group_head_retrieve(list_entry_t *head) {
-  SMART_CRITICAL_REGION
   return (ktask_t *)(((void *)head) - sizeof(struct avl_node) -
                      sizeof(list_entry_t));
 }
 
 // 从ready链表node获得对象
 inline static ktask_t *task_ready_queue_head_retrieve(list_entry_t *head) {
-  SMART_CRITICAL_REGION
   return (ktask_t *)(((void *)head) - sizeof(struct avl_node));
 }
 
@@ -122,8 +120,8 @@ void task_handle_wait() {
 
 struct virtual_memory *current_vm;
 struct virtual_memory *virtual_memory_current() {
-  SMART_CRITICAL_REGION
-  return current_vm;
+  return (struct virtual_memory *)(uintptr_t)atomic_load(
+      (uint32_t *)&current_vm);
 }
 
 void task_args_init(struct task_args *dst) {
@@ -212,9 +210,9 @@ void task_args_destroy(struct task_args *dst, bool free_data) {
     if (free_data) {
       free((void *)arg->data);
     }
-    void *current = p;
+    void *c = p;
     p = list_next(p);
-    free(current);
+    free(c);
   }
   list_init(&dst->args);
   if (dst->packed) {
@@ -355,7 +353,7 @@ bool task_destroy(ktask_t *t) {
 }
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
-                                  task_group_t *group, bool ref) {
+                                 task_group_t *group, bool ref) {
   make_sure_schd_disabled();
   if (current && kernel && !current->group->is_kernel) {
     return 0; //只有supervisor才能创造一个supervisor
@@ -628,12 +626,7 @@ void task_preemptive_set(bool val) {
 
 // 当前进程
 ktask_t *task_current() {
-  SMART_CRITICAL_REGION
-  if (!current) {
-    return 0;
-  } else {
-    return current;
-  }
+  return (ktask_t *)(uintptr_t)atomic_load((uint32_t *)&current);
 }
 
 // 创建user task
