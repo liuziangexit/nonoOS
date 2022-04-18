@@ -70,8 +70,8 @@ const char *task_state_str(enum task_state);
 struct task_group {
   list_entry_t tasks;
   uint32_t task_cnt;
-  bool is_kernel;                   // 是否内核权限
-  struct virtual_memory *vm_modify; // 虚拟内存管理
+  bool is_kernel;            // 是否内核权限
+  struct virtual_memory *vm; // 虚拟内存管理
   uint32_t vm_mutex;
   void *program;                  // 程序映像拷贝
   struct avl_tree kernel_objects; // 线程引用的内核对象

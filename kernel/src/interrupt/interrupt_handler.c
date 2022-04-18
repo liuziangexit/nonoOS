@@ -227,10 +227,10 @@ void interrupt_handler(struct trapframe *tf) {
       // 找到vma
       SMART_LOCK(l, task->group->vm_mutex)
       struct virtual_memory_area *vma =
-          virtual_memory_get_vma(task->group->vm_modify, cr2);
+          virtual_memory_get_vma(task->group->vm, cr2);
       if (vma && vma->type == UMALLOC) {
         // 处理MALLOC缺页
-        upfault(task->group->vm_modify, vma);
+        upfault(task->group->vm, vma);
         break;
       }
     }
