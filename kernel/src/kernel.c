@@ -179,14 +179,7 @@ void ktask0() {
   }
   task_inited = TASK_INITED_MAGIC;
 
-  {
-    task_current()->group->vm_mutex = mutex_create();
-    bool ref_succ = kernel_object_ref(task_current()->group,
-                                      task_current()->group->vm_mutex);
-    assert(ref_succ);
-    kernel_object_unref(task_current()->group, task_current()->group->vm_mutex,
-                        true);
-  }
+  { task_current()->group->vm_mutex = mutex_create(); }
 
 #ifdef RUN_TEST
   task_test();
@@ -234,17 +227,21 @@ void ktask0() {
         (uint32_t)_binary____program_count_down_main_exe_size);
     // 拷贝测试字符串
     struct shared_memory *sh_str = shared_memory_ctx(shid_str);
-    void *access_str =
-        free_region_access(sh_str->physical, sh_str->pgcnt * _4K);
+    void *access_str = free_region_access(
+        task_current()->group->vm_modify, task_current()->group->vm_mutex,
+        sh_str->physical, sh_str->pgcnt * _4K);
     memcpy(access_str, test_string, strlen(test_string));
     // 拷贝countdown程序
     struct shared_memory *sh_prog = shared_memory_ctx(shid_prog);
-    void *access_prog =
-        free_region_access(sh_prog->physical, sh_prog->pgcnt * _4K);
+    void *access_prog = free_region_access(
+        task_current()->group->vm_modify, task_current()->group->vm_mutex,
+        sh_prog->physical, sh_prog->pgcnt * _4K);
     memcpy(access_prog, _binary____program_count_down_main_exe_start,
            (uint32_t)_binary____program_count_down_main_exe_size);
-    free_region_finish_access(access_str);
-    free_region_finish_access(access_prog);
+    free_region_finish_access(task_current()->group->vm_modify,
+                              task_current()->group->vm_mutex, access_str);
+    free_region_finish_access(task_current()->group->vm_modify,
+                              task_current()->group->vm_mutex, access_prog);
 
     // 通过程序参数传进去共享内存的id
     union {

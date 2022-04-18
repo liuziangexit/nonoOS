@@ -50,7 +50,9 @@ uintptr_t free_region_page_alloc(size_t cnt);
 void free_region_page_free(uintptr_t, size_t cnt);
 // 将free region的某部分map到内核空间的map部分以供访问
 // 返回值是指向physical的内核虚拟地址
-void *free_region_access(uintptr_t physical, size_t length);
-void free_region_finish_access(void *virtual);
+void *free_region_access(struct virtual_memory *vm, uint32_t vm_mut,
+                         uintptr_t physical, size_t length);
+void free_region_finish_access(struct virtual_memory *vm, uint32_t vm_mut,
+                               void *virtual);
 
 #endif

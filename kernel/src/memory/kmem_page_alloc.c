@@ -345,9 +345,12 @@ void *alloc_page_impl(enum MEMORY_REGION r, size_t cnt) {
       memset(p, 0, cnt * _4K);
     }
     if (r == FREE_REGION) {
-      void *access = free_region_access((uintptr_t)p, cnt * _4K);
+      void *access = free_region_access(task_current()->group->vm_modify,
+                                        task_current()->group->vm_mutex,
+                                        (uintptr_t)p, cnt * _4K);
       memset(access, 0, cnt * _4K);
-      free_region_finish_access(access);
+      free_region_finish_access(task_current()->group->vm_modify,
+                                task_current()->group->vm_mutex, access);
     }
   }
   return p;

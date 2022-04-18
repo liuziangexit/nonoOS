@@ -154,14 +154,17 @@ void task_args_add(struct task_args *dst, const char *str,
   // 这data是在free region所以需要临时map到内核来才能访问
   char *data_access;
   if (use_umalloc) {
-    data_access = free_region_access(holder->data, holder->strlen + 1);
+    data_access = free_region_access(task_current()->group->vm_modify,
+                                     task_current()->group->vm_mutex,
+                                     holder->data, holder->strlen + 1);
   } else {
     data_access = (char *)holder->data;
   }
   memcpy(data_access, str, holder->strlen);
   data_access[holder->strlen] = '\0';
   if (use_umalloc)
-    free_region_finish_access(data_access);
+    free_region_finish_access(task_current()->group->vm_modify,
+                              task_current()->group->vm_mutex, data_access);
   list_add_before(&dst->args, &holder->head);
   dst->cnt++;
 }
@@ -182,7 +185,9 @@ static void task_args_pack(struct task_args *dst, struct virtual_memory *vm,
   }
   const char **data_access;
   if (use_umalloc) {
-    data_access = free_region_access(dst->packed, sizeof(char *) * dst->cnt);
+    data_access = free_region_access(task_current()->group->vm_modify,
+                                     task_current()->group->vm_mutex,
+                                     dst->packed, sizeof(char *) * dst->cnt);
   } else {
     data_access = (const char **)dst->packed;
   }
@@ -193,7 +198,8 @@ static void task_args_pack(struct task_args *dst, struct virtual_memory *vm,
     data_access[i++] = (const char *)arg->vdata;
   }
   if (use_umalloc) {
-    free_region_finish_access(data_access);
+    free_region_finish_access(task_current()->group->vm_modify,
+                              task_current()->group->vm_mutex, data_access);
   }
 }
 
@@ -349,7 +355,7 @@ bool task_destroy(ktask_t *t) {
 }
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
-                                 task_group_t *group, bool ref) {
+                                  task_group_t *group, bool ref) {
   make_sure_schd_disabled();
   if (current && kernel && !current->group->is_kernel) {
     return 0; //只有supervisor才能创造一个supervisor
