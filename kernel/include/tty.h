@@ -1,8 +1,14 @@
 #ifndef __KERNEL_TTY_H__
 #define __KERNEL_TTY_H__
 
+#include <assert.h>
 #include <cga.h>
 #include <defs.h>
+
+// 确保kbd isr不会打断程序引发的terminal访问
+void terminal_blockbd();
+void terminal_unblockbd();
+bool terminal_kbdblocked();
 
 void terminal_init();
 void terminal_putchar(char c);

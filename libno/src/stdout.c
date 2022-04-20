@@ -19,7 +19,9 @@ int putchar(int ic) {
 }
 
 static void print(const char *data, size_t length) {
+  terminal_blockbd();
   terminal_write(data, length);
+  terminal_unblockbd();
 }
 
 #define GET_ARG(TYPE) (va_arg(*parameters, TYPE))

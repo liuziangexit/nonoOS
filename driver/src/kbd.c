@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <atomic.h>
 #include <ctl_char_handler.h>
 #include <interrupt.h>
 #include <kbd.h>
@@ -341,9 +342,21 @@ void kbd_init(void) {
   pic_enable(IRQ_KBD);
 }
 
+static uint32_t kbd_isr_lock;
+
 /* kbd_intr - try to feed input characters from keyboard */
 void kbd_isr(void) {
-  SMART_CRITICAL_REGION
+  SMART_CRITICAL_REGION //
+  {
+    uint32_t expected = 0;
+    if (!atomic_compare_exchange(&kbd_isr_lock, &expected, 1)) {
+      return; // 另一个kbd_isr正在运行
+    }
+  }
+  if (terminal_kbdblocked()) {
+    // 有程序发起的terminal访问正在进行，本次中断引起的访问有可能与其冲突，忽略
+    return;
+  }
   int c;
   while ((c = kbd_hw_read()) != EOF) {
     if (c != 0) {
@@ -355,4 +368,6 @@ void kbd_isr(void) {
       terminal_viewport_bottom();
     }
   }
+  uint32_t prev = atomic_exchange(&kbd_isr_lock, 0);
+  assert(prev == 1);
 }

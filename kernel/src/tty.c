@@ -28,6 +28,11 @@ static uint32_t ob_wpos = 0;
 
 static const char whitespace = ' ';
 
+static bool kbdblocked;
+void terminal_blockbd() { kbdblocked = true; }
+void terminal_unblockbd() { kbdblocked = false; }
+bool terminal_kbdblocked() { return kbdblocked; }
+
 //清屏
 static void viewport_clear() {
   SMART_CRITICAL_REGION
@@ -174,6 +179,7 @@ void terminal_write(const char *data, size_t size) {
 void terminal_write_string(const char *s) { terminal_write(s, strlen(s)); }
 
 void terminal_color(enum cga_color _fg, enum cga_color _bg) {
+  SMART_CRITICAL_REGION
   fg = _fg;
   bg = _bg;
 }
