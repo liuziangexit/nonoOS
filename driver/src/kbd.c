@@ -345,6 +345,14 @@ void kbd_init(void) {
 static uint32_t kbd_isr_lock;
 
 /* kbd_intr - try to feed input characters from keyboard */
+
+// theres only one kbd_isr running at any given time
+
+// while isr is running, there wont be any other process accessing terminal at
+// the same time
+
+// while one or more processes are accessing their terminals(whether its the
+// displaying one or not), isr will not run
 void kbd_isr(void) {
   SMART_CRITICAL_REGION //
   {
