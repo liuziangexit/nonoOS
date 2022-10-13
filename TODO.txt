@@ -84,6 +84,7 @@ OK-检查vm和vma是否存在不安全访问
 -运行 ASCII RayTracing
 -整理编译系统，支持配置tool prefix，DEBUG/RELEASE
 -在物理机上运行
+-接入v86，在浏览器中运行
 -1.0版本！
 -实现C文件API
 -文件系统
