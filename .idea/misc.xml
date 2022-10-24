@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CidrRootsConfiguration">
+    <sourceRoots>
+      <file path="$PROJECT_DIR$/driver/include" />
+      <file path="$PROJECT_DIR$/driver/src" />
+      <file path="$PROJECT_DIR$/kernel/bootloader" />
+      <file path="$PROJECT_DIR$/kernel/crt" />
+      <file path="$PROJECT_DIR$/kernel/include" />
+      <file path="$PROJECT_DIR$/kernel/src" />
+      <file path="$PROJECT_DIR$/kernel/test" />
+      <file path="$PROJECT_DIR$/libno/include" />
+      <file path="$PROJECT_DIR$/libno/src" />
+      <file path="$PROJECT_DIR$/program" />
+    </sourceRoots>
+  </component>
+  <component name="ExternalStorageConfigurationManager" enabled="true" />
+  <component name="MakefileSettings">
+    <option name="linkedExternalProjectsSettings">
+      <MakefileProjectSettings>
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="version" value="2" />
+      </MakefileProjectSettings>
+    </option>
+  </component>
+  <component name="MakefileWorkspace" PROJECT_DIR="$PROJECT_DIR$" />
+</project>
