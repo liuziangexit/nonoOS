@@ -349,7 +349,7 @@ static uint32_t kbd_isr_lock;
 // theres only one kbd_isr running at any given time
 
 // while isr is running, there wont be any other process accessing terminal at
-// the same time
+// that same time
 
 // while one or more processes are accessing their terminals(whether its the
 // displaying one or not), isr will not run
