@@ -62,7 +62,7 @@ uint32_t mutex_create() {
   mut->locked = 0;
   mut->owner = 0;
   mut->ref_cnt = 0;
-  vector_init(&mut->waitors, sizeof(pid_t));
+  vector_init(&mut->waitors, sizeof(pid_t), NULL);
   mut->obj_id = kernel_object_new(KERNEL_OBJECT_MUTEX, mut);
   return mut->obj_id;
 }
@@ -219,7 +219,7 @@ uint32_t condition_variable_create() {
   condition_variable_t *cv = malloc(sizeof(condition_variable_t));
   assert(cv);
   cv->ref_cnt = 0;
-  vector_init(&cv->waitors, sizeof(pid_t));
+  vector_init(&cv->waitors, sizeof(pid_t), NULL);
   cv->obj_id = kernel_object_new(KERNEL_OBJECT_CONDITION_VARIABLE, cv);
   return cv->obj_id;
 }

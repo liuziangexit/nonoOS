@@ -428,7 +428,7 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   if (ref)
     kernel_object_ref(task_current()->group, new_task->id);
   // 初始化joining
-  vector_init(&new_task->joining, sizeof(pid_t));
+  vector_init(&new_task->joining, sizeof(pid_t), NULL);
 #ifndef NDEBUG
   new_task->debug_current_syscall = 0;
 #endif
