@@ -17,11 +17,18 @@ static void check_oor(vector_t *vec, uint32_t idx) {
   }
 }
 
-void vector_init(vector_t *vec, uint32_t obj_size) {
+void vector_init(vector_t *vec, uint32_t obj_size, void *(*allocator)(size_t)) {
+  assert(vec);
+  assert(obj_size != 0);
   vec->obj_size = obj_size;
   vec->capacity = obj_size * 15;
   vec->count = 0;
-  vec->mem = malloc(vec->capacity);
+  vec->allocator = allocator;
+  if (vec->allocator) {
+    vec->mem = vec->allocator(vec->capacity);
+  } else {
+    vec->mem == malloc;
+  }
   check_mem(vec->mem);
 }
 
@@ -55,7 +62,7 @@ void *vector_get(vector_t *vec, uint32_t index) {
 
 void vector_reserve(vector_t *vec, uint32_t new_capacity) {
   if (vec->capacity < new_capacity) {
-    void *new_mem = malloc(new_capacity * vec->obj_size);
+    void *new_mem = vec->allocator(new_capacity * vec->obj_size);
     check_mem(new_mem);
     memcpy(new_mem, vec->mem, vec->obj_size * vec->count);
     free(vec->mem);
@@ -66,7 +73,7 @@ void vector_reserve(vector_t *vec, uint32_t new_capacity) {
 
 void vector_shrink(vector_t *vec, uint32_t new_capacity) {
   if (new_capacity < vec->capacity) {
-    void *new_mem = malloc(new_capacity * vec->obj_size);
+    void *new_mem = vec->allocator(new_capacity * vec->obj_size);
     check_mem(new_mem);
     memcpy(new_mem, vec->mem, vec->obj_size * new_capacity);
     free(vec->mem);

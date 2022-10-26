@@ -1,5 +1,6 @@
 #ifndef __LIBNO_VECTOR_H__
 #define __LIBNO_VECTOR_H__
+#include <stddef.h>
 #include <stdint.h>
 
 struct vector {
@@ -7,10 +8,11 @@ struct vector {
   void *mem;
   uint32_t count;
   uint32_t capacity;
+  void *(*allocator)(size_t);
 };
 typedef struct vector vector_t;
 
-void vector_init(vector_t *vec, uint32_t obj_size);
+void vector_init(vector_t *vec, uint32_t obj_size, void *(*allocator)(size_t));
 void vector_destroy(vector_t *vec);
 uint32_t vector_count(vector_t *vec);
 
