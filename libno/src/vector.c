@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -23,12 +24,12 @@ void vector_init(vector_t *vec, uint32_t obj_size, void *(*allocator)(size_t)) {
   vec->obj_size = obj_size;
   vec->capacity = obj_size * 15;
   vec->count = 0;
-  vec->allocator = allocator;
   if (vec->allocator) {
-    vec->mem = vec->allocator(vec->capacity);
+    vec->allocator = allocator;
   } else {
-    vec->mem == malloc;
+    vec->allocator = malloc;
   }
+  vec->mem = vec->allocator(vec->capacity);
   check_mem(vec->mem);
 }
 
