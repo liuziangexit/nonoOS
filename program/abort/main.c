@@ -9,5 +9,5 @@ int main(int argc, char **argv) {
   UNUSED(argv);
   printf("im going to abort!\n");
   abort();
-  __builtin_unreachable();
+  __unreachable;
 }

@@ -28,7 +28,7 @@ static const char *type2str(kernel_object_type t) {
   if (t == KERNEL_OBJECT_CONDITION_VARIABLE)
     return "CONDVAR";
   abort();
-  __builtin_unreachable();
+  __unreachable;
 }
 
 static int compare_id(const void *a, const void *b) {
@@ -66,7 +66,7 @@ static uint32_t *get_counter(kernel_object_type t, void *obj) {
   } break;
   }
   panic("AHAHAH");
-  __builtin_unreachable();
+  __unreachable;
 }
 
 static void *get_dtor(kernel_object_type t) {
@@ -85,7 +85,7 @@ static void *get_dtor(kernel_object_type t) {
   } break;
   }
   panic("AHAHAH");
-  __builtin_unreachable();
+  __unreachable;
 }
 
 void kernel_object_init() {

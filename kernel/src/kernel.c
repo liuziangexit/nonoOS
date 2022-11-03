@@ -76,7 +76,7 @@ void kentry() {
   // 在新栈上调kmain
   asm volatile("movl 0, %%ebp;movl $0xFFFFFFFF, %%esp;call kmain;" ::
                    : "memory");
-  __builtin_unreachable();
+  __unreachable;
 }
 
 // 此函数用的是boot栈
@@ -130,7 +130,7 @@ void kmain() {
                :
                : "r"(new_ebp), "r"(new_esp)
                : "memory");
-  __builtin_unreachable();
+  __unreachable;
 }
 
 // 此函数用的是task1的任务栈
@@ -336,5 +336,5 @@ void ktask0() {
   task_idle();
 
   panic("task_idle returned?");
-  __builtin_unreachable();
+  __unreachable;
 }

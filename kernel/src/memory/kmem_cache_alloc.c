@@ -58,7 +58,7 @@ static struct slab *new_slab_struct() {
     }
   }
   panic("new_slab_struct");
-  __builtin_unreachable();
+  __unreachable;
 }
 
 static void free_slab_struct(struct slab *s) {

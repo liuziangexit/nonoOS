@@ -353,7 +353,7 @@ static uint32_t kbd_isr_lock;
 
 // while one or more processes are accessing their terminals(whether its the
 // displaying one or not), isr will not run
-void kbd_isr(void) {
+void kbd_isr() {
   SMART_CRITICAL_REGION //
   {
     uint32_t expected = 0;

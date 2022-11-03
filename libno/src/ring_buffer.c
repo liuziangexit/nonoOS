@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <compiler_helper.h>
 #include <ring_buffer.h>
 
 void ring_buffer_init(struct ring_buffer *rbuf, void *buf, uint32_t cap) {
@@ -16,7 +17,7 @@ uint32_t ring_buffer_readable(const struct ring_buffer *buf) {
   } else if (buf->wpos < buf->rpos) {
     return buf->wpos + (buf->cap - buf->rpos);
   }
-  __builtin_unreachable();
+  __unreachable;
 }
 
 uint32_t ring_buffer_read(struct ring_buffer *buf, void *dst, uint32_t len) {

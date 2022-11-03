@@ -33,7 +33,7 @@ int vma_compare(const void *a, const void *b) {
     return -1;
   if (ta->start == tb->start)
     return 0;
-  __builtin_unreachable();
+  __unreachable;
 }
 
 //初始化一个虚拟地址空间结构
@@ -267,7 +267,7 @@ uintptr_t vm_verify_area_flags(struct virtual_memory *vm, const uintptr_t begin,
       }
     }
     abort();
-    __builtin_unreachable();
+    __unreachable;
   }
   return real_begin;
 }
@@ -412,7 +412,7 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
     return vma;
   }
   abort();
-  __builtin_unreachable();
+  __unreachable;
 }
 
 static struct umalloc_free_area *new_free_area() {
@@ -788,7 +788,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
     }
   }
   abort();
-  __builtin_unreachable();
+  __unreachable;
 }
 
 // malloc的vma缺页时候，把一整个vma都映射上物理内存

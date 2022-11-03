@@ -248,7 +248,7 @@ void interrupt_handler(struct trapframe *tf) {
         print_pgfault(tf, cr2);
         panic("system process trying to dereference a null pointer");
       }
-      __builtin_unreachable();
+      __unreachable;
     }
 
     if (is_user) {
@@ -256,7 +256,7 @@ void interrupt_handler(struct trapframe *tf) {
       print_pgfault(tf, cr2);
       task_terminate(TASK_TERMINATE_BAD_ACCESS);
       abort();
-      __builtin_unreachable();
+      __unreachable;
     } else {
       // 如果是未处理的内核
       print_pgfault(tf, cr2);

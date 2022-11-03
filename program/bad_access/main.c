@@ -11,7 +11,7 @@ void child() {
   sleep(10000);
   printf("bad_access_child something goes wrong\n");
   abort();
-  __builtin_unreachable();
+  __unreachable;
 }
 
 int main(int argc, char **argv) {
@@ -43,5 +43,5 @@ int main(int argc, char **argv) {
   sleep(1000);
   printf("bad_access_parent is doing the bad thing!\n");
   *(volatile int *)0;
-  __builtin_unreachable();
+  __unreachable;
 }

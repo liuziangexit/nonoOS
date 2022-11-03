@@ -322,7 +322,7 @@ static struct zone *get_region_zones(enum MEMORY_REGION r) {
     return free_space_zones;
   }
   abort();
-  __builtin_unreachable();
+  __unreachable;
 }
 
 static uint32_t get_region_zones_size(enum MEMORY_REGION r) {
@@ -333,7 +333,7 @@ static uint32_t get_region_zones_size(enum MEMORY_REGION r) {
     return sizeof(free_space_zones);
   }
   abort();
-  __builtin_unreachable();
+  __unreachable;
 }
 
 void *alloc_page_impl(enum MEMORY_REGION r, size_t cnt) {
@@ -365,7 +365,7 @@ void free_page_impl(enum MEMORY_REGION r, uintptr_t p, size_t cnt) {
     page_struct = malloc(sizeof(struct page));
   } else {
     abort();
-    __builtin_unreachable();
+    __unreachable;
   }
   page_struct->addr = (uintptr_t)p;
   cnt = next_pow2(cnt);

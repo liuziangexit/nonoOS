@@ -45,7 +45,7 @@ vma_type_str(enum virtual_memory_area_type e) {
   if (e == KMAP)
     return "KMAP   ";
   abort();
-  __builtin_unreachable();
+  __unreachable;
 }
 
 /*

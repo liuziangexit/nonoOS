@@ -10,5 +10,5 @@ __attribute__((__noreturn__)) void panic(const char *message) {
   while (1) {
     hlt();
   }
-  __builtin_unreachable();
+  __unreachable;
 }

@@ -67,7 +67,7 @@ static int compare_task_by_ts(const void *a, const void *b) {
     return -1;
   if (ta->tslice == tb->tslice)
     return 0;
-  __builtin_unreachable();
+  __unreachable;
 }
 
 void ready_queue_put(ktask_t *t) {
@@ -243,7 +243,7 @@ static int compare_task(const void *a, const void *b) {
     return -1;
   if (ta->id == tb->id)
     return 0;
-  __builtin_unreachable();
+  __unreachable;
 }
 
 static int compare_kern_obj_id(const void *a, const void *b) {
@@ -255,7 +255,7 @@ static int compare_kern_obj_id(const void *a, const void *b) {
     return -1;
   if (ta->id == tb->id)
     return 0;
-  __builtin_unreachable();
+  __unreachable;
 }
 
 //创建组
@@ -484,7 +484,7 @@ const char *task_state_str(enum task_state s) {
   default:
     panic("zhu ni zhong qiu jie kuai le!");
   }
-  __builtin_unreachable();
+  __unreachable;
 }
 
 void task_clean() {
@@ -910,7 +910,7 @@ static void task_quit(int32_t ret) {
   task_current()->ret_val = ret;
   task_switch(idle, task_preemptive_enabled(), EXITED);
   abort();
-  __builtin_unreachable();
+  __unreachable;
 }
 
 // 退出当前进程
@@ -929,7 +929,7 @@ static const char *task_terminate_reason_str(int32_t number) {
   if (number == -3)
     return "INVALID ARGUMENT";
   panic("task_terminate_reason_str");
-  __builtin_unreachable();
+  __unreachable;
 }
 
 void task_terminate(int32_t ret) {
