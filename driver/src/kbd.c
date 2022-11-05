@@ -368,7 +368,7 @@ void kbd_isr() {
   int c;
   while ((c = kbd_hw_read()) != EOF) {
     if (c != 0) {
-      // copy to console buffer
+      // copy to input buffer
       ring_buffer_write(terminal_input_buffer(), false, &c, 1);
       // echo
       terminal_write((char *)&c, 1);
