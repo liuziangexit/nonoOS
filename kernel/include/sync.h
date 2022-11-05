@@ -37,6 +37,7 @@ void leave_noint_region(uint32_t *save);
   enter_critical_region(&__smart_critical_region__);
 #endif
 
+// SMART_NOINT_REGION宏在当前scope中关闭中断，离开当前scope时开始中断
 #ifdef __GNUC__
 #define SMART_NOINT_REGION                                                     \
   uint32_t __smart_noint_region__                                              \
