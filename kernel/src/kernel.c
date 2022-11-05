@@ -85,6 +85,7 @@ void kmain() {
   idt_init();
   pic_init();
   kbd_init();
+  cga_init();
   terminal_init();
   print_e820();
   printf("\n");
