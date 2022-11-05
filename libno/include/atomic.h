@@ -8,10 +8,10 @@ uint32_t atomic_load(uint32_t *src);
 uint32_t atomic_exchange(uint32_t *dst, uint32_t val);
 bool atomic_compare_exchange(uint32_t *dst, uint32_t *expected,
                              uint32_t desired);
-// 等同于++i
+// 语义等同于++i
 uint32_t atomic_add(uint32_t *dst, uint32_t add);
 uint32_t atomic_sub(uint32_t *dst, uint32_t sub);
-// 等同于i++
+// 语义等同于i++
 uint32_t atomic_fetch_add(uint32_t *dst, uint32_t add);
 uint32_t atomic_fetch_sub(uint32_t *dst, uint32_t sub);
 

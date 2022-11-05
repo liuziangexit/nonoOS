@@ -96,6 +96,7 @@ bool mutex_trylock(uint32_t mut_id) {
   if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
     // 失败了
     if (atomic_load(&mut->owner) == task_current()->id) {
+      // 已被自己锁上了
       terminal_fgcolor(CGA_COLOR_RED);
       printf("mutex_trylock logic error\n");
       terminal_default_color();
@@ -117,6 +118,7 @@ void mutex_lock(uint32_t mut_id) {
     // 失败了
     SMART_NOINT_REGION
     if (atomic_load(&mut->owner) == task_current()->id) {
+      // 已被自己锁上了
       terminal_fgcolor(CGA_COLOR_RED);
       printf("mutex_lock logic error\n");
       terminal_default_color();
@@ -154,6 +156,7 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
     // 失败了
     SMART_NOINT_REGION
     if (atomic_load(&mut->owner) == task_current()->id) {
+      // 已被自己锁上了
       terminal_fgcolor(CGA_COLOR_RED);
       printf("mutex_timedlock logic error\n");
       terminal_default_color();
