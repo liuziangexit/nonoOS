@@ -25,6 +25,7 @@ enum cga_color {
   CGA_COLOR_LIGHT_YELLOW = 14,
   CGA_COLOR_WHITE = 15
 };
+typedef enum cga_color cga_color_t;
 
 void cga_enable_indirect_mem();
 void cga_init();

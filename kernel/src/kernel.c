@@ -86,7 +86,7 @@ void kmain() {
   pic_init();
   kbd_init();
   cga_init();
-  terminal_init();
+  terminal_module_init();
   print_e820();
   printf("\n");
   kmem_init(e820map);
