@@ -352,6 +352,8 @@ void *alloc_page_impl(enum MEMORY_REGION r, size_t cnt) {
       free_region_finish_access(task_current()->group->vm,
                                 task_current()->group->vm_mutex, access);
     }
+  } else {
+    printf_color(CGA_COLOR_LIGHT_YELLOW, "alloc_page_impl failed\n");
   }
   return p;
 }

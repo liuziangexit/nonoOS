@@ -262,6 +262,8 @@ static int compare_kern_obj_id(const void *a, const void *b) {
 static task_group_t *task_group_create(bool is_kernel) {
   task_group_t *group = malloc(sizeof(task_group_t));
   if (!group) {
+    printf_color(CGA_COLOR_LIGHT_YELLOW,
+                 "failed to create task_group_create(malloc failed)\n");
     return 0;
   }
   memset(group, 0, sizeof(sizeof(task_group_t)));
@@ -300,7 +302,8 @@ static void unref_kernel_objs(void *ko) {
 //析构组
 static void task_group_destroy(task_group_t *g) {
 #ifdef VERBOSE
-  printf("task_group_destroy 0x%08llx\n", (int64_t)(uint64_t)(uintptr_t)g);
+  printf_color(CGA_COLOR_LIGHT_YELLOW, "task_group_destroy 0x%08llx\n",
+               (int64_t)(uint64_t)(uintptr_t)g);
 #endif
   if (g->vm) {
     virtual_memory_destroy(g->vm);
@@ -331,7 +334,8 @@ bool task_destroy(ktask_t *t) {
   // 这个检查已经在kernel_object框架里做了
   // assert(t->ref_count == 0);
 #ifdef VERBOSE
-  printf("task_destroy: destroy task %s(%lld)\n", t->name, (int64_t)t->id);
+  printf_color(CGA_COLOR_LIGHT_YELLOW, "task_destroy: destroy task %s(%lld)\n",
+               t->name, (int64_t)t->id);
 #endif
   if (t->args) {
     task_args_destroy(t->args, t->group->is_kernel);
@@ -358,9 +362,17 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
                                  task_group_t *group, bool ref) {
   make_sure_schd_disabled();
   if (current && kernel && !current->group->is_kernel) {
+    printf_color(
+        CGA_COLOR_LIGHT_YELLOW,
+        "failed to create task %s(no permission to create kernel level task)\n",
+        name);
     return 0; //只有supervisor才能创造一个supervisor
   }
   if (group && (kernel != group->is_kernel)) {
+    printf_color(
+        CGA_COLOR_LIGHT_YELLOW,
+        "failed to create task %s(group && (kernel != group->is_kernel))\n",
+        name);
     return 0;
   }
   if (kernel) {
@@ -368,6 +380,9 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     if (group) {
       //如果指定了线程组，那么必须是idle所在的那个组
       if (task_find(1)->group != group) {
+        printf_color(CGA_COLOR_LIGHT_YELLOW,
+                     "failed to create task %s(task_find(1)->group != group)\n",
+                     name);
         return 0;
       }
     } else {
@@ -381,6 +396,9 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     //创建一个group
     group = task_group_create(kernel);
     if (!group) {
+      printf_color(
+          CGA_COLOR_LIGHT_YELLOW,
+          "failed to create task %s(unable to create new task group)\n", name);
       return 0;
     }
     group_created = true;
@@ -400,6 +418,9 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     if (group_created) {
       task_group_destroy(group);
     }
+    printf_color(
+        CGA_COLOR_LIGHT_YELLOW,
+        "failed to create task %s(unable .to create new task struct)\n", name);
     return 0;
   }
   if (task_inited == TASK_INITED_MAGIC)
@@ -408,8 +429,11 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   // 内核栈
   new_task->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->kstack) {
-    if (!task_destroy(new_task))
-      panic("task_destroy failed");
+    task_destroy(new_task);
+    printf_color(
+        CGA_COLOR_LIGHT_YELLOW,
+        "failed to create task %s(unable to allocate stack for kernel)\n",
+        name);
     return 0;
   }
 
@@ -565,7 +589,7 @@ void task_idle() {
     while (task_schd(false, false, YIELDED)) {
       task_preemptive_set(false);
 #ifdef VERBOSE
-      printf("idle: back\n");
+      printf_color(CGA_COLOR_LIGHT_YELLOW, "idle: back\n");
       kernel_object_print();
       task_display();
 #endif
@@ -640,6 +664,8 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   // FIXME 根据program_size去看底下elf处理时候有没有越界
   UNUSED(program_size);
   if (!(((program != 0) || (group != 0)) && ((program != 0) != (group != 0)))) {
+    printf_color(CGA_COLOR_LIGHT_YELLOW,
+                 "failed to create task %s(bad parameter)\n", name);
     return 0;
   }
   // mdzz
@@ -651,14 +677,22 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   SMART_CRITICAL_REGION
   utask_t *new_task = (utask_t *)task_create_impl(name, false, group, ref);
   if (!new_task) {
+    printf_color(CGA_COLOR_LIGHT_YELLOW,
+                 "failed to create task %s(task_create_impl failed)\n", name);
     return 0;
   }
   group = new_task->base.group;
   //用户栈
   new_task->pustack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->pustack) {
-    if (!task_destroy((struct ktask *)new_task))
-      panic("task_destroy failed");
+    // 在task_create_impl之后失败的情况，不能调用task_destroy，因为此时它已经是一个kernel
+    // object了， 必须通过kernel object的方式来删除
+    kernel_object_unref(new_task->base.group, new_task->base.id, true);
+    if (ref)
+      kernel_object_unref(task_current()->group, new_task->base.id, true);
+    printf_color(CGA_COLOR_LIGHT_YELLOW,
+                 "failed to create task %s(unable to allocate user stack)\n",
+                 name);
     return 0;
   }
   //如果这是进程中首个线程，需要设置这个进程的虚拟内存
@@ -666,8 +700,14 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     //设置这个新group的虚拟内存
     group->vm = virtual_memory_create();
     if (!group->vm) {
-      if (!task_destroy((struct ktask *)new_task))
-        panic("task_destroy failed");
+      // 在task_create_impl之后失败的情况，不能调用task_destroy，因为此时它已经是一个kernel
+      // object了， 必须通过kernel object的方式来删除
+      kernel_object_unref(new_task->base.group, new_task->base.id, true);
+      if (ref)
+        kernel_object_unref(task_current()->group, new_task->base.id, true);
+      printf_color(CGA_COLOR_LIGHT_YELLOW,
+                   "failed to create task %s(virtual_memory_create failed)\n",
+                   name);
       return 0;
     }
     //存放程序映像的虚拟内存
@@ -678,16 +718,31 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
       new_task->base.group->program =
           aligned_alloc(1, ROUNDUP(program_size, _4K));
       if (!new_task->base.group->program) {
-        if (!task_destroy((struct ktask *)new_task))
-          panic("task_destroy failed");
+        // 在task_create_impl之后失败的情况，不能调用task_destroy，因为此时它已经是一个kernel
+        // object了， 必须通过kernel object的方式来删除
+        kernel_object_unref(new_task->base.group, new_task->base.id, true);
+        if (ref)
+          kernel_object_unref(task_current()->group, new_task->base.id, true);
+        printf_color(CGA_COLOR_LIGHT_YELLOW,
+                     "failed to create task %s(unable to allocate memory for "
+                     "program binary)\n",
+                     name);
         return 0;
       }
       memset(new_task->base.group->program, 0, ROUNDUP(program_size, _4K));
       //读elf
       struct elfhdr *elf_header = program;
       if (elf_header->e_magic != ELF_MAGIC) {
-        if (!task_destroy((struct ktask *)new_task))
-          return 0;
+        // 在task_create_impl之后失败的情况，不能调用task_destroy，因为此时它已经是一个kernel
+        // object了， 必须通过kernel object的方式来删除
+        kernel_object_unref(new_task->base.group, new_task->base.id, true);
+        if (ref)
+          kernel_object_unref(task_current()->group, new_task->base.id, true);
+        printf_color(
+            CGA_COLOR_LIGHT_YELLOW,
+            "failed to create task %s(program binary is not in ELF format)\n",
+            name);
+        return 0;
       }
       // FIXME 这里data segment和code seg要分开map
       // data给W权限，而code不给
@@ -804,17 +859,27 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   }
 
   add_task((ktask_t *)new_task);
+
+#ifdef VERBOSE
+  printf_color(CGA_COLOR_LIGHT_YELLOW, "task %lld(%s) created by %lld(%s)\n",
+               (int64_t)new_task->base.id, new_task->base.name,
+               (int64_t)task_current()->id, task_current()->name);
+#endif
+
   return new_task->base.id;
 }
 
 //创建内核线程
-pid_t task_create_kernel(int (*func)(int, char **), const char *name,
-                         struct task_args *args, bool ref) {
+pid_t task_create_kernel(int (*func)(int, char **), const char *name, bool ref,
+                         struct task_args *args) {
   SMART_CRITICAL_REGION
   ktask_t *schd = task_find(1);
   ktask_t *new_task = task_create_impl(name, true, schd->group, ref);
-  if (!new_task)
+  if (!new_task) {
+    printf_color(CGA_COLOR_LIGHT_YELLOW,
+                 "failed to create task %s(task_create_impl failed)\n", name);
     return 0;
+  }
 
   // 在task_destroy时候销毁args
   if (args) {
@@ -839,6 +904,11 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name,
   *(void **)(new_task->regs.esp) = (void *)func;
 
   add_task(new_task);
+#ifdef VERBOSE
+  printf_color(CGA_COLOR_LIGHT_YELLOW, "task %lld(%s) created by %lld(%s)\n",
+               (int64_t)new_task->id, new_task->name,
+               (int64_t)task_current()->id, task_current()->name);
+#endif
   return new_task->id;
 }
 
@@ -899,7 +969,8 @@ void task_sleep(uint64_t millisecond) {
 static void task_quit(int32_t ret) {
   SMART_CRITICAL_REGION
 #ifdef VERBOSE
-  printf("task %lld returned %d\n", (int64_t)task_current()->id, ret);
+  printf_color(CGA_COLOR_LIGHT_YELLOW, "task %lld returned %d\n",
+               (int64_t)task_current()->id, ret);
 #endif
   assert(task_current()->ref_count != 0);
   // 切到idle去开始删除线程
@@ -944,18 +1015,19 @@ void task_terminate(int32_t ret) {
   // 释放该进程持有的内核对象是通过引用计数的内核对象系统自动完成的
   // 释放该进程的内存是在销毁线程组时进行的
   disable_interrupt();
-  terminal_fgcolor(CGA_COLOR_RED);
-  printf("task %lld terminated with err code %d(%s), all of threads within the "
-         "same "
-         "thread group will be killed\n",
-         (int64_t)task_current()->id, ret, task_terminate_reason_str(ret));
+  printf_color(
+      CGA_COLOR_RED,
+      "task %lld terminated with err code %d(%s), all threads within the "
+      "same "
+      "thread group will be killed\n",
+      (int64_t)task_current()->id, ret, task_terminate_reason_str(ret));
   // 把同vm的其他线程全部设为退出状态
   for (list_entry_t *p = list_next(&task_current()->group->tasks);
        p != &task_current()->group->tasks; p = list_next(p)) {
     ktask_t *task = task_group_head_retrieve(p);
     if (task != task_current()) {
       // copy from task_quit
-      printf("task %lld killed\n", (int64_t)task->id, ret);
+      printf_color(CGA_COLOR_RED, "task %lld killed\n", (int64_t)task->id, ret);
       assert(task->ref_count != 0);
       task->state = EXITED;
       task->ret_val = ret;

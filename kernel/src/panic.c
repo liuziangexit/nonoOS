@@ -4,9 +4,7 @@
 
 __attribute__((__noreturn__)) void panic(const char *message) {
   task_preemptive_set(false);
-  terminal_fgcolor(CGA_COLOR_RED);
-  printf("kernel panic: %s\n", message);
-  terminal_default_color();
+  printf_color(CGA_COLOR_RED, "kernel panic: %s\n", message);
   while (1) {
     hlt();
   }

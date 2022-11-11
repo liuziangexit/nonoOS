@@ -173,6 +173,16 @@ int printf(const char *restrict format, ...) {
   return ret;
 }
 
+int printf_color(enum cga_color color, const char *restrict format, ...) {
+  terminal_fgcolor(color);
+  va_list parameters;
+  va_start(parameters, format);
+  int ret = printf_impl(format, &parameters);
+  va_end(parameters);
+  terminal_default_color();
+  return ret;
+}
+
 int puts(const char *string) { return printf("%s\n", string); }
 
 #else

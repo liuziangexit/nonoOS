@@ -101,9 +101,9 @@ static inline void print_pgfault(struct trapframe *tf, uintptr_t cr2) {
          (tf->err & 1) ? "protection fault" : "no page found");
 #ifndef NDEBUG
   printf("current syscall: %d\ncurrent page directory: 0x%08llx\ncurrent "
-         "pid:%lld\n\n",
+         "pid:%lld(%s)\n\n",
          (uint32_t)task_current()->debug_current_syscall, (int64_t)rcr3(),
-         (int64_t)task_current()->id);
+         (int64_t)task_current()->id, task_current()->name);
 #endif
   terminal_default_color();
 }

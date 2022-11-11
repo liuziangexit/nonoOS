@@ -74,9 +74,8 @@ bool mutex_destroy(mutex_t *mut) {
   // }
   if (mut->locked != 0 || mut->owner != 0 || vector_count(&mut->waitors) != 0) {
     // 没有人引用这个内核对象，但是却有人在等待这个mutex，让一个等待者引用该对象，取消destroy
-    terminal_fgcolor(CGA_COLOR_RED);
-    printf("there are still tasks waiting on this mutex\n");
-    terminal_default_color();
+    printf_color(CGA_COLOR_RED,
+                 "there are still tasks waiting on this mutex\n");
     bool succ = kernel_object_ref_safe(*(pid_t *)vector_get(&mut->waitors, 0),
                                        mut->obj_id);
     assert(succ);
@@ -97,9 +96,7 @@ bool mutex_trylock(uint32_t mut_id) {
     // 失败了
     if (atomic_load(&mut->owner) == task_current()->id) {
       // 已被自己锁上了
-      terminal_fgcolor(CGA_COLOR_RED);
-      printf("mutex_trylock logic error\n");
-      terminal_default_color();
+      printf_color(CGA_COLOR_RED, "mutex_trylock logic error\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
     return false;
@@ -119,9 +116,7 @@ void mutex_lock(uint32_t mut_id) {
     SMART_NOINT_REGION
     if (atomic_load(&mut->owner) == task_current()->id) {
       // 已被自己锁上了
-      terminal_fgcolor(CGA_COLOR_RED);
-      printf("mutex_lock logic error\n");
-      terminal_default_color();
+      printf_color(CGA_COLOR_RED, "mutex_lock logic error\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
     task_current()->tslice++;
@@ -137,9 +132,7 @@ void mutex_lock(uint32_t mut_id) {
     // 获得锁
     expected = 0;
     if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
-      terminal_fgcolor(CGA_COLOR_RED);
-      printf("mutex_lock logic error 2\n");
-      terminal_default_color();
+      printf_color(CGA_COLOR_RED, "mutex_lock logic error 2\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
   }
@@ -157,9 +150,7 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
     SMART_NOINT_REGION
     if (atomic_load(&mut->owner) == task_current()->id) {
       // 已被自己锁上了
-      terminal_fgcolor(CGA_COLOR_RED);
-      printf("mutex_timedlock logic error\n");
-      terminal_default_color();
+      printf_color(CGA_COLOR_RED, "mutex_timedlock logic error\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
     task_current()->tslice++;
@@ -180,9 +171,7 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
     // 获得锁
     expected = 0;
     if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
-      terminal_fgcolor(CGA_COLOR_RED);
-      printf("mutex_timedlock logic error 2\n");
-      terminal_default_color();
+      printf_color(CGA_COLOR_RED, "mutex_timedlock logic error 2\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
   }
@@ -198,9 +187,7 @@ void mutex_unlock(uint32_t mut_id) {
   uint32_t owner = atomic_load(&mut->owner);
   // 首先验证owner是不是我
   if (owner != task_current()->id) {
-    terminal_fgcolor(CGA_COLOR_RED);
-    printf("mutex_unlock logic error\n");
-    terminal_default_color();
+    printf_color(CGA_COLOR_RED, "mutex_unlock logic error\n");
     task_terminate(TASK_TERMINATE_ABORT);
   }
   // 设置owner为0
@@ -234,9 +221,7 @@ bool condition_variable_destroy(condition_variable_t *cv) {
   // }
   if (vector_count(&cv->waitors) != 0) {
     // 没有人引用这个内核对象，但是却有人在等待这个cv，让一个等待者引用该对象，取消destroy
-    terminal_fgcolor(CGA_COLOR_RED);
-    printf("there are still tasks waiting on this cv\n");
-    terminal_default_color();
+    printf_color(CGA_COLOR_RED, "there are still tasks waiting on this cv\n");
     bool succ = kernel_object_ref_safe(*(pid_t *)vector_get(&cv->waitors, 0),
                                        cv->obj_id);
     assert(succ);
@@ -249,9 +234,7 @@ bool condition_variable_destroy(condition_variable_t *cv) {
 
 void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
   if (mutex_owner(mut_id) != task_current()->id) {
-    terminal_fgcolor(CGA_COLOR_RED);
-    printf("condition_variable_wait logic error\n");
-    terminal_default_color();
+    printf_color(CGA_COLOR_RED, "condition_variable_wait logic error\n");
     task_terminate(TASK_TERMINATE_ABORT);
   }
   condition_variable_t *cv = kernel_object_get(cv_id);
@@ -274,9 +257,7 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
                                   uint64_t timeout_ms) {
   if (mutex_owner(mut_id) != task_current()->id) {
-    terminal_fgcolor(CGA_COLOR_RED);
-    printf("condition_variable_timedwait logic error\n");
-    terminal_default_color();
+    printf_color(CGA_COLOR_RED, "condition_variable_timedwait logic error\n");
     task_terminate(TASK_TERMINATE_ABORT);
   }
   condition_variable_t *cv = kernel_object_get(cv_id);

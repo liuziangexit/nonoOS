@@ -226,6 +226,7 @@ void *kmem_cache_alloc(size_t alignment, size_t size) {
       //需要增加一个slab
       if (!cache_add_slabs(cache, 1)) {
         //如果增加失败（分配不到这么多连续物理页），那么真的失败了
+        printf_color(CGA_COLOR_LIGHT_YELLOW, "kmem_cache_alloc failed\n");
         return 0;
       }
       //如果增加成功，再在“未使用的slab”中寻找可用的slab

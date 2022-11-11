@@ -259,7 +259,7 @@ void kernel_object_unref_safe(pid_t pid, uint32_t kobj_id) {
 
 void kernel_object_print() {
   SMART_CRITICAL_REGION
-  terminal_fgcolor(CGA_COLOR_LIGHT_MAGENTA);
+  terminal_fgcolor(CGA_COLOR_LIGHT_BLUE);
   printf("kernel_object_print\n******************************\n");
   for (struct id_ctx *ctx = avl_tree_first(&id_tree); ctx != 0;
        ctx = avl_tree_next(&id_tree, ctx)) {
