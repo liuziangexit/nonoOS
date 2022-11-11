@@ -204,8 +204,8 @@ void task_preemptive_set(bool val);
 ktask_t *task_current();
 
 // 创建内核线程
-pid_t task_create_kernel(int (*func)(int, char **), const char *name,
-                         struct task_args *args, bool ref);
+pid_t task_create_kernel(int (*func)(int, char **), const char *name, bool ref,
+                         struct task_args *args);
 
 // 创建user task
 #define DEFAULT_ENTRY 0
@@ -213,7 +213,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                        task_group_t *group, uintptr_t entry, bool ref,
                        struct task_args *args);
 
-bool task_destroy(ktask_t *t);
+void task_destroy(ktask_t *t);
 
 // 等待task结束
 // 返回被等待task的返回值

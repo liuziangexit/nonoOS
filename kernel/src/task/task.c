@@ -309,7 +309,9 @@ static void task_group_destroy(task_group_t *g) {
     virtual_memory_destroy(g->vm);
   }
   if (!g->is_kernel) {
-    free(g->program);
+    if (g->program) {
+      free(g->program);
+    }
   }
   // 取消引用内核对象
   avl_tree_clear(&g->kernel_objects, unref_kernel_objs);
@@ -329,7 +331,7 @@ static void task_group_remove(ktask_t *t) {
 }
 
 // 析构task
-bool task_destroy(ktask_t *t) {
+void task_destroy(ktask_t *t) {
   assert(t);
   // 这个检查已经在kernel_object框架里做了
   // assert(t->ref_count == 0);
@@ -347,7 +349,9 @@ bool task_destroy(ktask_t *t) {
   if (t->group) {
     if (!t->group->is_kernel) {
       utask_t *ut = (utask_t *)t;
-      kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
+      if (ut->pustack) {
+        kmem_page_free((void *)ut->pustack, TASK_STACK_SIZE);
+      }
     }
     task_group_remove(t);
   }
@@ -355,7 +359,6 @@ bool task_destroy(ktask_t *t) {
     free(t->name);
   vector_destroy(&t->joining);
   free(t);
-  return true;
 }
 
 static ktask_t *task_create_impl(const char *name, bool kernel,
