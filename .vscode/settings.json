@@ -71,6 +71,8 @@
         "memory_barrier.h": "c",
         "typeinfo": "c",
         "unistd.h": "c",
-        "shared_memory.h": "c"
+        "shared_memory.h": "c",
+        "compiler_helper.h": "c",
+        "thread": "c"
     }
 }
