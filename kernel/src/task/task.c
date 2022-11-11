@@ -262,8 +262,9 @@ static int compare_kern_obj_id(const void *a, const void *b) {
 static task_group_t *task_group_create(bool is_kernel) {
   task_group_t *group = malloc(sizeof(task_group_t));
   if (!group) {
-    printf_color(CGA_COLOR_LIGHT_YELLOW,
-                 "failed to create task_group_create(malloc failed)\n");
+    printf_color(
+        CGA_COLOR_LIGHT_YELLOW,
+        "failed to create task_group_create(malloc group struct failed)\n");
     return 0;
   }
   memset(group, 0, sizeof(sizeof(task_group_t)));
