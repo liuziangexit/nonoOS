@@ -180,7 +180,10 @@ void ktask0() {
   }
   task_inited = TASK_INITED_MAGIC;
 
-  { task_current()->group->vm_mutex = mutex_create(); }
+  {
+    task_current()->group->vm_mutex = mutex_create();
+    task_current()->group->input_buffer_mutex = mutex_create();
+  }
 
 #ifdef RUN_TEST
   task_test();

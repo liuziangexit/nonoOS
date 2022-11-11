@@ -2,6 +2,7 @@
 #define __KERNEL_TASK_H__
 #include <interrupt.h>
 #include <list.h>
+#include <ring_buffer.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <vector.h>
@@ -63,12 +64,16 @@ union task_wait_ctx {
 
 const char *task_state_str(enum task_state);
 
+#define TASK_INPUT_BUFFER_LEN 512
+
 // task group中的tasks共享同一个地址空间
 // 每个task都必须属于一个task group，每个task group至少要有一个task
 // task_group的生命周期通过引用计数来控制。不过它不是一个kernel
 // object，它的引用计数是自己实现的
 struct task_group {
   list_entry_t tasks;
+  uint32_t input_buffer_mutex;
+  struct ring_buffer input_buffer;
   uint32_t task_cnt;
   bool is_kernel;            // 是否内核权限
   struct virtual_memory *vm; // 虚拟内存管理

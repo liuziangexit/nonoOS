@@ -12,6 +12,7 @@
 #include <memory_manager.h>
 #include <mmu.h>
 #include <panic.h>
+#include <ring_buffer.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -269,11 +270,36 @@ static task_group_t *task_group_create(bool is_kernel) {
   }
   memset(group, 0, sizeof(sizeof(task_group_t)));
   list_init(&group->tasks);
+
+  // 内核进程组的input_buffer_mutex是之后在kernel.c中创建的
+  if (task_inited == TASK_INITED_MAGIC) {
+    group->input_buffer_mutex = mutex_create();
+    // 用当前正在创建的线程组引用该mutex
+    bool ref_succ = kernel_object_ref(group, group->input_buffer_mutex);
+    assert(ref_succ);
+    // 当前正运行的线程组取消引用该mutex
+    kernel_object_unref(task_current()->group, group->input_buffer_mutex, true);
+  }
+
+  void *input_buf = malloc(TASK_INPUT_BUFFER_LEN);
+  if (!input_buf) {
+    printf_color(
+        CGA_COLOR_LIGHT_YELLOW,
+        "failed to create task_group_create(malloc input buffer failed)\n");
+    free(group);
+    return 0;
+  }
+  ring_buffer_init(&group->input_buffer, input_buf, TASK_INPUT_BUFFER_LEN);
+
   group->task_cnt = 0;
   group->is_kernel = is_kernel;
   // 初始化记录内核对象id的avl树
   avl_tree_init(&group->kernel_objects, compare_kern_obj_id,
                 sizeof(struct kern_obj_id), 0);
+
+  // 在kernel.c中对第一个进程组（也就是内核进程组）的vm是特殊处理的，
+  // 所以在这里检测，如果发现是来自kernel.c的调用，这里就不做
+  // 内核进程组的vm_mutex是之后在kernel.c中创建的
   if (task_inited == TASK_INITED_MAGIC) {
     group->vm_mutex = mutex_create();
     // 用当前正在创建的线程组引用该mutex
@@ -302,10 +328,14 @@ static void unref_kernel_objs(void *ko) {
 
 //析构组
 static void task_group_destroy(task_group_t *g) {
+  assert(g);
 #ifdef VERBOSE
   printf_color(CGA_COLOR_LIGHT_YELLOW, "task_group_destroy 0x%08llx\n",
                (int64_t)(uint64_t)(uintptr_t)g);
 #endif
+  if (g->input_buffer.buf) {
+    free(g->input_buffer.buf);
+  }
   if (g->vm) {
     virtual_memory_destroy(g->vm);
   }
