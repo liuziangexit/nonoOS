@@ -29,9 +29,9 @@ struct page {
 struct zone {
   struct list_entry pages;
   bool distinct_struct;
-#ifndef NDEBUG
+  //#ifndef NDEBUG
   uint32_t cnt;
-#endif
+  //#endif
 };
 
 // 2^0到2^30
@@ -46,8 +46,15 @@ static void add_page(struct zone *z, struct page *p) {
   make_sure_schd_disabled();
   assert(z->distinct_struct ? (uintptr_t)p != p->addr
                             : (uintptr_t)p == p->addr);
-#ifndef NDEBUG
+  //#ifndef NDEBUG
   // dbg模式下看看有没有重复的
+
+  /*
+  TODO
+  本来这个检查是debug时才有的，但是后来发现如果用户free了同一块内存2次，这是唯一发现这种错误的机会
+  但是这个遍历检查太慢了，应该看看怎么优化一下。
+  好像跟那个cnt成员变量也有关系，但我不记得cnt是用来做什么的了
+  */
   for (struct page *it = (struct page *)list_next(&z->pages); //
        &it->head != &z->pages;                                //
        it = (struct page *)list_next(&it->head)) {
@@ -55,7 +62,7 @@ static void add_page(struct zone *z, struct page *p) {
       panic("add_page check failed 1");
   }
   z->cnt++;
-#endif
+  //#endif
   list_init(&p->head);
   list_add(&z->pages, &p->head);
 }

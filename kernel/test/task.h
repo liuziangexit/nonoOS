@@ -61,7 +61,7 @@ void task_test() {
   task_args_add(args, "11", 0, false, 0);
   task_args_add(args, "22", 0, false, 0);
   task_args_add(args, "33", 0, false, 0);
-  pid_t t2 = task_create_kernel(task2, "kernel_test_proc", args, false);
+  pid_t t2 = task_create_kernel(task2, "kernel_test_proc", false, args);
   assert(t2);
   pid_t t1 = task_current()->id;
   assert(t1);
