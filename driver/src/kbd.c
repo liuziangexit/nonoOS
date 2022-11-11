@@ -5,6 +5,7 @@
 #include <kbd.h>
 #include <picirq.h>
 #include <ring_buffer.h>
+#include <shell.h>
 #include <stdio.h>
 #include <sync.h>
 #include <tty.h>
@@ -367,7 +368,7 @@ void kbd_isr() {
   }
   int c;
   while ((c = kbd_hw_read()) != EOF) {
-    if (c != 0) {
+    if (c != 0 && shell_ready()) {
       // copy to input buffer
       ring_buffer_write(terminal_input_buffer(), false, &c, 1);
       // echo
