@@ -42,7 +42,9 @@ src/task/entry.o\
 src/task/user_entry.o\
 src/syscall/syscall.o\
 src/sync/sync.o\
-src/kernel_object.o
+src/kernel_object.o\
+src/shell/shell.o\
+src/shell/interpreter.o
 
 .PHONY: all clean crt
 .SUFFIXES: .o .c .S

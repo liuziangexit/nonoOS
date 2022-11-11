@@ -16,6 +16,7 @@
 #include <memory_manager.h>
 #include <mmu.h>
 #include <picirq.h>
+#include <shell.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -330,7 +331,7 @@ void ktask0() {
 
 #endif
 
-  printf("nonoOS:$ ");
+  task_create_kernel(shell_main, "nonoShell", false, NULL);
   // task_display();
 
   task_idle();
