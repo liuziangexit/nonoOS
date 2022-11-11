@@ -32,8 +32,8 @@ static ktask_t *current;
 // 调度队列，在这个队列中的task都是可执行的，也就是它没有等待锁或者io或者sleep
 static list_entry_t ready_queue;
 
-static __always_inline uint32_t task_count() {
-  make_sure_schd_disabled();
+uint32_t task_count() {
+  make_sure_int_disabled();
   return tasks.count;
 }
 
@@ -512,6 +512,7 @@ ktask_t *task_find(pid_t pid) {
 //显示系统中所有task
 void task_display() {
   SMART_CRITICAL_REGION
+  terminal_fgcolor(CGA_COLOR_LIGHT_CYAN);
   printf("\n\nTask Display   Current: %s", current->name);
   printf("\n*******************************************************************"
          "******\n");
@@ -525,6 +526,7 @@ void task_display() {
 
   printf("*********************************************************************"
          "****\n\n");
+  terminal_default_color();
 }
 
 const char *task_state_str(enum task_state s) {
