@@ -3,3 +3,10 @@
 *.a
 *.img
 *.exe
+kernel/bootblock
+kernel/kernel
+kernel/unsigned_bootblock
+kernel/src/interrupt/idtvector.S
+tools/idtgen
+tools/mkfs
+tools/sign
