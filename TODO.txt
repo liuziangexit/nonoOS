@@ -78,6 +78,7 @@ OK-检查对包括avl树的许多共享数据的操作是否有互斥
 OK-检查vm和vma是否存在不安全访问
 
 -编译的临时文件集中放到一个目录底下
+-CRITICAL_REGION和lock是矛盾的，必须删掉CRITICAL_REGION
 -实现nosh(nonoShell) 
 -每个进程要有一个输入缓冲区，当键盘输入的时候，存到前台进程的输入缓冲区中
 -每个进程scanf时从自己的缓冲区中读取
