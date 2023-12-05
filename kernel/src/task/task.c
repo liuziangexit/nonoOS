@@ -259,7 +259,7 @@ static int compare_kern_obj_id(const void *a, const void *b) {
   __unreachable;
 }
 
-//创建组
+// 创建组
 static task_group_t *task_group_create(bool is_kernel) {
   task_group_t *group = malloc(sizeof(task_group_t));
   if (!group) {
@@ -311,7 +311,7 @@ static task_group_t *task_group_create(bool is_kernel) {
   return group;
 }
 
-//向组中添加
+// 向组中添加
 static void task_group_add(task_group_t *g, ktask_t *t) {
   assert(g);
   list_add(&g->tasks, &t->group_head);
@@ -326,7 +326,7 @@ static void unref_kernel_objs(void *ko) {
   free(ko);
 }
 
-//析构组
+// 析构组
 static void task_group_destroy(task_group_t *g) {
   assert(g);
 #ifdef VERBOSE
@@ -349,7 +349,7 @@ static void task_group_destroy(task_group_t *g) {
   free(g);
 }
 
-//从组中移除
+// 从组中移除
 static void task_group_remove(ktask_t *t) {
   struct task_group *g = t->group;
   assert(g);
@@ -400,7 +400,7 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
         CGA_COLOR_LIGHT_YELLOW,
         "failed to create task %s(no permission to create kernel level task)\n",
         name);
-    return 0; //只有supervisor才能创造一个supervisor
+    return 0; // 只有supervisor才能创造一个supervisor
   }
   if (group && (kernel != group->is_kernel)) {
     printf_color(
@@ -410,9 +410,9 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     return 0;
   }
   if (kernel) {
-    //如果是内核级
+    // 如果是内核级
     if (group) {
-      //如果指定了线程组，那么必须是idle所在的那个组
+      // 如果指定了线程组，那么必须是idle所在的那个组
       if (task_find(1)->group != group) {
         printf_color(CGA_COLOR_LIGHT_YELLOW,
                      "failed to create task %s(task_find(1)->group != group)\n",
@@ -420,14 +420,14 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
         return 0;
       }
     } else {
-      //如果没有指定线程组（意思是要创建一个），那么确保这是首个内核线程（idle）
+      // 如果没有指定线程组（意思是要创建一个），那么确保这是首个内核线程（idle）
       assert(task_find(1) == 0);
     }
   }
 
   bool group_created = false;
   if (!group) {
-    //创建一个group
+    // 创建一个group
     group = task_group_create(kernel);
     if (!group) {
       printf_color(
@@ -500,7 +500,7 @@ void user_task_entry();
 // save指示是否要保存
 void switch_to(bool save, void *from, void *to);
 
-//搜索task
+// 搜索task
 ktask_t *task_find(pid_t pid) {
   SMART_CRITICAL_REGION
   ktask_t key;
@@ -509,7 +509,7 @@ ktask_t *task_find(pid_t pid) {
   return ret;
 }
 
-//显示系统中所有task
+// 显示系统中所有task
 void task_display() {
   SMART_CRITICAL_REGION
   terminal_fgcolor(CGA_COLOR_LIGHT_CYAN);
@@ -602,7 +602,7 @@ bool task_schd(bool force, bool allow_idle, enum task_state tostate) {
             // 不是用户栈，但竟然也不是内核栈
             abort();
           }
-          //是内核栈
+          // 是内核栈
         }
         task_switch(t, true, tostate);
         return true;
@@ -718,7 +718,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
     return 0;
   }
   group = new_task->base.group;
-  //用户栈
+  // 用户栈
   new_task->pustack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
   if (!new_task->pustack) {
     // 在task_create_impl之后失败的情况，不能调用task_destroy，因为此时它已经是一个kernel
@@ -731,9 +731,9 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                  name);
     return 0;
   }
-  //如果这是进程中首个线程，需要设置这个进程的虚拟内存
+  // 如果这是进程中首个线程，需要设置这个进程的虚拟内存
   if (is_first) {
-    //设置这个新group的虚拟内存
+    // 设置这个新group的虚拟内存
     group->vm = virtual_memory_create();
     if (!group->vm) {
       // 在task_create_impl之后失败的情况，不能调用task_destroy，因为此时它已经是一个kernel
@@ -746,7 +746,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                    name);
       return 0;
     }
-    //存放程序映像的虚拟内存
+    // 存放程序映像的虚拟内存
     if (program) {
       if (new_task->base.group->program) {
         abort();
@@ -766,7 +766,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
         return 0;
       }
       memset(new_task->base.group->program, 0, ROUNDUP(program_size, _4K));
-      //读elf
+      // 读elf
       struct elfhdr *elf_header = program;
       if (elf_header->e_magic != ELF_MAGIC) {
         // 在task_create_impl之后失败的情况，不能调用task_destroy，因为此时它已经是一个kernel
@@ -827,7 +827,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                        ROUNDUP(program_size, _4K),
                        V2P((uintptr_t)new_task->base.group->program));
   }
-  //在虚拟内存中的用户栈
+  // 在虚拟内存中的用户栈
   new_task->vustack = virtual_memory_find_fit(
       new_task->base.group->vm, _4K * TASK_STACK_SIZE, USER_SPACE_BEGIN,
       USER_CODE_BEGIN, PTE_P | PTE_W | PTE_U, USTACK);
@@ -838,15 +838,15 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   virtual_memory_map(new_task->base.group->vm, vma, new_task->vustack,
                      _4K * TASK_STACK_SIZE, V2P(new_task->pustack));
 
-  //设置上下文和内核栈
+  // 设置上下文和内核栈
   memset(&new_task->base.regs, 0, sizeof(struct gp_registers));
   new_task->base.regs.eip = (uint32_t)(uintptr_t)user_task_entry;
   new_task->base.regs.ebp = 0;
   uintptr_t kstack_top = new_task->base.kstack + _4K * TASK_STACK_SIZE;
   new_task->base.regs.esp = kstack_top - sizeof(void *) * 4;
-  //用户代码入口
+  // 用户代码入口
   *(uintptr_t *)(new_task->base.regs.esp + 12) = entry;
-  //用户栈
+  // 用户栈
   *(uintptr_t *)(new_task->base.regs.esp + 8) =
       new_task->vustack + _4K * TASK_STACK_SIZE;
   if (args) {
@@ -905,7 +905,7 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
   return new_task->base.id;
 }
 
-//创建内核线程
+// 创建内核线程
 pid_t task_create_kernel(int (*func)(int, char **), const char *name, bool ref,
                          struct task_args *args) {
   SMART_CRITICAL_REGION
@@ -925,7 +925,7 @@ pid_t task_create_kernel(int (*func)(int, char **), const char *name, bool ref,
     new_task->args = 0;
   }
 
-  //设置上下文和内核栈
+  // 设置上下文和内核栈
   memset(&new_task->regs, 0, sizeof(struct gp_registers));
   new_task->regs.eip = (uint32_t)(uintptr_t)kernel_task_entry;
   new_task->regs.ebp = new_task->kstack + _4K * TASK_STACK_SIZE;
@@ -1076,7 +1076,7 @@ void task_terminate(int32_t ret) {
 }
 
 // 切换到另一个task
-void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
+void task_switch(ktask_t *next, bool enable_schd, enum task_state tostate) {
   SMART_NOINT_REGION
   assert(current && next);
   assert(next != current);
@@ -1130,7 +1130,7 @@ void task_switch(ktask_t *next, bool schd, enum task_state tostate) {
   if (prev->state == YIELDED) {
     ready_queue_put(prev);
   }
-  task_preemptive_set(schd);
+  task_preemptive_set(enable_schd);
 
   // 保存cr2
   if (prev->state != EXITED) {

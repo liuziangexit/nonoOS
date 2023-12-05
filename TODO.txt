@@ -70,14 +70,23 @@ OK-解决偶然出现的page not found问题
 无法重现-打印满一行之后换行时不会滚屏
 OK-实现用户态abort，只是abort用户进程
 OK-处理用户程序BAD ACCESS、执行错误的代码、seg fault等情况
-之前就已经实现了-帮用户程序回收内存
+OK之前就已经实现了-帮用户程序回收内存
 OK-实现锁了之后有的SMART REGION要换成锁（特别是对于一些并发访问的数据结构来说），这样粒度小很多
 ok-考虑操作当前vm时候需不需要关中断，主要是有没有可能在中断里也操作vm，如果要，就要去加上(因为一个进程有很多个线程啊，不管中断里操不操作，都要加吧？)
 这样说来的话，所有带有vm参数的函数都要重新考虑这个问题了，因为那个vm有可能是current vm！最简单的方式可以是禁止参数是currentvm
 OK-检查对包括avl树的许多共享数据的操作是否有互斥
 OK-检查vm和vma是否存在不安全访问
 
--CRITICAL_REGION和lock是矛盾的，必须删掉CRITICAL_REGION
+PENDING-CRITICAL_REGION和lock是矛盾的，必须删掉CRITICAL_REGION。
+这是因为，如果你进入CRITICAL_REGION后开始等待锁，那么那个持有锁的线程是不是会永远不被调度到？从而死锁
+这个问题先暂时放着：目前没有发现这样问题的实例。而且，即使这个问题真的存在，现在我也没有想好怎么改。
+注意mutex_lock函数里有个
+    // 陷入等待
+    task_schd(true, true, WAITING);
+如果你从这里追进去会发现，不管当前调度标志为何，这个调用都一定会导致一次手动调度，而且会打开此后的调度标志。
+因此，真正的矛盾其实在于，task_schd调用可以直接无视SMART_CRITICAL_REGION。。。
+
+
 -实现nosh(nonoShell) 
 -每个进程要有一个输入缓冲区，当键盘输入的时候，存到前台进程的输入缓冲区中
 -每个进程scanf时从自己的缓冲区中读取

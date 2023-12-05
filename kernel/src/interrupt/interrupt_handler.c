@@ -127,8 +127,10 @@ void interrupt_handler(struct trapframe *tf) {
       // 时间片到了，重新调度
       task_current()->tslice++;
       task_handle_wait();
-      if (task_preemptive_enabled())
+      // 若当前允许调度，则调度
+      if (task_preemptive_enabled()) {
         task_schd(false, false, YIELDED);
+      }
     }
   } break;
   case T_SYSCALL:
@@ -137,7 +139,7 @@ void interrupt_handler(struct trapframe *tf) {
   case T_SWITCH_USER:
     if (tf->cs != USER_CS) {
       SMART_CRITICAL_REGION
-      //将tf的内容拷贝到switchk2u，然后把寄存器们都改成用户权限
+      // 将tf的内容拷贝到switchk2u，然后把寄存器们都改成用户权限
       *(struct trapframe_kernel *)&switchk2u = *(struct trapframe_kernel *)tf;
       switchk2u.cs = USER_CS;
       switchk2u.ds = switchk2u.es = USER_DS;

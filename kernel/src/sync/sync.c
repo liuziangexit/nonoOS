@@ -15,7 +15,27 @@
 // 但这个问题还要进一步研究，morespecifically，乱序流水线和分支预测等东西的存在什么时候会被程序观测到（我猜答案是多核心时候会被观测到）？
 // 但是为什么呢？这是一个学术问题，需要进一步研究
 
+/*
+我们主要有以下几种同步方式：
+1.关闭中断enter_noint_region
+这种方法导致不再触发中断处理机制，此前未处理的，以及关闭中断期间到来的中断信号，会在中断控制器中排队，
+当中断重新打开后，信号队列中的中断会重新开始处理。
+这个信号队列是否存在、队列的长度取决于具体的中断控制器。
+
+当当前代码不能被中断处理、其他线程打断时，使用此方法进行同步
+
+2.关闭调度
+调度器不再进行调度
+
+当当前代码可以被中断处理打断，但是不能被其他线程打断时，使用此方法进行同步
+
+3.mutex
+没什么好说的
+
+*/
+
 void enter_critical_region(uint32_t *save) {
+  SMART_NOINT_REGION
   if (task_preemptive_enabled()) {
     task_preemptive_set(false);
     *save = 1;
@@ -26,6 +46,7 @@ void enter_critical_region(uint32_t *save) {
 }
 
 void leave_critical_region(uint32_t *save) {
+  SMART_NOINT_REGION
   memory_barrier(SEQ_CST);
   if (*save) {
     task_preemptive_set(true);
@@ -42,6 +63,7 @@ void enter_noint_region(uint32_t *save) {
   }
   memory_barrier(SEQ_CST);
 }
+
 // 如果此前关闭了中断，开启中断
 void leave_noint_region(uint32_t *save) {
   memory_barrier(SEQ_CST);
@@ -68,10 +90,7 @@ uint32_t mutex_create() {
 }
 
 bool mutex_destroy(mutex_t *mut) {
-  // 这个检查已经在kernel_object框架里做了
-  // if (mut->ref_cnt != 0) {
-  //   panic("mut->ref_cnt != 0");
-  // }
+  SMART_CRITICAL_REGION
   if (mut->locked != 0 || mut->owner != 0 || vector_count(&mut->waitors) != 0) {
     // 没有人引用这个内核对象，但是却有人在等待这个mutex，让一个等待者引用该对象，取消destroy
     printf_color(CGA_COLOR_RED,
@@ -215,10 +234,7 @@ uint32_t condition_variable_create() {
 }
 
 bool condition_variable_destroy(condition_variable_t *cv) {
-  // 这个检查已经在kernel_object框架里做了
-  // if (cv->ref_cnt != 0) {
-  //   panic("cv->ref_cnt != 0");
-  // }
+  SMART_CRITICAL_REGION
   if (vector_count(&cv->waitors) != 0) {
     // 没有人引用这个内核对象，但是却有人在等待这个cv，让一个等待者引用该对象，取消destroy
     printf_color(CGA_COLOR_RED, "there are still tasks waiting on this cv\n");

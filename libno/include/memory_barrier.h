@@ -41,6 +41,13 @@ __always_inline static void memory_barrier(enum memory_order order) {
     return;
   }
   if (order == RELEASE) {
+    /*
+     mfence
+     
+     This serializing operation guarantees that 
+     every load and store instruction that precedes the MFENCE instruction in program order 
+     becomes globally visible before any load or store instruction that follows the MFENCE instruction.
+     */
     asm volatile("mfence" ::: "memory");
     return;
   }
