@@ -7,6 +7,12 @@
 #include <sync.h>
 #include <tty.h>
 
+// terminal模块将屏幕整理为一个命令行的样子
+// 但是它不懂得前台/后台程序，也不懂不同程序命令行之间的切换
+// 这些逻辑实现在shell模块
+// 从逻辑上说，我们的显示相关模块的栈是这样的，program>shell>tty>cga
+// 这个显示栈负责引入gui之前的所有绘制
+
 static enum cga_color fg;
 static enum cga_color bg;
 
