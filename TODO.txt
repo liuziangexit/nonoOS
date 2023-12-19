@@ -104,6 +104,9 @@ TODO:
 此时kbdintr被触发，尝试写入，于是尝试去拿锁，但是锁已经被scanf进程锁住了，于是只好等待
 但是kbdintr是在scanf的那个进程栈上的，于是scanf因为kbdintr而不能推进，kbdintr也因为scanf不能推进，造成死锁
 
+解决方案：scanf的时候关闭中断
+
+
 -实现一些简单的命令，比如./来执行程序、查看进程表、查看内核对象表
 -看看libno里有没有需要单独实现用户态版本的函数
 -运行 ASCII RayTracing

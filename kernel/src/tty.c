@@ -13,11 +13,6 @@ static enum cga_color bg;
 // 现在viewport显示的页面
 static uint32_t viewport = 0;
 
-//输入缓冲区
-#define TER_IN_BUF_LEN 512
-static unsigned char _in_buf[TER_IN_BUF_LEN];
-struct ring_buffer input_buffer;
-
 //输出缓冲区
 //储存最近4页的输出内容，用来实现滚屏
 //必须是2的倍数并且大于2页，不然cut那里会有bug
@@ -28,10 +23,10 @@ static uint32_t ob_wpos = 0;
 
 static const char whitespace = ' ';
 
-static bool kbdblocked;
-void terminal_blockbd() { kbdblocked = true; }
-void terminal_unblockbd() { kbdblocked = false; }
-bool terminal_kbdblocked() { return kbdblocked; }
+// static bool kbdblocked;
+// void terminal_blockbd() { kbdblocked = true; }
+// void terminal_unblockbd() { kbdblocked = false; }
+// bool terminal_kbdblocked() { return kbdblocked; }
 
 //清屏
 static void viewport_clear() {
@@ -86,7 +81,6 @@ static void viewport_update() {
 }
 
 void terminal_init() {
-  ring_buffer_init(&input_buffer, _in_buf, TER_IN_BUF_LEN);
   cga_init();
   viewport_update_cursor();
   terminal_default_color();
@@ -188,35 +182,6 @@ void terminal_fgcolor(enum cga_color _fg) { fg = _fg; }
 
 void terminal_default_color() {
   terminal_color(CGA_COLOR_BLACK, CGA_COLOR_LIGHT_GREY);
-}
-
-struct ring_buffer *terminal_input_buffer() {
-  return &input_buffer;
-}
-
-//返回0成功，返回-1失败表示没有找到行结尾，返回正数表示缓冲区过小，返回值是所需的缓冲区大小
-//返回值末尾给了\0标记结束
-int terminal_read_line(char *dst, int len) {
-  SMART_CRITICAL_REGION
-  //首先看看距离第一个\n有多远
-  int max = ring_buffer_readable(&input_buffer);
-  int n = 0;
-  for (; n < max; n++) {
-    if (*(dst + n) == '\n') {
-      break;
-    }
-  }
-
-  if (n == max) {
-    return -1;
-  }
-  if (n > len) {
-    return n;
-  }
-
-  ring_buffer_read(&input_buffer, dst, n - 1);
-  dst[n] = 0;
-  return 0;
 }
 
 // viewport向上移动一行

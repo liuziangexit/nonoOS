@@ -85,7 +85,6 @@ void kmain() {
   gdt_init();
   idt_init();
   pic_init();
-  kbd_init();
   terminal_init();
   print_e820();
   printf("\n");
@@ -101,6 +100,8 @@ void kmain() {
   kernel_object_init();
 
   task_init();
+  // 键盘isr需要用到malloc，而且需要访问当前task，所以移动到这里
+  kbd_init();
   uint32_t esp, ebp, new_esp, new_ebp;
   const uint32_t stack_top = KERNEL_VIRTUAL_BOOT_STACK + KERNEL_BOOT_STACK_SIZE;
   uint32_t used_stack, current_stack_frame_size;

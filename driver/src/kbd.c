@@ -1,3 +1,4 @@
+#include "task.h"
 #include <assert.h>
 #include <atomic.h>
 #include <ctl_char_handler.h>
@@ -6,7 +7,9 @@
 #include <picirq.h>
 #include <ring_buffer.h>
 #include <shell.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sync.h>
 #include <tty.h>
 
@@ -336,14 +339,21 @@ static int kbd_hw_read(void) {
   return c;
 }
 
+static uint32_t kbd_isr_lock;
+
+// 当没有按回车的时候，所有的输入存在这里
+// 直到按一次回车的时候才把这里暂存的东西扔到某个task_group的inputbuf里
+static char _kbd_input_buffer[TASK_INPUT_BUFFER_LEN];
+static struct ring_buffer kbd_input_buffer;
+
 void kbd_init(void) {
-  // drain the kbd buffer
+  ring_buffer_init(&kbd_input_buffer, _kbd_input_buffer, TASK_INPUT_BUFFER_LEN);
+  //  drain the kbd buffer
   kbd_isr();
   // enable kbd interrupt
   pic_enable(IRQ_KBD);
+  // printf("kbd ready!\n");
 }
-
-static uint32_t kbd_isr_lock;
 
 /* kbd_intr - try to feed input characters from keyboard */
 
@@ -356,23 +366,56 @@ static uint32_t kbd_isr_lock;
 // displaying one or not), isr will not run
 void kbd_isr() {
   SMART_CRITICAL_REGION //
+
   {
+    // 已有一个kbd_isr正在运行
+    // 退出当前kbd_isr
     uint32_t expected = 0;
     if (!atomic_compare_exchange(&kbd_isr_lock, &expected, 1)) {
-      return; // 另一个kbd_isr正在运行
+      return;
     }
   }
-  if (terminal_kbdblocked()) {
-    // 有程序发起的terminal访问正在进行，本次中断引起的访问有可能与其冲突，忽略
-    return;
-  }
+  // if (terminal_kbdblocked()) {
+  //   //
+  //   有程序发起的terminal访问正在进行，本次中断引起的访问有可能与其冲突，忽略
+  //   return;
+  // }
   int c;
   while ((c = kbd_hw_read()) != EOF) {
     if (c != 0 && shell_ready()) {
-      // copy to input buffer
-      ring_buffer_write(terminal_input_buffer(), false, &c, 1);
-      // echo
-      terminal_write((char *)&c, 1);
+      if (c == '\n') {
+        // 如果遇到回车，把kbd_input_buffer的所有内容放到task的inputbuf
+
+        // 首先，把这个换行符显示出来
+        terminal_write((char *)&c, 1);
+
+        pid_t fg_pid = shell_fg();
+        ktask_t *fg_task = task_find(fg_pid);
+        task_group_t *fg_group = fg_task->group;
+        // 想想这是不是有问题，因为lock会导致别的task运行，
+        // 而SMART_CRITICAL_REGION的语义是别的线程不会运行
+        // 解决方案：在读取input_buffer时关中断
+        SMART_LOCK(l, fg_group->input_buffer_mutex)
+
+        // TODO
+        // ringbuffer是不是可以实现一个从ringbuffer之间拷贝的方法，避免这种额外开销？
+        uint32_t cnt = ring_buffer_readable(&kbd_input_buffer);
+
+        void *tmp = malloc(cnt);
+        assert(tmp);
+
+        uint32_t actual_read = ring_buffer_read(&kbd_input_buffer, tmp, cnt);
+        assert(actual_read == cnt);
+
+        bool write_ok =
+            ring_buffer_write(&fg_group->input_buffer, true, tmp, cnt);
+        assert(write_ok);
+      } else {
+        // copy to kbd input buffer
+        ring_buffer_write(&kbd_input_buffer, false, &c, 1);
+        // echo
+        terminal_write((char *)&c, 1);
+      }
       // 因为现在假如viewport不在最底下的时候就不刷viewport了，所以输入时候要手动刷viewport
       terminal_viewport_bottom();
     }
