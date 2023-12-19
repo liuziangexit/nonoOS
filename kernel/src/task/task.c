@@ -13,6 +13,7 @@
 #include <mmu.h>
 #include <panic.h>
 #include <ring_buffer.h>
+#include <shell.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -518,10 +519,14 @@ void task_display() {
          "******\n");
   for (ktask_t *p = avl_tree_first(&tasks); p != 0;
        p = avl_tree_next(&tasks, p)) {
-    printf("State:%s ID:%d K:%s Group:0x%08llx TS:%lld Name:%s\n",
-           task_state_str(p->state), (int)p->id,
-           p->group->is_kernel ? "T" : "F",
-           (int64_t)(uint64_t)(uintptr_t)p->group, p->tslice, p->name);
+    printf(
+        "State:%s ID:%d K:%s FG:%s Group:0x%08llx TS:%lld Name:%s\n",
+        task_state_str(p->state), (int)p->id, p->group->is_kernel ? "T" : "F",
+        p->id == (shell_ready() ? shell_fg()
+                                : /*shell没有ready，确保此括号的值绝对不会是p->id*/ p->id + 1)
+            ? "T"
+            : "F",
+        (int64_t)(uint64_t)(uintptr_t)p->group, p->tslice, p->name);
   }
 
   printf("*********************************************************************"
