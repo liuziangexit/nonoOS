@@ -272,6 +272,10 @@ static task_group_t *task_group_create(bool is_kernel) {
   memset(group, 0, sizeof(sizeof(task_group_t)));
   list_init(&group->tasks);
 
+  // 初始化记录内核对象id的avl树
+  avl_tree_init(&group->kernel_objects, compare_kern_obj_id,
+                sizeof(struct kern_obj_id), 0);
+
   // 内核进程组的input_buffer_mutex是之后在kernel.c中创建的
   if (task_inited == TASK_INITED_MAGIC) {
     group->input_buffer_mutex = mutex_create();
@@ -294,9 +298,6 @@ static task_group_t *task_group_create(bool is_kernel) {
 
   group->task_cnt = 0;
   group->is_kernel = is_kernel;
-  // 初始化记录内核对象id的avl树
-  avl_tree_init(&group->kernel_objects, compare_kern_obj_id,
-                sizeof(struct kern_obj_id), 0);
 
   // 在kernel.c中对第一个进程组（也就是内核进程组）的vm是特殊处理的，
   // 所以在这里检测，如果发现是来自kernel.c的调用，这里就不做
