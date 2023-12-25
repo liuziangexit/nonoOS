@@ -38,14 +38,13 @@ int shell_main(int argc, char **argv) {
   putchar(1);
   printf("\n\n");
 
-  printf_color(CGA_COLOR_DARK_GREY, "nonoOS:$ ");
-
   char str[256];
 
   while (true) {
+    printf_color(CGA_COLOR_DARK_GREY, "nonoOS:$ ");
     char *look = gets(str);
     assert(look == str);
-    printf("gets: %s\n\n", str);
+    printf("you have entered: %s\n\n", str);
   }
   __unreachable
 }
