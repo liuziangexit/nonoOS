@@ -375,11 +375,7 @@ void kbd_isr() {
       return;
     }
   }
-  // if (terminal_kbdblocked()) {
-  //   //
-  //   有程序发起的terminal访问正在进行，本次中断引起的访问有可能与其冲突，忽略
-  //   return;
-  // }
+  
   int c;
   while ((c = kbd_hw_read()) != EOF) {
     if (c != 0 && shell_ready()) {
@@ -399,11 +395,10 @@ void kbd_isr() {
         // 解决方案：在读取input_buffer时关中断
         // 请见stdin.c中的实现
 
-        // 整个kbd isr开头有一个SMART_CRITICAL_REGION关闭了抢占
-        // 但是此处我们不得不临时开启抢占以使得其他的任务能够推进工作，从而最终放开input_buffer_mutex
-        task_preemptive_set(true);
+        // 此时抢占是关闭状态，因为整个kbd isr是一个critical region
+        // 这使得整个多任务系统退化成协作式
+        // 但是这种条件下各个任务依然可以继续推进工作，因此不会造成死锁
         SMART_LOCK(l, fg_group->input_buffer_mutex);
-        task_preemptive_set(false);
 
         // TODO
         // ringbuffer是不是可以实现一个从ringbuffer之间拷贝的方法，避免这种额外开销？
