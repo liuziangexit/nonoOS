@@ -147,7 +147,18 @@ void mutex_lock(uint32_t mut_id) {
     // 陷入等待
     task_schd(true, true, WAITING);
     // 从等待列表中移除我自己
-    vector_remove(&mut->waitors, idx);
+    // 这里有一种可能，别的线程已经修改过waitors了，所以我们要做相应的处理
+    if (mut->waitors.count >= idx + 1 &&
+        *(pid_t *)vector_get(&mut->waitors, idx) == task_current()->id) {
+      vector_remove(&mut->waitors, idx);
+    } else {
+      // 这看起来相当蠢，但我感觉这里用线性表足够了
+      for (int i = 0; i < vector_count(&mut->waitors); i++) {
+        if (*(pid_t *)vector_get(&mut->waitors, i) == task_current()->id)
+          vector_remove(&mut->waitors, i);
+      }
+    }
+
     // 获得锁
     expected = 0;
     if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
@@ -182,7 +193,18 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
     // 陷入等待
     task_schd(true, true, WAITING);
     // 从等待列表中移除我自己
-    vector_remove(&mut->waitors, idx);
+    // 这里有一种可能，别的线程已经修改过waitors了，所以我们要做相应的处理
+    if (mut->waitors.count >= idx + 1 &&
+        *(pid_t *)vector_get(&mut->waitors, idx) == task_current()->id) {
+      vector_remove(&mut->waitors, idx);
+    } else {
+      // 这看起来相当蠢，但我感觉这里用线性表足够了
+      for (int i = 0; i < vector_count(&mut->waitors); i++) {
+        if (*(pid_t *)vector_get(&mut->waitors, i) == task_current()->id)
+          vector_remove(&mut->waitors, i);
+      }
+    }
+
     if (task_current()->wait_ctx.mutex.timeout) {
       // 由超时导致返回
       return false;

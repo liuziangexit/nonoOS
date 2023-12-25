@@ -980,8 +980,19 @@ bool task_join(pid_t pid, int32_t *ret_val) {
     task_schd(true, true, WAITING);
     // 等再回来的时候，那个线程的返回值已经被存给我们了
     *ret_val = task_current()->wait_ctx.join.ret_val;
+
     // 还需要把我们从joining中删除
-    vector_remove(&task->joining, idx);
+    // 这里有一种可能，别的线程已经修改过task->joining了，所以我们要做相应的处理
+    if (task->joining.count >= idx + 1 &&
+        *(pid_t *)vector_get(&task->joining, idx) == task_current()->id) {
+      vector_remove(&task->joining, idx);
+    } else {
+      // 这看起来相当蠢，但我感觉这里用线性表足够了
+      for (int i = 0; i < vector_count(&task->joining); i++) {
+        if (*(pid_t *)vector_get(&task->joining, i) == task_current()->id)
+          vector_remove(&task->joining, i);
+      }
+    }
   }
   return true;
 }

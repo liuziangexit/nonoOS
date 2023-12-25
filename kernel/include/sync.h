@@ -1,3 +1,5 @@
+#ifndef __KERNEL_SYNC_H__
+#define __KERNEL_SYNC_H__
 #include "task.h"
 #include <compiler_helper.h>
 #include <defs.h>
@@ -92,3 +94,5 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
                                   uint64_t timeout_ms);
 void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id);
 void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id);
+
+#endif
