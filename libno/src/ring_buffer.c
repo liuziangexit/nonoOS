@@ -78,6 +78,7 @@ void ring_buffer_copyout(struct ring_buffer *buf, uint32_t begin, uint32_t end,
 
 //遍历readable数据，就像缓冲区是线性的一样
 //如果遍历完了，返回null
+//这不会影响内部的读写位置
 void *ring_buffer_foreach(struct ring_buffer *buf, uint32_t *iterator,
                           uint32_t end) {
   if (*iterator != end) {

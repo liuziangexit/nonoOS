@@ -184,6 +184,7 @@ void ktask0() {
   {
     task_current()->group->vm_mutex = mutex_create();
     task_current()->group->input_buffer_mutex = mutex_create();
+    task_current()->group->input_buffer_cv = condition_variable_create();
   }
 
 #ifdef RUN_TEST

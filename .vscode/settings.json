@@ -73,6 +73,7 @@
         "unistd.h": "c",
         "shared_memory.h": "c",
         "compiler_helper.h": "c",
-        "thread": "c"
+        "thread": "c",
+        "__config": "c"
     }
 }

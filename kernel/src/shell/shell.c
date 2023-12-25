@@ -40,8 +40,12 @@ int shell_main(int argc, char **argv) {
 
   printf_color(CGA_COLOR_DARK_GREY, "nonoOS:$ ");
 
+  char str[256];
+
   while (true) {
-    task_sleep(50);
+    char *look = gets(str);
+    assert(look == str);
+    printf("gets: %s\n\n", str);
   }
   __unreachable
 }

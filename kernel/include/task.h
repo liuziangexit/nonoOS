@@ -73,6 +73,7 @@ const char *task_state_str(enum task_state);
 struct task_group {
   list_entry_t tasks;
   uint32_t input_buffer_mutex;
+  uint32_t input_buffer_cv;
   struct ring_buffer input_buffer;
   uint32_t task_cnt;
   bool is_kernel;            // 是否内核权限

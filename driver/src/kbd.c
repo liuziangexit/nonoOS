@@ -383,19 +383,27 @@ void kbd_isr() {
   int c;
   while ((c = kbd_hw_read()) != EOF) {
     if (c != 0 && shell_ready()) {
+      // copy to kbd input buffer
+      ring_buffer_write(&kbd_input_buffer, false, &c, 1);
+      // echo
+      terminal_write((char *)&c, 1);
       if (c == '\n') {
         // 如果遇到回车，把kbd_input_buffer的所有内容放到task的inputbuf
-
-        // 首先，把这个换行符显示出来
-        terminal_write((char *)&c, 1);
-
         pid_t fg_pid = shell_fg();
         ktask_t *fg_task = task_find(fg_pid);
         task_group_t *fg_group = fg_task->group;
-        // 想想这是不是有问题，因为lock会导致别的task运行，
-        // 而SMART_CRITICAL_REGION的语义是别的线程不会运行
+
+        // 当有读者正在访问input_buffer时，有可能键盘输入了一个换行符，导致这里
+        // 开始拿input_buffer_mutex锁尝试写入。这时候会导致死锁，因为锁正在被读者持有
+        // 因此读者处需要关闭中断，防止此处键盘isr触发
         // 解决方案：在读取input_buffer时关中断
-        SMART_LOCK(l, fg_group->input_buffer_mutex)
+        // 请见stdin.c中的实现
+
+        // 整个kbd isr开头有一个SMART_CRITICAL_REGION关闭了抢占
+        // 但是此处我们不得不临时开启抢占以使得其他的任务能够推进工作，从而最终放开input_buffer_mutex
+        task_preemptive_set(true);
+        SMART_LOCK(l, fg_group->input_buffer_mutex);
+        task_preemptive_set(false);
 
         // TODO
         // ringbuffer是不是可以实现一个从ringbuffer之间拷贝的方法，避免这种额外开销？
@@ -410,11 +418,9 @@ void kbd_isr() {
         bool write_ok =
             ring_buffer_write(&fg_group->input_buffer, true, tmp, cnt);
         assert(write_ok);
-      } else {
-        // copy to kbd input buffer
-        ring_buffer_write(&kbd_input_buffer, false, &c, 1);
-        // echo
-        terminal_write((char *)&c, 1);
+
+        condition_variable_notify_one(fg_group->input_buffer_cv,
+                                      fg_group->input_buffer_mutex);
       }
       // 因为现在假如viewport不在最底下的时候就不刷viewport了，所以输入时候要手动刷viewport
       terminal_viewport_bottom();

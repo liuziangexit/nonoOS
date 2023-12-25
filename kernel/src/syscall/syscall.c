@@ -14,7 +14,7 @@
 #include <virtual_memory.h>
 #include <x86.h>
 
-//#define VERBOSE
+// #define VERBOSE
 
 int printf_impl(void *format, void *parameters);
 
@@ -194,7 +194,7 @@ void syscall_dispatch(struct trapframe *tf) {
     } break;
     case USER_CV_ACTION_WAIT: {
       // printf("condition_variable_wait\n");
-      condition_variable_wait(arg[1], arg[2]);
+      condition_variable_wait(arg[1], arg[2], true);
       set_return_value(tf, 0);
     } break;
     case USER_CV_ACTION_TIMEDWAIT: {
@@ -204,7 +204,7 @@ void syscall_dispatch(struct trapframe *tf) {
       ms |= arg[4];
       // printf("condition_variable_timedwait\n");
       // printf("cv timedwait: %lldms\n", (int64_t)ms);
-      bool ret = condition_variable_timedwait(cv, mut, ms);
+      bool ret = condition_variable_timedwait(cv, mut, ms, true);
       set_return_value(tf, (int32_t)ret);
     } break;
     case USER_CV_ACTION_NOTIFY_ONE: {

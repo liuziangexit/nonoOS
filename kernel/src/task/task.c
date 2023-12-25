@@ -279,11 +279,17 @@ static task_group_t *task_group_create(bool is_kernel) {
   // 内核进程组的input_buffer_mutex是之后在kernel.c中创建的
   if (task_inited == TASK_INITED_MAGIC) {
     group->input_buffer_mutex = mutex_create();
+    group->input_buffer_cv = condition_variable_create();
+
     // 用当前正在创建的线程组引用该mutex
     bool ref_succ = kernel_object_ref(group, group->input_buffer_mutex);
     assert(ref_succ);
+    ref_succ = kernel_object_ref(group, group->input_buffer_cv);
+    assert(ref_succ);
+
     // 当前正运行的线程组取消引用该mutex
     kernel_object_unref(task_current()->group, group->input_buffer_mutex, true);
+    kernel_object_unref(task_current()->group, group->input_buffer_cv, true);
   }
 
   void *input_buf = malloc(TASK_INPUT_BUFFER_LEN);
@@ -523,8 +529,11 @@ void task_display() {
     printf(
         "State:%s ID:%d K:%s FG:%s Group:0x%08llx TS:%lld Name:%s\n",
         task_state_str(p->state), (int)p->id, p->group->is_kernel ? "T" : "F",
-        p->id == (shell_ready() ? shell_fg()
-                                : /*shell没有ready，确保此括号的值绝对不会是p->id*/ p->id + 1)
+        p->id ==
+                (shell_ready()
+                     ? shell_fg()
+                     : /*shell没有ready，确保此括号的值绝对不会是p->id*/ p->id +
+                           1)
             ? "T"
             : "F",
         (int64_t)(uint64_t)(uintptr_t)p->group, p->tslice, p->name);
