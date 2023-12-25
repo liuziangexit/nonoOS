@@ -135,7 +135,8 @@ void mutex_lock(uint32_t mut_id) {
     SMART_NOINT_REGION
     if (atomic_load(&mut->owner) == task_current()->id) {
       // 已被自己锁上了
-      printf_color(CGA_COLOR_RED, "mutex_lock logic error\n");
+      printf_color(CGA_COLOR_RED,
+                   "mutex_lock: lock already hold by current thread\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
     task_current()->tslice++;
@@ -153,7 +154,7 @@ void mutex_lock(uint32_t mut_id) {
       vector_remove(&mut->waitors, idx);
     } else {
       // 这看起来相当蠢，但我感觉这里用线性表足够了
-      for (int i = 0; i < vector_count(&mut->waitors); i++) {
+      for (uint32_t i = 0; i < vector_count(&mut->waitors); i++) {
         if (*(pid_t *)vector_get(&mut->waitors, i) == task_current()->id)
           vector_remove(&mut->waitors, i);
       }
@@ -162,7 +163,7 @@ void mutex_lock(uint32_t mut_id) {
     // 获得锁
     expected = 0;
     if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
-      printf_color(CGA_COLOR_RED, "mutex_lock logic error 2\n");
+      printf_color(CGA_COLOR_RED, "mutex_lock: logic error 2\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
   }
@@ -199,7 +200,7 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
       vector_remove(&mut->waitors, idx);
     } else {
       // 这看起来相当蠢，但我感觉这里用线性表足够了
-      for (int i = 0; i < vector_count(&mut->waitors); i++) {
+      for (uint32_t i = 0; i < vector_count(&mut->waitors); i++) {
         if (*(pid_t *)vector_get(&mut->waitors, i) == task_current()->id)
           vector_remove(&mut->waitors, i);
       }
@@ -270,7 +271,8 @@ bool condition_variable_destroy(condition_variable_t *cv) {
   return true;
 }
 
-void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
+void condition_variable_wait(uint32_t cv_id, uint32_t mut_id,
+                             bool reacquire_lock) {
   if (mutex_owner(mut_id) != task_current()->id) {
     printf_color(CGA_COLOR_RED, "condition_variable_wait logic error\n");
     task_terminate(TASK_TERMINATE_ABORT);
@@ -289,11 +291,12 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id) {
   assert(!task_current()->wait_ctx.cv.timeout);
   // 被唤醒了
   // 这里不用try_lock而是lock是因为当notify_all时，某个try_lock可能失败，从而导致逻辑错误
-  mutex_lock(mut_id);
+  if (reacquire_lock)
+    mutex_lock(mut_id);
 }
 
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
-                                  uint64_t timeout_ms) {
+                                  uint64_t timeout_ms, bool reacquire_lock) {
   if (mutex_owner(mut_id) != task_current()->id) {
     printf_color(CGA_COLOR_RED, "condition_variable_timedwait logic error\n");
     task_terminate(TASK_TERMINATE_ABORT);
@@ -315,12 +318,16 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
   }
   // 被唤醒了
   // 这里不用try_lock而是lock是因为当notify_all时，某个try_lock可能失败，从而导致逻辑错误
-  mutex_lock(mut_id);
+  if (reacquire_lock)
+    mutex_lock(mut_id);
   return true;
 }
 
 void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id) {
-  mutex_lock(mut_id);
+  bool already_owned = mutex_owner(mut_id) == task_current()->id;
+  if (!already_owned)
+    mutex_lock(mut_id);
+
   condition_variable_t *cv = kernel_object_get(cv_id);
   if (vector_count(&cv->waitors) != 0) {
     SMART_CRITICAL_REGION
@@ -329,11 +336,16 @@ void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id) {
     ready_queue_put(t);
     vector_remove(&cv->waitors, 0);
   }
-  mutex_unlock(mut_id);
+
+  if (!already_owned)
+    mutex_unlock(mut_id);
 }
 
 void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id) {
-  mutex_lock(mut_id);
+  bool already_owned = mutex_owner(mut_id) == task_current()->id;
+  if (!already_owned)
+    mutex_lock(mut_id);
+
   condition_variable_t *cv = kernel_object_get(cv_id);
   if (vector_count(&cv->waitors) != 0) {
     SMART_CRITICAL_REGION
@@ -344,5 +356,7 @@ void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id) {
     }
     vector_clear(&cv->waitors);
   }
-  mutex_unlock(mut_id);
+
+  if (!already_owned)
+    mutex_unlock(mut_id);
 }

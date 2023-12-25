@@ -988,7 +988,7 @@ bool task_join(pid_t pid, int32_t *ret_val) {
       vector_remove(&task->joining, idx);
     } else {
       // 这看起来相当蠢，但我感觉这里用线性表足够了
-      for (int i = 0; i < vector_count(&task->joining); i++) {
+      for (uint32_t i = 0; i < vector_count(&task->joining); i++) {
         if (*(pid_t *)vector_get(&task->joining, i) == task_current()->id)
           vector_remove(&task->joining, i);
       }

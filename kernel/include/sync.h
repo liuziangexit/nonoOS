@@ -89,9 +89,10 @@ struct condition_variable {
 typedef struct condition_variable condition_variable_t;
 uint32_t condition_variable_create();
 bool condition_variable_destroy(condition_variable_t *cv);
-void condition_variable_wait(uint32_t cv_id, uint32_t mut_id);
+void condition_variable_wait(uint32_t cv_id, uint32_t mut_id,
+                             bool reacquire_lock);
 bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
-                                  uint64_t timeout_ms);
+                                  uint64_t timeout_ms, bool reacquire_lock);
 void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id);
 void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id);
 
