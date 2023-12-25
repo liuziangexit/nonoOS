@@ -69,7 +69,6 @@ void kentry() {
   assert((uintptr_t)V2P(kernel_pd) >= (uintptr_t)bss_end ||
          (uintptr_t)V2P(kernel_pd) < (uintptr_t)bss_begin);
   // 清bss https://en.wikipedia.org/wiki/.bss#BSS_in_C
-  extern char bss_begin[], bss_end[];
   memset(bss_begin, 0, bss_end - bss_begin);
 
   boot_stack_paddr = physical_boot_stack;
