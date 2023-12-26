@@ -26,6 +26,12 @@
 // void SYSCALL_CV(action, ...)
 #define SYSCALL_CV 8
 
+// char* SYSCALL_GETS(char*)
+#define SYSCALL_GETS 9
+
+// int SYSCALL_GETCHAR()
+#define SYSCALL_GETCHAR 10
+
 #ifdef LIBNO_USER
 uint32_t syscall(int call, int cnt, ...);
 #endif

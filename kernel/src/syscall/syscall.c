@@ -3,6 +3,7 @@
 #include "../../../libno/include/task.h"
 #include "debug.h"
 #include <condition_variable.h>
+#include <limits.h>
 #include <mutex.h>
 #include <panic.h>
 #include <shared_memory.h>
@@ -220,6 +221,15 @@ void syscall_dispatch(struct trapframe *tf) {
     default:
       panic("TODO USER ABORT!");
     }
+  } break;
+  case SYSCALL_GETS: {
+    // TODO 考虑用户有没有可能构造一个恶意的arg[0]导致安全问题
+    kgets((char *)arg[0], INT_MAX);
+    set_return_value(tf, arg[0]);
+  } break;
+  case SYSCALL_GETCHAR: {
+    char ch = getchar();
+    set_return_value(tf, ch);
   } break;
   default: {
     printf("unknown system call %d with args:  %d, %d, %d, %d, %d\n", no,

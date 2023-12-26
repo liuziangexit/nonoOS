@@ -100,12 +100,11 @@ CV_LOOP:
 
 #else
 
-// TODO implement
-char *gets(char *str) {
-  UNUSED(str);
-  return NULL;
-}
+#include <syscall.h>
 
-int getchar() { return EOF; }
+// 用户态
+char *gets(char *str) { return (char *)syscall(SYSCALL_GETS, 1, str); }
+
+int getchar() { return syscall(SYSCALL_GETCHAR, 0); }
 
 #endif

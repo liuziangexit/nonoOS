@@ -5,8 +5,8 @@
 #include <stdint.h>
 #include <string.h>
 
-#define T_SYSCALL 122 //系统调用中断号
-#define MAX_ARGS 5
+#define T_SYSCALL 122 // 系统调用中断号
+#define MAX_ARGS 5    // 只能支持这么多参数
 
 uint32_t syscall(int call, int cnt, ...) {
   /*
@@ -21,8 +21,8 @@ uint32_t syscall(int call, int cnt, ...) {
   当从中断返回时，就自动切换ring级别了，因此不需要task_switch去做这件事
    */
 
-  //测试代码
-  //#ifndef NDEBUG
+  // 测试代码
+  // #ifndef NDEBUG
   uint16_t reg[6];
   uint32_t exx[2];
   asm volatile("mov %%cs, %0;"
@@ -36,7 +36,7 @@ uint32_t syscall(int call, int cnt, ...) {
                : "=m"(reg[0]), "=m"(reg[1]), "=m"(reg[2]), "=m"(reg[3]),
                  "=m"(reg[4]), "=m"(reg[5]), "=m"(exx[0]), "=m"(exx[1]));
   assert((reg[0] & 3) == 3);
-  //#endif
+  // #endif
 
   va_list ap;
   va_start(ap, cnt);
