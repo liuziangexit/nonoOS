@@ -10,9 +10,20 @@
 #include <sync.h>
 
 // 复制输入到str去
-// FIXME 不安全！后期需要弃用换成fgets，用户态版本可以保留
 // https://www.ibm.com/docs/en/i/7.2?topic=functions-gets-read-line
 char *gets(char *str) {
+  size_t len = getslen();
+  ktask_t *current = task_current();
+  uint32_t actual_read =
+      ring_buffer_read(&current->group->input_buffer, str, len);
+  assert(actual_read == len);
+  assert(*(str + len - 1) == '\n' || *(str + len - 1) == EOF);
+  *(str + len - 1) = '\0';
+  enable_interrupt();
+  return str;
+}
+
+size_t getslen() {
   ktask_t *current = task_current();
 
   // 关闭中断防止键盘isr触发
@@ -50,13 +61,7 @@ CV_LOOP:
     goto CV_LOOP;
   }
 
-  uint32_t actual_read =
-      ring_buffer_read(&current->group->input_buffer, str, it);
-  assert(actual_read == it);
-  assert(*(str + it - 1) == '\n' || *(str + it - 1) == EOF);
-  *(str + it - 1) = '\0';
-  enable_interrupt();
-  return str;
+  return it;
 }
 
 int getchar() {

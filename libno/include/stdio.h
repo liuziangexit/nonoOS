@@ -4,6 +4,7 @@
 #ifndef LIBNO_USER
 #include "cga.h"
 #endif
+#include <stddef.h>
 
 #define EOF (-1)
 
@@ -17,6 +18,8 @@ int putchar(int);
 int puts(const char *);
 
 // in
+size_t
+getslen(); // 获取下一行的长度（包含\0），如果没有找到行结束标志会阻塞等待
 char *gets(char *str);
 int getchar();
 

@@ -4,6 +4,7 @@
 #include <atomic.h>
 #include <compiler_helper.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 uint32_t task_count();
@@ -38,13 +39,18 @@ int shell_main(int argc, char **argv) {
   putchar(1);
   printf("\n\n");
 
-  char str[256];
+  char *command;
 
   while (true) {
     printf_color(CGA_COLOR_DARK_GREY, "nonoOS:$ ");
-    char *look = gets(str);
-    assert(look == str);
-    printf("you have entered: %s\n\n", str);
+    size_t line_len = getslen();
+    command = malloc(line_len);
+    if (!command) {
+      panic("running out of memory");
+    }
+    gets(command);
+    printf("you have entered: %s\n\n", command);
+    free(command);
   }
   __unreachable
 }
