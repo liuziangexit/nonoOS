@@ -980,7 +980,8 @@ bool task_join(pid_t pid, int32_t *ret_val) {
     // 场景是本线程此前已经ref了该线程，所以该线程退出之后还没有被销毁
     // join之后，需要本线程手动unref，不然那个线程的结构就没人释放了
     // 当然，你也可以等本线程退出时候自动unref他们
-    *ret_val = task->ret_val;
+    if (ret_val)
+      *ret_val = task->ret_val;
     return true;
   } else {
     SMART_NOINT_REGION
@@ -992,7 +993,8 @@ bool task_join(pid_t pid, int32_t *ret_val) {
     // 开始等待那个线程退出
     task_schd(true, true, WAITING);
     // 等再回来的时候，那个线程的返回值已经被存给我们了
-    *ret_val = task_current()->wait_ctx.join.ret_val;
+    if (ret_val)
+      *ret_val = task_current()->wait_ctx.join.ret_val;
 
     // 还需要把我们从joining中删除
     // 这里有一种可能，别的线程已经修改过task->joining了，所以我们要做相应的处理
