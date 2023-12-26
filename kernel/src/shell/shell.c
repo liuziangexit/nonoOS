@@ -109,6 +109,8 @@ int shell_main(int argc, char **argv) {
 
     if (strcmp(str, "./user_read_input_test") == 0) {
       run_user_input_program();
+    } else if (strcmp(str, "ps") == 0) {
+      task_display();
     }
   }
   __unreachable
