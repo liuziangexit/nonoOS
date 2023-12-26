@@ -917,6 +917,10 @@ pid_t task_create_user(void *program, uint32_t program_size, const char *name,
                (int64_t)task_current()->id, task_current()->name);
 #endif
 
+#ifdef VERBOSE
+  virtual_memory_print(new_task->base.group->vm);
+#endif
+
   return new_task->base.id;
 }
 
