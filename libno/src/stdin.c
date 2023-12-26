@@ -67,11 +67,35 @@ CV_LOOP:
 }
 
 int getchar() {
-  return EOF;
-  // char c;
-  // if (1 != ring_buffer_read(terminal_input_buffer(), &c, 1))
-  //   return EOF;
-  // return c;
+  ktask_t *current = task_current();
+
+  // 关闭中断防止键盘isr触发
+  // 原因见kbd.c注释
+  disable_interrupt();
+  SMART_LOCK(l, current->group->input_buffer_mutex);
+
+CV_LOOP:
+  uint32_t cnt = ring_buffer_readable(&current->group->input_buffer);
+
+  if (cnt == 0) {
+    // 一个都没有！
+    // 等待kbd.c里面发信号
+    enable_interrupt();
+    condition_variable_wait(current->group->input_buffer_cv,
+                            current->group->input_buffer_mutex, false);
+    // 这里需要在重新拿锁之前关闭中断，原因同上
+    disable_interrupt();
+    mutex_lock(current->group->input_buffer_mutex);
+    goto CV_LOOP;
+  }
+
+  // 有至少一个字符
+  char ch;
+  uint32_t actual_read =
+      ring_buffer_read(&current->group->input_buffer, &ch, 1);
+  assert(actual_read == 1);
+  enable_interrupt();
+  return ch;
 }
 
 #else

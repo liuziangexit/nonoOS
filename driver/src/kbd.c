@@ -375,7 +375,7 @@ void kbd_isr() {
       return;
     }
   }
-  
+
   int c;
   while ((c = kbd_hw_read()) != EOF) {
     if (c != 0 && shell_ready()) {
@@ -383,40 +383,40 @@ void kbd_isr() {
       ring_buffer_write(&kbd_input_buffer, false, &c, 1);
       // echo
       terminal_write((char *)&c, 1);
-      if (c == '\n') {
-        // 如果遇到回车，把kbd_input_buffer的所有内容放到task的inputbuf
-        pid_t fg_pid = shell_fg();
-        ktask_t *fg_task = task_find(fg_pid);
-        task_group_t *fg_group = fg_task->group;
 
-        // 当有读者正在访问input_buffer时，有可能键盘输入了一个换行符，导致这里
-        // 开始拿input_buffer_mutex锁尝试写入。这时候会导致死锁，因为锁正在被读者持有
-        // 因此读者处需要关闭中断，防止此处键盘isr触发
-        // 解决方案：在读取input_buffer时关中断
-        // 请见stdin.c中的实现
+      // 每输入一个字符，就把kbd_input_buffer的所有内容放到task的inputbuf
+      pid_t fg_pid = shell_fg();
+      ktask_t *fg_task = task_find(fg_pid);
+      task_group_t *fg_group = fg_task->group;
 
-        // 此时抢占是关闭状态，因为整个kbd isr是一个critical region
-        // 这使得整个多任务系统退化成协作式
-        // 但是这种条件下各个任务依然可以继续推进工作，因此不会造成死锁
-        SMART_LOCK(l, fg_group->input_buffer_mutex);
+      // 当有读者正在访问input_buffer时，有可能键盘输入了一个换行符，导致这里
+      // 开始拿input_buffer_mutex锁尝试写入。这时候会导致死锁，因为锁正在被读者持有
+      // 因此读者处需要关闭中断，防止此处键盘isr触发
+      // 解决方案：在读取input_buffer时关中断
+      // 请见stdin.c中的实现
 
-        // TODO
-        // ringbuffer是不是可以实现一个从ringbuffer之间拷贝的方法，避免这种额外开销？
-        uint32_t cnt = ring_buffer_readable(&kbd_input_buffer);
+      // 此时抢占是关闭状态，因为整个kbd isr是一个critical region
+      // 这使得整个多任务系统退化成协作式
+      // 但是这种条件下各个任务依然可以继续推进工作，因此不会造成死锁
+      SMART_LOCK(l, fg_group->input_buffer_mutex);
 
-        void *tmp = malloc(cnt);
-        assert(tmp);
+      // TODO
+      // ringbuffer是不是可以实现一个从ringbuffer之间拷贝的方法，避免这种额外开销？
+      uint32_t cnt = ring_buffer_readable(&kbd_input_buffer);
 
-        uint32_t actual_read = ring_buffer_read(&kbd_input_buffer, tmp, cnt);
-        assert(actual_read == cnt);
+      void *tmp = malloc(cnt);
+      assert(tmp);
 
-        bool write_ok =
-            ring_buffer_write(&fg_group->input_buffer, true, tmp, cnt);
-        assert(write_ok);
+      uint32_t actual_read = ring_buffer_read(&kbd_input_buffer, tmp, cnt);
+      assert(actual_read == cnt);
 
-        condition_variable_notify_one(fg_group->input_buffer_cv,
-                                      fg_group->input_buffer_mutex);
-      }
+      bool write_ok =
+          ring_buffer_write(&fg_group->input_buffer, true, tmp, cnt);
+      assert(write_ok);
+
+      condition_variable_notify_one(fg_group->input_buffer_cv,
+                                    fg_group->input_buffer_mutex);
+
       // 因为现在假如viewport不在最底下的时候就不刷viewport了，所以输入时候要手动刷viewport
       terminal_viewport_bottom();
     }

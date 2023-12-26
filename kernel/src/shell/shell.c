@@ -47,7 +47,11 @@ int shell_main(int argc, char **argv) {
 
   while (true) {
     printf_color(CGA_COLOR_DARK_GREY, "nonoOS:$ ");
-  RETRY_KGETS: {
+
+    // char look = getchar();
+    // printf("\n./you have entered: %c\n\n", look);
+
+  RETRY_KGETS:
     size_t r = kgets(str, str_len);
     if (r > str_len) {
       free(str);
@@ -61,7 +65,6 @@ int shell_main(int argc, char **argv) {
     }
 
     printf("you have entered: %s\n\n", str, (int)r);
-  }
   }
   __unreachable
 }
