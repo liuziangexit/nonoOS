@@ -10,9 +10,8 @@
 #include <sync.h>
 
 // 复制输入到str去
-// FIXME 不安全！后期需要弃用换成fgets，用户态版本可以保留
 // https://www.ibm.com/docs/en/i/7.2?topic=functions-gets-read-line
-char *gets(char *str) {
+size_t kgets(char *str, size_t str_len) {
   ktask_t *current = task_current();
 
   // 关闭中断防止键盘isr触发
@@ -23,10 +22,10 @@ char *gets(char *str) {
   char *p;
 CV_LOOP:
   uint32_t cnt = ring_buffer_readable(&current->group->input_buffer);
-  uint32_t it = 0;
+  uint32_t line_len = 0;
 
   while (true) {
-    p = ring_buffer_foreach(&current->group->input_buffer, &it, cnt);
+    p = ring_buffer_foreach(&current->group->input_buffer, &line_len, cnt);
     if (!p) {
       // 遍历完了
       break;
@@ -50,13 +49,21 @@ CV_LOOP:
     goto CV_LOOP;
   }
 
+  // 已找到行
+
+  if (str_len < line_len) {
+    // 行长度大于缓冲区长度
+    enable_interrupt();
+    return line_len;
+  }
+
   uint32_t actual_read =
-      ring_buffer_read(&current->group->input_buffer, str, it);
-  assert(actual_read == it);
-  assert(*(str + it - 1) == '\n' || *(str + it - 1) == EOF);
-  *(str + it - 1) = '\0';
+      ring_buffer_read(&current->group->input_buffer, str, line_len);
+  assert(actual_read == line_len);
+  assert(*(str + line_len - 1) == '\n' || *(str + line_len - 1) == EOF);
+  *(str + line_len - 1) = '\0';
   enable_interrupt();
-  return str;
+  return actual_read;
 }
 
 int getchar() {

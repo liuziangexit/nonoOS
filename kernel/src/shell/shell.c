@@ -4,7 +4,10 @@
 #include <atomic.h>
 #include <compiler_helper.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#define INITAIL_GETS_BUFFER_LEN 256
 
 uint32_t task_count();
 
@@ -38,13 +41,27 @@ int shell_main(int argc, char **argv) {
   putchar(1);
   printf("\n\n");
 
-  char str[256];
+  char *str = malloc(INITAIL_GETS_BUFFER_LEN);
+  assert(str);
+  size_t str_len = INITAIL_GETS_BUFFER_LEN;
 
   while (true) {
     printf_color(CGA_COLOR_DARK_GREY, "nonoOS:$ ");
-    char *look = gets(str);
-    assert(look == str);
-    printf("you have entered: %s\n\n", str);
+  RETRY_KGETS: {
+    size_t r = kgets(str, str_len);
+    if (r > str_len) {
+      free(str);
+      str = malloc(r);
+      if (!str) {
+        printf("unable to allocate %d bytes for kgets\n", (int)r);
+        panic("");
+      }
+      str_len = r;
+      goto RETRY_KGETS;
+    }
+
+    printf("you have entered: %s\n\n", str, (int)r);
+  }
   }
   __unreachable
 }
