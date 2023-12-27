@@ -341,13 +341,7 @@ static int kbd_hw_read(void) {
 
 static uint32_t kbd_isr_lock;
 
-// 当没有按回车的时候，所有的输入存在这里
-// 直到按一次回车的时候才把这里暂存的东西扔到某个task_group的inputbuf里
-static char _kbd_input_buffer[TASK_INPUT_BUFFER_LEN];
-static struct ring_buffer kbd_input_buffer;
-
 void kbd_init(void) {
-  ring_buffer_init(&kbd_input_buffer, _kbd_input_buffer, TASK_INPUT_BUFFER_LEN);
   //  drain the kbd buffer
   kbd_isr();
   // enable kbd interrupt
@@ -379,12 +373,10 @@ void kbd_isr() {
   int c;
   while ((c = kbd_hw_read()) != EOF) {
     if (c != 0 && shell_ready()) {
-      // copy to kbd input buffer
-      ring_buffer_write(&kbd_input_buffer, false, &c, 1);
       // echo
       terminal_write((char *)&c, 1);
 
-      // 每输入一个字符，就把kbd_input_buffer的所有内容放到task的inputbuf
+      // 每输入一个字符，就放到task的inputbuf
       pid_t fg_pid = shell_fg();
       ktask_t *fg_task = task_find(fg_pid);
       task_group_t *fg_group = fg_task->group;
@@ -400,18 +392,7 @@ void kbd_isr() {
       // 但是这种条件下各个任务依然可以继续推进工作，因此不会造成死锁
       SMART_LOCK(l, fg_group->input_buffer_mutex);
 
-      // TODO
-      // ringbuffer是不是可以实现一个从ringbuffer之间拷贝的方法，避免这种额外开销？
-      uint32_t cnt = ring_buffer_readable(&kbd_input_buffer);
-
-      void *tmp = malloc(cnt);
-      assert(tmp);
-
-      uint32_t actual_read = ring_buffer_read(&kbd_input_buffer, tmp, cnt);
-      assert(actual_read == cnt);
-
-      bool write_ok =
-          ring_buffer_write(&fg_group->input_buffer, true, tmp, cnt);
+      bool write_ok = ring_buffer_write(&fg_group->input_buffer, true, &c, 1);
       assert(write_ok);
 
       condition_variable_notify_one(fg_group->input_buffer_cv,
