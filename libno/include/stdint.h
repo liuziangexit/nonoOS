@@ -10,6 +10,7 @@ typedef int int32_t;
 typedef unsigned int uint32_t;
 typedef long long int64_t;
 typedef unsigned long long uint64_t;
+typedef unsigned long long intmax_t;
 
 /* *
  * Pointers and addresses are 32 bits long.

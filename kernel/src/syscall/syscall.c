@@ -17,7 +17,7 @@
 
 // #define VERBOSE
 
-int printf_impl(void *format, void *parameters);
+int vprintf(const char *format, va_list va);
 
 void set_return_value(struct trapframe *tf, uint32_t ret) {
   tf->gprs.reg_eax = ret;
@@ -123,7 +123,7 @@ void syscall_dispatch(struct trapframe *tf) {
     set_return_value(tf, 0);
   } break;
   case SYSCALL_PRINTF: {
-    int ret = printf_impl((void *)arg[0], (void *)arg[1]);
+    int ret = vprintf((void *)arg[0], *(va_list *)arg[1]);
     set_return_value(tf, ret);
   } break;
   case SYSCALL_SHM: {

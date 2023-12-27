@@ -8,5 +8,6 @@
 
 /* size_t is used for memory object sizes */
 typedef uintptr_t size_t;
+typedef uintptr_t ptrdiff_t;
 
 #endif
