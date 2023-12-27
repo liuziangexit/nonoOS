@@ -75,6 +75,8 @@
         "compiler_helper.h": "c",
         "thread": "c",
         "__config": "c",
-        "sstream": "c"
+        "sstream": "c",
+        "cstdarg": "c",
+        "cwchar": "c"
     }
 }

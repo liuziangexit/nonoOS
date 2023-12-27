@@ -88,28 +88,25 @@ PENDING-CRITICAL_REGION和lock是矛盾的，必须删掉CRITICAL_REGION。
 
 
 -实现nosh(nonoShell) 
--每个进程要有一个输入缓冲区，当键盘输入的时候，存到前台进程的输入缓冲区中
--每个进程scanf时从自己的缓冲区中读取
+OK-每个进程要有一个输入缓冲区，当键盘输入的时候，存到前台进程的输入缓冲区中
+OK-每个进程scanf时从自己的缓冲区中读取
 
--shell模块记录前台进程，如果没有前台进程，则shell是前台进程
--getchar其实只是scanf("%c")
+OK-shell模块记录前台进程，如果没有前台进程，则shell是前台进程
+OK-getchar其实只是scanf("%c")
 -scanf只处理两种情况：scanf("%c%c%c")这样全部通配符在一起的，或者scanf("%c %c %c")这样中间
 隔了空格的。对于第一种，每个通配符一行输入。对于第二种，可以在同一行输入内完成。
 -实现系统调用scanf
+OK-实现系统调用gets
 
-TODO: 
-现在的问题就在于，每个进程的这个缓冲区是用锁保护
-这个缓冲区只有2种访问：kbd intr写入、进程scanf读取
-那么考虑一个情况：scanf系统调用取得了锁，正在读取缓冲区
-此时kbdintr被触发，尝试写入，于是尝试去拿锁，但是锁已经被scanf进程锁住了，于是只好等待
-但是kbdintr是在scanf的那个进程栈上的，于是scanf因为kbdintr而不能推进，kbdintr也因为scanf不能推进，造成死锁
+-实现执行程序命令
+-实现查看进程表命令
+-实现查看内核对象表命令
 
-解决方案：scanf的时候关闭中断
-
-
--实现一些简单的命令，比如./来执行程序、查看进程表、查看内核对象表
 -看看libno里有没有需要单独实现用户态版本的函数
 -运行 ASCII RayTracing
+
+-实现以下功能：1.ctrl-c中断前台程序 2.ctrl-z将前台程序置于后台，回到shell 3.将某个后台进程设为前台进程(fg命令)
+
 -编译系统和脚本改进，并发编译自动检测核心数，可设置release/debug
 -整理编译系统，支持配置tool prefix，DEBUG/RELEASE
 -docker?
