@@ -108,6 +108,8 @@ OK-没有-看看libno里有没有需要单独实现用户态版本的函数
 
 -实现以下功能：1.ctrl-c中断前台程序 2.ctrl-z将前台程序置于后台，回到shell 3.将某个后台进程设为前台进程(fg命令)
 
+-图形接口参考：https://github.com/SerenityOS/serenity/blob/master/Documentation/Kernel/GraphicsSubsystem.md
+
 -编译系统和脚本改进，并发编译自动检测核心数，可设置release/debug
 -整理编译系统，支持配置tool prefix，DEBUG/RELEASE
 -docker?
