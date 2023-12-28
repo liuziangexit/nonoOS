@@ -99,6 +99,7 @@ OK-getchar其实只是scanf("%c")
 
 OK-实现系统调用gets
 
+-执行用户程序支持带参数！
 -b panic时，task_test有概率出问题
 
 OK-实现执行程序命令
