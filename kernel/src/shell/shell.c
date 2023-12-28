@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <vector.h>
 
 #define INITAIL_GETS_BUFFER_LEN 256
 
@@ -15,32 +16,53 @@ uint32_t task_count();
 
 static bool __sr = false;
 
-static void run_user_input_program() {
-  // 创建共享内存，把countdown程序的代码拷贝进去，让task_test来启动它
-  extern char _binary____program_user_read_input_main_exe_start[],
-      _binary____program_user_read_input_main_exe_size[];
-  uint32_t shid_prog = shared_memory_create(
-      (uint32_t)_binary____program_user_read_input_main_exe_size);
-  // 拷贝countdown程序
-  struct shared_memory *sh_prog = shared_memory_ctx(shid_prog);
-  void *access_prog = free_region_access(
-      task_current()->group->vm, task_current()->group->vm_mutex,
-      sh_prog->physical, sh_prog->pgcnt * _4K);
-  memcpy(access_prog, _binary____program_user_read_input_main_exe_start,
-         (uint32_t)_binary____program_user_read_input_main_exe_size);
-  free_region_finish_access(task_current()->group->vm,
-                            task_current()->group->vm_mutex, access_prog);
+struct program_info {
+  char *name;
+  char *program;
+  uint32_t size;
+};
+typedef struct program_info program_info_t;
+
+// 这只是我们在没有实现文件系统之前的一个权宜之计
+// 因此，我们用简单的线性表去实现
+vector_t program_list;
+
+static void new_program(char *name, char *program, uint32_t size) {
+  program_info_t p;
+  p.name = name;
+  p.program = program;
+  p.size = size;
+  vector_add(&program_list, &p);
+}
+
+static program_info_t *find_program(const char *name) {
+  for (uint32_t i = 0; i < vector_count(&program_list); i++) {
+    program_info_t *p = (program_info_t *)vector_get(&program_list, i);
+    if (strcmp(p->name, name) == 0) {
+      return p;
+    }
+  }
+  return NULL;
+}
+
+static pid_t run_user_program(const char *name, int argc, char **argv) {
+  program_info_t *prog = find_program(name);
+  if (!prog) {
+    return 0;
+  }
+
+  struct task_args args;
+  task_args_init(&args);
+  for (int i = 0; i < argc; i++) {
+    task_args_add(&args, argv[i], 0, false, 0);
+  }
 
   uint32_t save;
   enter_critical_region(&save);
 
-  pid_t pid = task_create_user(
-      (void *)_binary____program_user_read_input_main_exe_start,
-      (uint32_t)_binary____program_user_read_input_main_exe_size,
-      "user_read_input", 0, DEFAULT_ENTRY, false, NULL);
-  kernel_object_ref_safe(pid, shid_prog);
-  kernel_object_unref(task_current()->group, shid_prog, true);
-
+  pid_t pid = task_create_user(prog->program, (uintptr_t)prog->size, name, 0,
+                               DEFAULT_ENTRY, false, &args);
+  task_args_destroy(&args, true);
   shell_set_fg(pid);
 
   leave_critical_region(&save);
@@ -52,6 +74,23 @@ static void run_user_input_program() {
   shell_set_fg(task_current()->id);
 
   printf_color(CGA_COLOR_DARK_GREY, "\n\nshell is back!\n\n");
+
+  return pid;
+}
+
+static void shell_init() {
+  vector_init(&program_list, sizeof(program_info_t), NULL);
+
+  extern char _binary____program_count_down_main_exe_start[],
+      _binary____program_count_down_main_exe_size[];
+  new_program("count_down", _binary____program_count_down_main_exe_start,
+              (uint32_t)_binary____program_count_down_main_exe_size);
+
+  extern char _binary____program_user_read_input_main_exe_start[],
+      _binary____program_user_read_input_main_exe_size[];
+  new_program("user_read_input",
+              _binary____program_user_read_input_main_exe_start,
+              (uint32_t)_binary____program_user_read_input_main_exe_size);
 }
 
 int shell_main(int argc, char **argv) {
@@ -63,7 +102,7 @@ int shell_main(int argc, char **argv) {
     disable_interrupt();
     while (task_count() != 2) {
       enable_interrupt();
-      task_sleep(1050);
+      task_sleep(50);
       disable_interrupt();
     }
     enable_interrupt();
@@ -71,6 +110,8 @@ int shell_main(int argc, char **argv) {
 
   shell_set_fg(task_current()->id);
   __sr = true;
+
+  shell_init();
 
   task_display();
 
@@ -105,10 +146,11 @@ int shell_main(int argc, char **argv) {
       goto RETRY_KGETS;
     }
 
-    printf("you have entered: %s\n\n", str, (int)r);
+    //printf("you have entered: %s\n\n", str, (int)r);
 
-    if (strcmp(str, "./user_read_input_test") == 0) {
-      run_user_input_program();
+    if (strlen(str) > 2 && str[0] == '.' && str[1] == '/') {
+      if (!run_user_program(str + 2, 0, 0))
+        printf("program %s not found\n", str + 2);
     } else if (strcmp(str, "ps") == 0) {
       task_display();
     }
@@ -122,12 +164,3 @@ static pid_t fg;
 void shell_set_fg(pid_t pid) { atomic_store(&fg, pid); }
 
 pid_t shell_fg() { return atomic_load(&fg); }
-
-int shell_execute_user(const char *name, int argc, char **argv) {
-  UNUSED(argc);
-  UNUSED(argv);
-  if (strcmp(name, "countdown") == 0) {
-    return 0;
-  }
-  return 0;
-}

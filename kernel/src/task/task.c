@@ -169,9 +169,29 @@ void task_args_add(struct task_args *dst, const char *str,
   dst->cnt++;
 }
 
+// 使用task_args.args中每个task_arg的字符串地址组成一个char[][]
+// 这个char[][]就是应用程序可以访问的char[][] argv了
 static void task_args_pack(struct task_args *dst, struct virtual_memory *vm,
                            bool use_umalloc, uint32_t mut_id) {
   assert(dst->packed == 0);
+
+  if (dst->cnt == 0) {
+    // 特殊处理
+    // 还是申请32字节的位置作为argv
+    // 这样到时候销毁的时候也可以正常被回收
+    if (!use_umalloc) {
+      dst->packed = (uintptr_t)malloc(32);
+    } else {
+      uintptr_t virtual, physical;
+      if (!(virtual = umalloc(vm, 32, false, 0, &physical, mut_id))) {
+        abort();
+      }
+      dst->packed = physical;
+      dst->vpacked = virtual;
+    }
+    return;
+  }
+
   if (!use_umalloc) {
     dst->packed = (uintptr_t)malloc(sizeof(char *) * dst->cnt);
   } else {

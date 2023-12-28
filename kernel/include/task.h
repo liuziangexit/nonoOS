@@ -84,12 +84,19 @@ struct task_group {
 };
 typedef struct task_group task_group_t;
 
+// 表示argc+argv
 struct task_args {
+  // argc
   uint32_t cnt;
+  // argv数组的物理地址
   uintptr_t packed;
+  // argv数组的虚拟地址
   uintptr_t vpacked;
+  // 许多struct task_arg在这里串起来
   list_entry_t args;
 };
+
+// 代表单个char*参数
 struct task_arg {
   list_entry_t head;
   uint32_t strlen;
