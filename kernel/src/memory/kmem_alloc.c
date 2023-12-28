@@ -39,7 +39,7 @@ void *kmem_alloc(size_t alignment, size_t size) {
   assert(size % alignment == 0);
   assert(is_pow2(alignment) && alignment <= MAX_ALIGNMENT);
   if (size >= 4096) {
-    //页分配
+    // 页分配
     uint32_t page_cnt = ROUNDUP(size, 4096) / 4096;
     void *mem = kmem_page_alloc(page_cnt);
     if (!mem) {
@@ -52,8 +52,8 @@ void *kmem_alloc(size_t alignment, size_t size) {
     assert(linear2physical(kernel_pd, (uintptr_t)mem) == V2P((uintptr_t)mem));
     return mem;
   } else {
-    //对象分配
-    //记录hashmap的工作由cache那边做
+    // 对象分配
+    // 记录hashmap的工作由cache那边做
     void *mem = kmem_cache_alloc(alignment, size);
     extern uint32_t kernel_pd[];
     assert(linear2physical(kernel_pd, (uintptr_t)mem) == V2P((uintptr_t)mem));

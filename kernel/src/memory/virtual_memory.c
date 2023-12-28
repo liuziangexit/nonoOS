@@ -21,7 +21,7 @@ TODO 合并邻近的VMA，小页表全部存的是物理地址，支持大小页
 -合并页表为4M大页
 */
 
-//#define VERBOSE
+// #define VERBOSE
 
 // 这个函数只会用来比较同vm里的vma，不会用来比较不同vm里的vma
 int vma_compare(const void *a, const void *b) {
@@ -36,7 +36,7 @@ int vma_compare(const void *a, const void *b) {
   __unreachable;
 }
 
-//初始化一个虚拟地址空间结构
+// 初始化一个虚拟地址空间结构
 struct virtual_memory *virtual_memory_create() {
   struct virtual_memory *vm = malloc(sizeof(struct virtual_memory));
   if (!vm) {
@@ -61,14 +61,14 @@ void virtual_memory_init(struct virtual_memory *vm, void *pd) {
   list_init(&vm->partial);
 }
 
-//从一个已有的页目录里建立vma
+// 从一个已有的页目录里建立vma
 void virtual_memory_clone(struct virtual_memory *vm,
                           const uint32_t *page_directory,
                           enum virtual_memory_area_type type) {
   assert(((uintptr_t)page_directory) % _4K == 0);
   for (uint32_t pd_idx = 0; pd_idx < 1024; pd_idx++) {
     if (page_directory[pd_idx] & PTE_P) {
-      //对于每个PDE
+      // 对于每个PDE
       if (page_directory[pd_idx] & PTE_PS) {
         // 4M页
         uintptr_t ps_page_frame =
@@ -124,29 +124,29 @@ static void vm_clear_tree_callback(void *data) {
   virtual_memory_free(__vm, tdata);
 }
 
-//销毁一个虚拟地址空间结构
+// 销毁一个虚拟地址空间结构
 void virtual_memory_destroy(struct virtual_memory *vm) {
   assert(vm);
-  //遍历页目录表，释放掉里面引用的页表
+  // 遍历页目录表，释放掉里面引用的页表
   for (uint32_t *p = vm->page_directory; p < vm->page_directory + 1024; p++) {
     uint32_t entry = *p;
-    //如果一个PDE presented，并且不是大页，那肯定就是引用了一个PT
+    // 如果一个PDE presented，并且不是大页，那肯定就是引用了一个PT
     if (entry & PTE_P && (entry & PTE_PS) == 0) {
-      //移除flags，得到页表地址
+      // 移除flags，得到页表地址
       uintptr_t page_table = entry & ~(uint32_t)0xFFF;
       kmem_page_free((void *)P2V(page_table), 1);
     }
   }
   kmem_page_free(vm->page_directory, 1);
-  //遍历二叉树，释放掉节点
-  //本来我还以为要自己写后序遍历，没想到作者已经做了这个需求，祝他长命百岁
+  // 遍历二叉树，释放掉节点
+  // 本来我还以为要自己写后序遍历，没想到作者已经做了这个需求，祝他长命百岁
   {
     // 因为这里用一个static变量来模拟参数绑定，所以要关调度
     SMART_CRITICAL_REGION
     __vm = vm;
     avl_tree_clear(&vm->vma_tree, vm_clear_tree_callback);
   }
-  //最后释放vm结构
+  // 最后释放vm结构
   free(vm);
 }
 
@@ -158,7 +158,7 @@ struct virtual_memory_area *virtual_memory_get_vma(struct virtual_memory *vm,
   struct virtual_memory_area *nearest =
       (struct virtual_memory_area *)avl_tree_nearest(&vm->vma_tree, &vma);
   if (nearest->start <= mem) {
-    //如果最近的在之前，那么可以直接判断mem在不在其中
+    // 如果最近的在之前，那么可以直接判断mem在不在其中
     if (nearest->start + nearest->size > mem)
       return nearest;
   } else {
@@ -291,7 +291,7 @@ uintptr_t virtual_memory_find_fit(struct virtual_memory *vm, uint32_t vma_size,
   if (next && next->start < real_begin) {
     // next是前一个
     if (next->start + next->size > real_begin) {
-      //如果前一个覆盖了realbegin的位置，那么要把real_begin向后移到它的结尾
+      // 如果前一个覆盖了realbegin的位置，那么要把real_begin向后移到它的结尾
       real_begin = ROUNDUP(next->start + next->size, 4096);
     }
     next = avl_tree_next(&vm->vma_tree, next);
@@ -390,7 +390,7 @@ virtual_memory_alloc(struct virtual_memory *vm, uintptr_t vma_start,
     prev->size += vma_size;
     return prev;
   } else {
-    //新增一个vma
+    // 新增一个vma
     struct virtual_memory_area *vma =
         malloc(sizeof(struct virtual_memory_area));
     if (!vma) {
@@ -465,7 +465,7 @@ void virtual_memory_free(struct virtual_memory *vm,
     }
     avl_tree_clear(&vma->allocated_free_area, unfreed_free_area_dtor);
   }
-  //从vma树中移除
+  // 从vma树中移除
   avl_tree_remove(&vm->vma_tree, vma);
   free(vma);
 }
@@ -530,7 +530,7 @@ void virtual_memory_unmap(struct virtual_memory *vm, uintptr_t virtual_addr,
                           uint32_t size) {
   assert(virtual_addr % 4096 == 0);
   assert(size % 4096 == 0);
-  //在页表里取消这些地址的map
+  // 在页表里取消这些地址的map
   for (uintptr_t p = virtual_addr; p < virtual_addr + size; p += _4K) {
     uint32_t pd_idx = p / _4M, pt_idx = 0x3FF & (p >> 12);
     assert(vm->page_directory[pd_idx] & PTE_P);
@@ -982,7 +982,7 @@ void *shared_memory_map(uint32_t id, void *addr) {
 void shared_memory_unmap(void *addr) {
   SMART_LOCK(l, task_current()->group->vm_mutex)
   struct virtual_memory *vm = task_current()->group->vm;
-  //为了防止这里修改vm时，别的线程被调进来运行
+  // 为了防止这里修改vm时，别的线程被调进来运行
   SMART_CRITICAL_REGION
   struct virtual_memory_area *vma = virtual_memory_get_vma(vm, (uintptr_t)addr);
   assert(vma);
