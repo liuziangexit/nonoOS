@@ -609,7 +609,13 @@ static int compare_malloc_vma(const void *a, const void *b) {
 uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
                   struct virtual_memory_area **out_vma, uintptr_t *out_physical,
                   uint32_t vm_mutex) {
-  assert(vm && size > 0);
+  if (size == 0) {
+    // malloc(0) will return either "a null pointer or a unique pointer that can
+    // be successfully passed to free()".
+    *out_physical = 1;
+    return 1;
+  }
+  assert(vm);
   SMART_LOCK(l, vm_mutex)
 #ifdef VERBOSE
   printf_color(CGA_COLOR_LIGHT_YELLOW, "****umalloc(vm, %lld, %s)****\n",
@@ -802,6 +808,8 @@ void upfault(struct virtual_memory *vm, struct virtual_memory_area *vma) {
 
 // 修改freearea(确保从小到大排序)，然后看如果一整个vma都是free的，那么就删除vma，释放物理内存
 void ufree(struct virtual_memory *vm, uintptr_t addr, uint32_t vm_mut) {
+  if (addr == 1)
+    return;
   SMART_LOCK(l, vm_mut)
 #ifdef VERBOSE
   printf_color(CGA_COLOR_LIGHT_YELLOW, "****ufree(vm, 0x%08llx)****\n",

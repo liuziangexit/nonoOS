@@ -31,6 +31,10 @@ void kmem_alloc_init() {
 }
 
 void *kmem_alloc(size_t alignment, size_t size) {
+  // malloc(0) will return either "a null pointer or a unique pointer that can
+  // be successfully passed to free()".
+  if (size == 0)
+    return 1;
   assert(alignment != 0);
   assert(size % alignment == 0);
   assert(is_pow2(alignment) && alignment <= MAX_ALIGNMENT);
@@ -58,6 +62,8 @@ void *kmem_alloc(size_t alignment, size_t size) {
 }
 
 bool kmem_free(void *p) {
+  if (p == 1)
+    return true;
   assert(p);
   if (kmem_cache_free(p)) {
     return true;
