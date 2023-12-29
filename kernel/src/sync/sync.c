@@ -141,24 +141,21 @@ void mutex_lock(uint32_t mut_id) {
     }
     task_current()->tslice++;
     task_current()->wait_type = WAIT_MUTEX;
+    task_current()->wait_ctx.mutex.mutex_id = mut->obj_id;
     task_current()->wait_ctx.mutex.after = 0; // 设置为0，表示没有超时
     task_current()->wait_ctx.mutex.timeout = false;
     // 添加进等待此mutex的列表
-    uint32_t idx = vector_add(&mut->waitors, &task_current()->id);
+    vector_add(&mut->waitors, &task_current()->id);
     // 陷入等待
     task_schd(true, true, WAITING);
-    // 从等待列表中移除我自己
-    // 这里有一种可能，别的线程已经修改过waitors了，所以我们要做相应的处理
-    if (mut->waitors.count >= idx + 1 &&
-        *(pid_t *)vector_get(&mut->waitors, idx) == task_current()->id) {
-      vector_remove(&mut->waitors, idx);
-    } else {
-      // 这看起来相当蠢，但我感觉这里用线性表足够了
-      for (uint32_t i = 0; i < vector_count(&mut->waitors); i++) {
-        if (*(pid_t *)vector_get(&mut->waitors, i) == task_current()->id)
-          vector_remove(&mut->waitors, i);
-      }
+
+#ifndef NDEBUG
+    // 确保当前线程不在waitors中了
+    for (uint32_t i = 0; i < vector_count(&mut->waitors); i++) {
+      if (*(pid_t *)vector_get(&mut->waitors, i) == task_current()->id)
+        panic("still in waitors?");
     }
+#endif
 
     // 获得锁
     expected = 0;
@@ -186,25 +183,22 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
     }
     task_current()->tslice++;
     task_current()->wait_type = WAIT_MUTEX;
+    task_current()->wait_ctx.mutex.mutex_id = mut->obj_id;
     task_current()->wait_ctx.mutex.after =
         clock_get_ticks() * TICK_TIME_MS + timeout_ms;
     task_current()->wait_ctx.mutex.timeout = false;
     // 添加进等待此mutex的列表
-    uint32_t idx = vector_add(&mut->waitors, &task_current()->id);
+    vector_add(&mut->waitors, &task_current()->id);
     // 陷入等待
     task_schd(true, true, WAITING);
-    // 从等待列表中移除我自己
-    // 这里有一种可能，别的线程已经修改过waitors了，所以我们要做相应的处理
-    if (mut->waitors.count >= idx + 1 &&
-        *(pid_t *)vector_get(&mut->waitors, idx) == task_current()->id) {
-      vector_remove(&mut->waitors, idx);
-    } else {
-      // 这看起来相当蠢，但我感觉这里用线性表足够了
-      for (uint32_t i = 0; i < vector_count(&mut->waitors); i++) {
-        if (*(pid_t *)vector_get(&mut->waitors, i) == task_current()->id)
-          vector_remove(&mut->waitors, i);
-      }
+
+#ifndef NDEBUG
+    // 确保当前线程不在waitors中了
+    for (uint32_t i = 0; i < vector_count(&mut->waitors); i++) {
+      if (*(pid_t *)vector_get(&mut->waitors, i) == task_current()->id)
+        panic("still in waitors?");
     }
+#endif
 
     if (task_current()->wait_ctx.mutex.timeout) {
       // 由超时导致返回
@@ -240,6 +234,7 @@ void mutex_unlock(uint32_t mut_id) {
     ktask_t *t = task_find(*(pid_t *)vector_get(&mut->waitors, 0));
     t->state = YIELDED;
     ready_queue_put(t);
+    vector_remove(&mut->waitors, 0);
   }
   atomic_store(&mut->locked, 0);
 }
@@ -284,10 +279,20 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id,
   mutex_unlock(mut_id);
   task_current()->tslice++;
   task_current()->wait_type = WAIT_CV;
-  task_current()->wait_ctx.mutex.after = 0;
-  task_current()->wait_ctx.mutex.timeout = false;
+  task_current()->wait_ctx.cv.cv_id = cv->obj_id;
+  task_current()->wait_ctx.cv.after = 0;
+  task_current()->wait_ctx.cv.timeout = false;
   // 陷入等待
   task_schd(true, true, WAITING);
+
+#ifndef NDEBUG
+  // 确保当前线程不在waitors中了
+  for (uint32_t i = 0; i < vector_count(&cv->waitors); i++) {
+    if (*(pid_t *)vector_get(&cv->waitors, i) == task_current()->id)
+      panic("still in waitors?");
+  }
+#endif
+
   assert(!task_current()->wait_ctx.cv.timeout);
   // 被唤醒了
   // 这里不用try_lock而是lock是因为当notify_all时，某个try_lock可能失败，从而导致逻辑错误
@@ -308,11 +313,21 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
   mutex_unlock(mut_id);
   task_current()->tslice++;
   task_current()->wait_type = WAIT_CV;
-  task_current()->wait_ctx.mutex.after =
+  task_current()->wait_ctx.cv.cv_id = cv->obj_id;
+  task_current()->wait_ctx.cv.after =
       clock_get_ticks() * TICK_TIME_MS + timeout_ms;
-  task_current()->wait_ctx.mutex.timeout = false;
+  task_current()->wait_ctx.cv.timeout = false;
   // 陷入等待
   task_schd(true, true, WAITING);
+
+#ifndef NDEBUG
+  // 确保当前线程不在waitors中了
+  for (uint32_t i = 0; i < vector_count(&cv->waitors); i++) {
+    if (*(pid_t *)vector_get(&cv->waitors, i) == task_current()->id)
+      panic("still in waitors?");
+  }
+#endif
+
   if (task_current()->wait_ctx.cv.timeout) {
     return false;
   }

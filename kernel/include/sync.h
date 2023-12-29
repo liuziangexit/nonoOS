@@ -85,6 +85,7 @@ struct condition_variable {
   uint32_t obj_id;  // 内核对象id
   uint32_t ref_cnt; // 引用此对象的线程数量
   vector_t waitors; // 等待者
+  // 一个线程要不然在waitors里，要不然在readylist里，不能同时存在
 };
 typedef struct condition_variable condition_variable_t;
 uint32_t condition_variable_create();

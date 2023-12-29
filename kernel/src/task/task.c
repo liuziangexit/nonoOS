@@ -74,15 +74,10 @@ static int compare_task_by_ts(const void *a, const void *b) {
 
 void ready_queue_put(ktask_t *t) {
   SMART_CRITICAL_REGION
-  assert(t->ready_queue_head.next == 0 && t->ready_queue_head.prev == 0);
+  assert(t->ready_queue_head.next == 0 || t->ready_queue_head.prev == 0);
   list_init(&t->ready_queue_head);
   list_sort_add(&ready_queue, &t->ready_queue_head, compare_task_by_ts,
                 sizeof(struct avl_node));
-}
-
-void put_back(ktask_t *t) {
-  t->state = YIELDED;
-  ready_queue_put(t);
 }
 
 // 每个调度周期调一次
@@ -92,10 +87,11 @@ void task_handle_wait() {
   for (ktask_t *t = avl_tree_first(&tasks); t != 0;
        t = avl_tree_next(&tasks, t)) {
     if (t->state == WAITING) {
-      assert(t->ready_queue_head.next == 0 && t->ready_queue_head.prev == 0);
+      assert(t->ready_queue_head.next == 0 || t->ready_queue_head.prev == 0);
       if (t->wait_type == WAIT_SLEEP) {
         if (clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.sleep.after) {
-          put_back(t);
+          t->state = YIELDED;
+          ready_queue_put(t);
         }
       }
       // 处理timedwait没有等到mutex而超时的情况
@@ -104,7 +100,16 @@ void task_handle_wait() {
             clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.mutex.after) {
           t->wait_ctx.mutex.timeout = true;
           // 可以放回调度队列了
-          put_back(t);
+          t->state = YIELDED;
+          ready_queue_put(t);
+          // 需要从waitors中移除
+          mutex_t *mut = kernel_object_get(t->wait_ctx.mutex.mutex_id);
+          for (uint32_t i = 0; i < vector_count(&mut->waitors); i++) {
+            if (*(pid_t *)vector_get(&mut->waitors, i) == t->id) {
+              vector_remove(&mut->waitors, i);
+              break;
+            }
+          }
         }
       }
       // 处理timedwait没有等到cv而超时的情况
@@ -113,7 +118,16 @@ void task_handle_wait() {
             clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.cv.after) {
           t->wait_ctx.cv.timeout = true;
           // 可以放回调度队列了
-          put_back(t);
+          t->state = YIELDED;
+          ready_queue_put(t);
+          // 需要从waitors中移除
+          condition_variable_t *cv = kernel_object_get(t->wait_ctx.cv.cv_id);
+          for (uint32_t i = 0; i < vector_count(&cv->waitors); i++) {
+            if (*(pid_t *)vector_get(&cv->waitors, i) == t->id) {
+              vector_remove(&cv->waitors, i);
+              break;
+            }
+          }
         }
       }
     }
@@ -1173,7 +1187,7 @@ void task_switch(ktask_t *next, bool enable_schd, enum task_state tostate) {
   current_vm = next->group->vm;
   // next在ready队列里面，prev不在队列里面
   assert(next->ready_queue_head.next != 0 && next->ready_queue_head.prev != 0);
-  assert(prev->ready_queue_head.next == 0 && prev->ready_queue_head.prev == 0);
+  assert(prev->ready_queue_head.next == 0 || prev->ready_queue_head.prev == 0);
   // 从队列移除next
   list_del(&next->ready_queue_head);
   next->ready_queue_head.next = 0;

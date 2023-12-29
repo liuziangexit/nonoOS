@@ -47,10 +47,12 @@ struct join_ctx {
   int32_t ret_val; // 该线程的返回值
 };
 struct mutex_ctx {
-  uint64_t after; // 同sleep_ctx，这个是timedlock时用的，平时为0
-  bool timeout;   // 由时钟中断设置，指示是否因为超时返回
+  uint32_t mutex_id; // 等待的mutex号
+  uint64_t after;    // 同sleep_ctx，这个是timedlock时用的，平时为0
+  bool timeout;      // 由时钟中断设置，指示是否因为超时返回
 };
 struct cv_ctx {
+  uint32_t cv_id; // 等待的cv号
   uint64_t after; // 同sleep_ctx，这个是timedlock时用的，平时为0
   bool timeout;   // 由时钟中断设置，指示是否因为超时返回
 };
