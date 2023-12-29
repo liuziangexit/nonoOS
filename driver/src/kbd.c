@@ -136,41 +136,41 @@ static uint8_t shiftmap[256] = {NO,
                                 '+',
                                 '\b',
                                 '\t',
-                                'Q',
-                                'W',
-                                'E',
-                                'R',
-                                'T',
-                                'Y',
-                                'U',
-                                'I', // 0x10
-                                'O',
-                                'P',
+                                'q',
+                                'w',
+                                'e',
+                                'r',
+                                't',
+                                'y',
+                                'u',
+                                'i', // 0x10
+                                'o',
+                                'p',
                                 '{',
                                 '}',
                                 '\n',
                                 NO,
-                                'A',
-                                'S',
-                                'D',
-                                'F',
-                                'G',
-                                'H',
-                                'J',
-                                'K',
-                                'L',
+                                'a',
+                                's',
+                                'd',
+                                'f',
+                                'g',
+                                'h',
+                                'j',
+                                'k',
+                                'l',
                                 ':', // 0x20
                                 '"',
                                 '~',
                                 NO,
                                 '|',
-                                'Z',
-                                'X',
-                                'C',
-                                'V',
-                                'B',
-                                'N',
-                                'M',
+                                'z',
+                                'x',
+                                'c',
+                                'v',
+                                'b',
+                                'n',
+                                'm',
                                 '<',
                                 '>',
                                 '?',
@@ -221,77 +221,16 @@ static uint8_t shiftmap[256] = {NO,
                                 [0xD2] KEY_INS,
                                 [0xD3] KEY_DEL};
 
-#define C(x) (x - '@')
+uint8_t shift_map(char ch) { return shiftmap[(int)ch]; }
 
-static uint8_t ctlmap[256] = {NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              C('Q'),
-                              C('W'),
-                              C('E'),
-                              C('R'),
-                              C('T'),
-                              C('Y'),
-                              C('U'),
-                              C('I'),
-                              C('O'),
-                              C('P'),
-                              NO,
-                              NO,
-                              '\r',
-                              NO,
-                              C('A'),
-                              C('S'),
-                              C('D'),
-                              C('F'),
-                              C('G'),
-                              C('H'),
-                              C('J'),
-                              C('K'),
-                              C('L'),
-                              NO,
-                              NO,
-                              NO,
-                              NO,
-                              C('\\'),
-                              C('Z'),
-                              C('X'),
-                              C('C'),
-                              C('V'),
-                              C('B'),
-                              C('N'),
-                              C('M'),
-                              NO,
-                              NO,
-                              C('/'),
-                              NO,
-                              NO,
-                              [0x97] KEY_HOME,
-                              [0xB5] C('/'),
-                              [0xC8] KEY_UP,
-                              [0xC9] KEY_PGUP,
-                              [0xCB] KEY_LF,
-                              [0xCD] KEY_RT,
-                              [0xCF] KEY_END,
-                              [0xD0] KEY_DN,
-                              [0xD1] KEY_PGDN,
-                              [0xD2] KEY_INS,
-                              [0xD3] KEY_DEL};
-
-static uint8_t *charcode[4] = {normalmap, shiftmap, ctlmap, ctlmap};
+// 大写变小写，小写变大写，全国变成🐱泽东思想大熔炉！
+static char reverse_case(char c) {
+  if ('a' <= c && c <= 'z')
+    c += 'A' - 'a';
+  else if ('A' <= c && c <= 'Z')
+    c += 'a' - 'A';
+  return c;
+}
 
 /* *
  * get data from keyboard
@@ -303,7 +242,8 @@ static int kbd_hw_read(void) {
   static uint32_t shift = 0;
 
   if ((inb(KBSTATP) & KBS_DIB) == 0) {
-    return -1;
+    // 键盘input buffer是空的，没有数据了，退出！
+    return EOF;
   }
 
   data = inb(KBDATAP);
@@ -311,12 +251,12 @@ static int kbd_hw_read(void) {
   if (data == 0xE0) {
     // E0 escape character
     shift |= E0ESC;
-    return 0;
+    return EOF;
   } else if (data & 0x80) {
     // Key released
     data = (shift & E0ESC ? data : data & 0x7F);
     shift &= ~(shiftcode[data] | E0ESC);
-    return 0;
+    return EOF;
   } else if (shift & E0ESC) {
     // Last character was an E0 escape; or with 0x80
     data |= 0x80;
@@ -326,15 +266,39 @@ static int kbd_hw_read(void) {
   shift |= shiftcode[data];
   shift ^= togglecode[data];
 
-  c = charcode[shift & (CTL | SHIFT)][data];
-  if (shift & CAPSLOCK) {
-    if ('a' <= c && c <= 'z')
-      c += 'A' - 'a';
-    else if ('A' <= c && c <= 'Z')
-      c += 'a' - 'A';
+  if (!(~shift & (CTL | SHIFT | ALT))) {
+    c = shiftmap[data];
+  } else {
+    c = normalmap[data];
   }
 
-  control_character_handler(&c, &shift);
+  if (!(~shift & CTL)) {
+    // printf("CTRL + ");
+  }
+
+  if (!(~shift & SHIFT)) {
+    c = reverse_case(c);
+    // printf("SHIFT + ");
+  }
+
+  if (!(~shift & ALT)) {
+    // printf("ALT + ");
+  }
+
+  // else if (!(~shift & (SHIFT))) {
+  //   c = shiftmap[data];
+  //   c = reverse_case(c);
+  // } else if (!(~shift & (ALT))) {
+  //   c = normalmap[data];
+  // } else {
+  //   c = normalmap[data];
+  // }
+
+  control_character_handler(&c, &shift, data);
+
+  if (shift & CAPSLOCK) {
+    c = reverse_case(c);
+  }
 
   return c;
 }

@@ -98,4 +98,6 @@
 void kbd_init();
 void kbd_isr();
 
+uint8_t shift_map(char ch);
+
 #endif
