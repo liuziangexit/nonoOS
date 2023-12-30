@@ -14,6 +14,7 @@ void terminal_init();
 void terminal_putchar(char c);
 void terminal_write(const char *data, size_t size);
 void terminal_write_string(const char *s);
+void terminal_backspace(size_t cnt);
 void terminal_color(enum cga_color _fg, enum cga_color _bg);
 void terminal_fgcolor(enum cga_color _fg);
 void terminal_default_color();
