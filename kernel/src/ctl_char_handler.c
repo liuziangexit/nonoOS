@@ -1,6 +1,9 @@
 #include <ctl_char_handler.h>
 #include <kbd.h>
+#include <shell.h>
 #include <stdio.h>
+#include <sync.h>
+#include <task.h>
 #include <tty.h>
 
 void control_character_handler(int32_t *c, uint32_t shift) {
@@ -8,7 +11,23 @@ void control_character_handler(int32_t *c, uint32_t shift) {
     if (shift == (CTL | ALT)) {
       // outb(0x92, 0x3);
     } else {
-      printf("\nDEL\n");
+      // 从task的inputbuf中的readable里移除
+      pid_t fg_pid = shell_fg();
+      ktask_t *fg_task = task_find(fg_pid);
+      task_group_t *fg_group = fg_task->group;
+
+      // 关于对inputbuffer的同步方式，参考kbd.c中的讲解
+      SMART_LOCK(l, fg_group->input_buffer_mutex);
+      uint32_t readable = ring_buffer_readable(&fg_group->input_buffer);
+      if (readable >= 1) {
+        terminal_backspace(1);
+        bool ok = ring_buffer_unwrite(&fg_group->input_buffer, 1);
+        assert(ok);
+      } else {
+        // 在terminal_backspace已经带有了这个
+        // 但是在不能删除的情况下，我们就要额外做这个
+        terminal_viewport_bottom();
+      }
       *c = EOF;
       return;
     }

@@ -341,7 +341,7 @@ void kbd_isr() {
       ktask_t *fg_task = task_find(fg_pid);
       task_group_t *fg_group = fg_task->group;
 
-      // 当有读者正在访问input_buffer时，有可能键盘输入了一个换行符，导致这里
+      // 当有读者正在访问input_buffer时，有可能键盘这边isr被中断触发，导致这里
       // 开始拿input_buffer_mutex锁尝试写入。这时候会导致死锁，因为锁正在被读者持有
       // 因此读者处需要关闭中断，防止此处键盘isr触发
       // 解决方案：在读取input_buffer时关中断
