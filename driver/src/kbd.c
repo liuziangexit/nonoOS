@@ -266,35 +266,31 @@ static int kbd_hw_read(void) {
   shift |= shiftcode[data];
   shift ^= togglecode[data];
 
-  if (!(~shift & (CTL | SHIFT | ALT))) {
+  // printf("\nshift: %u\n", shift);
+
+  if (shift & (CTL | SHIFT | ALT)) {
+    // printf("\nSHIFT MAP\n");
     c = shiftmap[data];
   } else {
+    // printf("\nNORMAL MAP\n");
     c = normalmap[data];
   }
 
-  if (!(~shift & CTL)) {
+  // 去除除了这三种以外的所有bits
+  control_character_handler(&c, shift & (CTL | SHIFT | ALT));
+
+  if (shift & CTL) {
     // printf("CTRL + ");
   }
 
-  if (!(~shift & SHIFT)) {
+  if (shift & SHIFT) {
     c = reverse_case(c);
     // printf("SHIFT + ");
   }
 
-  if (!(~shift & ALT)) {
+  if (shift & ALT) {
     // printf("ALT + ");
   }
-
-  // else if (!(~shift & (SHIFT))) {
-  //   c = shiftmap[data];
-  //   c = reverse_case(c);
-  // } else if (!(~shift & (ALT))) {
-  //   c = normalmap[data];
-  // } else {
-  //   c = normalmap[data];
-  // }
-
-  control_character_handler(&c, &shift, data);
 
   if (shift & CAPSLOCK) {
     c = reverse_case(c);

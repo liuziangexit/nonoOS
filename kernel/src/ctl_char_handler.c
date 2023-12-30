@@ -3,37 +3,34 @@
 #include <stdio.h>
 #include <tty.h>
 
-void control_character_handler(int32_t *c, uint32_t *shift, uint8_t data) {
-  if (shift_map(data) == KEY_DEL) {
-    printf("\nDEL\n");
-    *c = EOF;
-    return;
+void control_character_handler(int32_t *c, uint32_t shift) {
+  if (*c == 8) {
+    if (shift == (CTL | ALT)) {
+      // outb(0x92, 0x3);
+    } else {
+      printf("\nDEL\n");
+      *c = EOF;
+      return;
+    }
   }
 
-  if (!(~*shift & (CTL)) && *c == 'c') {
+  if (shift == CTL && *c == 'c') {
     printf("\nCTL+C\n");
     *c = EOF;
     return;
   }
 
-  if (!(~*shift & (CTL)) && *c == 'z') {
+  if (shift == CTL && *c == 'z') {
     printf("\nCTL+Z\n");
     *c = EOF;
     return;
   }
 
-  // // Process special keys
-  // // Ctrl-Alt-Del: reboot
-  // if (!(~*shift & (CTL | ALT)) && *c == KEY_DEL) {
-  //   printf("\nCTRL+ALT+DEL\n");
-  //   return;
-  // }
-
   // 控制屏幕滚动
   switch (*c) {
   case KEY_UP:
     *c = EOF;
-    if (!(~*shift & (CTL))) {
+    if (shift == CTL) {
       terminal_viewport_up(CRT_ROWS);
     } else {
       terminal_viewport_up(1);
@@ -41,7 +38,7 @@ void control_character_handler(int32_t *c, uint32_t *shift, uint8_t data) {
     break;
   case KEY_DN:
     *c = EOF;
-    if (!(~*shift & (CTL))) {
+    if (shift == CTL) {
       terminal_viewport_down(CRT_ROWS);
     } else {
       terminal_viewport_down(1);
