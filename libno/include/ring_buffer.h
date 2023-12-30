@@ -10,25 +10,33 @@ struct ring_buffer {
   uint32_t rpos;
 };
 
-//初始化
+// 初始化
 void ring_buffer_init(struct ring_buffer *rbuf, void *buf, uint32_t cap);
-//还能读多少字节
+
+// 还能读多少字节
 uint32_t ring_buffer_readable(const struct ring_buffer *buf);
-//读
-//返回实际读取的字节数
+
+// 读
+// 返回实际读取的字节数
 uint32_t ring_buffer_read(struct ring_buffer *buf, void *dst, uint32_t len);
-//写
-//返回写入是否成功
+
+// 写
+// 返回写入是否成功
 // force参数指示当空闲空间已被耗尽时，是否继续写入，这将导致一些未读的数据被抹掉
 bool ring_buffer_write(struct ring_buffer *buf, bool force, const void *src,
                        uint32_t len);
-//把缓冲区里的数据拷出来，就像缓冲区是线性的一样
-//这不会影响内部的读写位置
+
+// 相当于对readable部分数据进行回格len次
+// 如果readable数据<len，则回格失败，返回false
+bool ring_buffer_unwrite(struct ring_buffer *buf, uint32_t len);
+
+// 把缓冲区里的数据拷出来，就像缓冲区是线性的一样
+// 这不会影响内部的读写位置
 void ring_buffer_copyout(struct ring_buffer *buf, uint32_t begin, uint32_t end,
                          void *dst);
 
-//遍历readable数据，就像缓冲区是线性的一样
-//如果遍历完了，返回null
+// 遍历readable数据，就像缓冲区是线性的一样
+// 如果遍历完了，返回null
 void *ring_buffer_foreach(struct ring_buffer *buf, uint32_t *iterator,
                           uint32_t end);
 
