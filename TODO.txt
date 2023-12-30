@@ -105,6 +105,7 @@ OK-b panic时，task_test有概率出问题
 OK-实现执行程序命令
 OK-实现查看进程表命令
 -实现查看内核对象表命令
+OK-回格
 
 OK-没有-看看libno里有没有需要单独实现用户态版本的函数
 -运行 ASCII RayTracing
