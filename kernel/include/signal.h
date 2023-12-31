@@ -16,4 +16,6 @@ bool signal_fire(pid_t pid, bool group, int sig);
 */
 bool signal_wait(pid_t pid, const sigset_t *set, int *sig);
 
+void signal_set_handler(pid_t pid, int sig, void (*handler)(int));
+
 #endif
