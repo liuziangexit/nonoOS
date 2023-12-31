@@ -23,7 +23,8 @@ OBJS=\
 ../src/malloc.o\
 ../src/syscall.o\
 ../src/list.o\
-../src/vector.o
+../src/vector.o\
+../src/signal.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

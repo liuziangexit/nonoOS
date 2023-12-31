@@ -28,7 +28,8 @@ OBJS=\
 ../src/shared_memory.o\
 ../src/vector.o\
 ../src/mutex.o\
-../src/condition_variable.o
+../src/condition_variable.o\
+../src/signal.o
 
 .PHONY: all clean
 .SUFFIXES: .o .c .S

@@ -40,6 +40,7 @@ src/task/task.o\
 src/task/switch_to.o\
 src/task/entry.o\
 src/task/user_entry.o\
+src/task/signal.o\
 src/syscall/syscall.o\
 src/sync/sync.o\
 src/kernel_object.o\
