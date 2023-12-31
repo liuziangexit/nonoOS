@@ -33,12 +33,14 @@ void control_character_handler(int32_t *c, uint32_t shift) {
     }
   }
 
+  // shell中止正在执行的程序
   if (shift == CTL && *c == 'c') {
     printf("\nCTL+C\n");
     *c = EOF;
     return;
   }
 
+  // shell将前台程序退至后台
   if (shift == CTL && *c == 'z') {
     printf("\nCTL+Z\n");
     *c = EOF;
