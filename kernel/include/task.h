@@ -172,14 +172,20 @@ struct ktask {
   // 在Mac上kill -l发现只有32个信号
   // 我们的系统肯定没有那么多信号，所以定义32个就足够了
   // 注意，因为SIG从1开始数，所以这里索引的方式是，signal_callback[sig - 1]
+  // 当其中的值为0时，表示忽略此信号
   uintptr_t signal_callback[SIGMAX];
 
-  // 这里是待处理的信号表
-  // 如果设为1，则表示有该信号未处理
-  // 如果设为0，则表示该信号未设置
-  // 这里吸取std::vector<bool>的教训，不用bit去实现
-  // 这也就意味着，如果在信号处理器被调用之前，某个信号被多次发射，实际上只相当于发射一次
-  unsigned char signal_pending[SIGMAX];
+  // 这里是信号处理记录表
+  // 当发射信号s时，signal_fire_seq[s]++
+  // 此时signal_fin_seq[s]将会比signal_fire_seq[s]少1
+  // 当完成信号处理后，signal_fin_seq[s]++，此时signal_fin_seq[s]与signal_fire_seq[s]相等，
+  // 表示都处理完了，没有新的信号要处理了
+  // 这使得我们可以支持某个信号在被处理之前，多次被发射的情形
+  // 而且可以实现sigwait的功能
+  uint32_t signal_fire_seq[SIGMAX];
+  uint32_t signal_fin_seq[SIGMAX];
+  uint32_t signal_seq_mut;
+  uint32_t signal_seq_fire_cv;
 #ifndef NDEBUG
   uint32_t debug_current_syscall;
 #endif
@@ -201,6 +207,17 @@ struct utask {
 };
 typedef struct utask utask_t;
 
+// 从组链表node获得对象
+inline static ktask_t *task_group_head_retrieve(list_entry_t *head) {
+  return (ktask_t *)(((void *)head) - sizeof(struct avl_node) -
+                     sizeof(list_entry_t));
+}
+
+// 从ready链表node获得对象
+inline static ktask_t *task_ready_queue_head_retrieve(list_entry_t *head) {
+  return (ktask_t *)(((void *)head) - sizeof(struct avl_node));
+}
+
 // 内部函数
 void ready_queue_put(ktask_t *t);
 
@@ -216,6 +233,7 @@ void task_handle_wait();
 
 // 初始化task系统
 void task_init();
+void task_post_init();
 
 // 寻找下一个可调度的task
 bool task_schd(bool force, bool allow_idle, enum task_state tostate);

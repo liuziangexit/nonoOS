@@ -3,7 +3,9 @@
 #ifndef LIBNO_USER
 
 // 注册信号处理回调
-void signal(int sig, void (*handler)(int)) {}
+void signal(int sig, void (*handler)(int)) {
+    
+}
 
 // 向某个线程发送信号
 int kill(pid_t, int) { return 0; }

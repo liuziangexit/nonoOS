@@ -38,17 +38,6 @@ uint32_t task_count() {
   return tasks.count;
 }
 
-// 从组链表node获得对象
-inline static ktask_t *task_group_head_retrieve(list_entry_t *head) {
-  return (ktask_t *)(((void *)head) - sizeof(struct avl_node) -
-                     sizeof(list_entry_t));
-}
-
-// 从ready链表node获得对象
-inline static ktask_t *task_ready_queue_head_retrieve(list_entry_t *head) {
-  return (ktask_t *)(((void *)head) - sizeof(struct avl_node));
-}
-
 static ktask_t *ready_queue_get() {
   SMART_CRITICAL_REGION
   list_entry_t *entry = list_next(&ready_queue);
@@ -316,14 +305,15 @@ static task_group_t *task_group_create(bool is_kernel) {
     group->input_buffer_cv = condition_variable_create();
 
     // 用当前正在创建的线程组引用该mutex
-    bool ref_succ = kernel_object_ref(group, group->input_buffer_mutex);
-    assert(ref_succ);
-    ref_succ = kernel_object_ref(group, group->input_buffer_cv);
-    assert(ref_succ);
+    kernel_object_ref(group, group->input_buffer_mutex);
+    kernel_object_ref(group, group->input_buffer_cv);
 
     // 当前正运行的线程组取消引用该mutex
-    kernel_object_unref(task_current()->group, group->input_buffer_mutex, true);
-    kernel_object_unref(task_current()->group, group->input_buffer_cv, true);
+    if (task_current()->group != group) {
+      kernel_object_unref(task_current()->group, group->input_buffer_mutex,
+                          true);
+      kernel_object_unref(task_current()->group, group->input_buffer_cv, true);
+    }
   }
 
   void *input_buf = malloc(TASK_INPUT_BUFFER_LEN);
@@ -345,10 +335,11 @@ static task_group_t *task_group_create(bool is_kernel) {
   if (task_inited == TASK_INITED_MAGIC) {
     group->vm_mutex = mutex_create();
     // 用当前正在创建的线程组引用该mutex
-    bool ref_succ = kernel_object_ref(group, group->vm_mutex);
-    assert(ref_succ);
+    kernel_object_ref(group, group->vm_mutex);
     // 当前正运行的线程组取消引用该mutex
-    kernel_object_unref(task_current()->group, group->vm_mutex, true);
+    if (group != task_current()->group) {
+      kernel_object_unref(task_current()->group, group->vm_mutex, true);
+    }
   }
   return group;
 }
@@ -438,10 +429,10 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
                                  task_group_t *group, bool ref) {
   make_sure_schd_disabled();
   if (current && kernel && !current->group->is_kernel) {
-    printf_color(
-        CGA_COLOR_LIGHT_YELLOW,
-        "failed to create task %s(no permission to create kernel level task)\n",
-        name);
+    printf_color(CGA_COLOR_LIGHT_YELLOW,
+                 "failed to create task %s(no permission to create kernel "
+                 "level task)\n",
+                 name);
     return 0; // 只有supervisor才能创造一个supervisor
   }
   if (group && (kernel != group->is_kernel)) {
@@ -499,8 +490,9 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
         "failed to create task %s(unable .to create new task struct)\n", name);
     return 0;
   }
-  if (task_inited == TASK_INITED_MAGIC)
+  if (task_inited == TASK_INITED_MAGIC) {
     new_task->tslice = task_current()->tslice;
+  }
 
   // 内核栈
   new_task->kstack = (uintptr_t)kmem_page_alloc(TASK_STACK_SIZE);
@@ -528,6 +520,23 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
     kernel_object_ref(task_current()->group, new_task->id);
   // 初始化joining
   vector_init(&new_task->joining, sizeof(pid_t), NULL);
+
+  if (task_inited == TASK_INITED_MAGIC) {
+    // mutex_create和cv_create里默认会用当前线程去引用住那些kernel_obj
+    // 但是如果任务系统没有初始化的时候，也就是在创建idle进程时，这就会出问题
+    new_task->signal_seq_mut = mutex_create();
+    new_task->signal_seq_fire_cv = condition_variable_create();
+    kernel_object_ref(new_task->group, new_task->signal_seq_mut);
+    kernel_object_ref(new_task->group, new_task->signal_seq_fire_cv);
+    // 当前正运行的线程组取消引用
+    if (task_current()->group != new_task->group) {
+      kernel_object_unref(task_current()->group, new_task->signal_seq_mut,
+                          true);
+      kernel_object_unref(task_current()->group, new_task->signal_seq_fire_cv,
+                          true);
+    }
+  }
+
 #ifndef NDEBUG
   new_task->debug_current_syscall = 0;
 #endif
@@ -1105,7 +1114,16 @@ static const char *task_terminate_reason_str(int32_t number) {
   __unreachable;
 }
 
+// 非正常中止
 void task_terminate(int32_t ret) {
+  printf_color(
+      CGA_COLOR_RED,
+      "task %lld(%s) terminated with err code %d(%s), all threads within the "
+      "same "
+      "thread group will be killed\n",
+      (int64_t)task_current()->id, task_current()->name, ret,
+      task_terminate_reason_str(ret));
+
   if (task_current()->id == 1) {
     panic("idle called terminate!");
   }
@@ -1117,12 +1135,7 @@ void task_terminate(int32_t ret) {
   // 释放该进程持有的内核对象是通过引用计数的内核对象系统自动完成的
   // 释放该进程的内存是在销毁线程组时进行的
   disable_interrupt();
-  printf_color(
-      CGA_COLOR_RED,
-      "task %lld terminated with err code %d(%s), all threads within the "
-      "same "
-      "thread group will be killed\n",
-      (int64_t)task_current()->id, ret, task_terminate_reason_str(ret));
+
   // 把同vm的其他线程全部设为退出状态
   for (list_entry_t *p = list_next(&task_current()->group->tasks);
        p != &task_current()->group->tasks; p = list_next(p)) {
@@ -1216,9 +1229,20 @@ void task_switch(ktask_t *next, bool enable_schd, enum task_state tostate) {
   assert((reflags() & FL_IF) == 0);
   assert(prev->state != EXITED);
 
+  // prev又被换回来了
+  // terminal_fgcolor(CGA_COLOR_BLUE);
+  // printf("%s(id=%lld) <-\n", prev->name, (int64_t)prev->id);
+  // terminal_default_color();
+
   // 恢复cr2
   if (prev->cr2) {
     lcr2(prev->cr2);
+  }
+
+  // 任务被换入，此时执行信号模块
+  // 但是idle进程是例外
+  if (prev->id != 1) {
+    signal_handle_on_task_schd_in();
   }
 }
 
@@ -1247,4 +1271,10 @@ void task_init() {
   list_del(&init->ready_queue_head);
   init->ready_queue_head.next = 0;
   init->ready_queue_head.prev = 0;
+}
+
+void task_post_init() {
+  task_current()->group->vm_mutex = mutex_create();
+  task_current()->group->input_buffer_mutex = mutex_create();
+  task_current()->group->input_buffer_cv = condition_variable_create();
 }

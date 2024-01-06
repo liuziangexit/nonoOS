@@ -179,12 +179,7 @@ void ktask0() {
     virtual_memory_free(&kernel_vm, map_vma);
   }
   task_inited = TASK_INITED_MAGIC;
-
-  {
-    task_current()->group->vm_mutex = mutex_create();
-    task_current()->group->input_buffer_mutex = mutex_create();
-    task_current()->group->input_buffer_cv = condition_variable_create();
-  }
+  task_post_init();
 
 #ifdef RUN_TEST
   task_test();
