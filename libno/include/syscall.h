@@ -32,6 +32,15 @@
 // int SYSCALL_GETCHAR()
 #define SYSCALL_GETCHAR 10
 
+// bool SYSCALL_SIGNAL_SET_HANDLER(pid_t pid, int sig, void (*handler)(int))
+#define SYSCALL_SIGNAL_SET_HANDLER 11
+
+// bool SIGNAL_WAIT(pid_t pid, const sigset_t *set, int *sig)
+#define SYSCALL_SIGNAL_WAIT 12
+
+// bool SIGNAL_FIRE(pid_t pid, bool group, int sig)
+#define SYSCALL_SIGNAL_FIRE 13
+
 #ifdef LIBNO_USER
 uint32_t syscall(int call, int cnt, ...);
 #endif

@@ -1,9 +1,13 @@
 #ifndef __LIBNO_SIGNAL_H__
 #define __LIBNO_SIGNAL_H__
 #include "../../kernel/include/task.h"
+#include "signal_def.h"
 
 // 这个文件里面按照POSIX标准定义了信号相关的宏和函数
 // 实际的实现在kernel里的那个signal.h和signal.c里
+
+struct sigset {};
+typedef struct sigset sigset_t;
 
 // Interrupt from keyboard
 #define SIGINT 2
@@ -34,16 +38,20 @@
 // The signal is ignored.
 #define SIGEV_SIGNAL 0
 // 注册信号处理回调
+// 是对signal_set_handler的包装
 void signal(int sig, void (*handler)(int));
 
+// 等待本线程发生指定的信号
+// 是对signal_wait的包装
+int sigwait(const sigset_t *restrict set, int *restrict sig);
+
 // 向某个线程发送信号
+// 是对signal_fire的包装
 int kill(pid_t pid, int sig);
 
 // 向某个进程(task_group中的所有task)发送信号
+// 是对signal_fire的包装
 int killpg(pid_t pid, int sig);
-
-struct sigset {};
-typedef struct sigset sigset_t;
 
 // This function initializes the signal set set to exclude all of the defined
 // signals. It always returns 0.

@@ -1,6 +1,7 @@
 #include "../../include/syscall.h"
 #include "../../../libno/include/syscall.h"
 #include "../../../libno/include/task.h"
+#include "../../include/signal.h"
 #include "debug.h"
 #include <condition_variable.h>
 #include <limits.h>
@@ -230,6 +231,12 @@ void syscall_dispatch(struct trapframe *tf) {
   case SYSCALL_GETCHAR: {
     char ch = getchar();
     set_return_value(tf, ch);
+  } break;
+  case SYSCALL_SIGNAL_SET_HANDLER: {
+    // bool SYSCALL_SIGNAL_SET_HANDLER(pid_t pid, int sig, void (*handler)(int))
+    bool ret =
+        signal_set_handler((pid_t)arg[0], (int)arg[1], (void (*)(int))arg[2]);
+    set_return_value(tf, ret);
   } break;
   default: {
     printf("unknown system call %d with args:  %d, %d, %d, %d, %d\n", no,

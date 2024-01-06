@@ -3,6 +3,7 @@
 #include <interrupt.h>
 #include <list.h>
 #include <ring_buffer.h>
+#include <signal_def.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <vector.h>
@@ -168,6 +169,19 @@ struct ktask {
   vector_t joining;
   // 返回值
   int32_t ret_val;
+
+  // 信号处理回调函数表
+  // 在Mac上kill -l发现只有32个信号
+  // 我们的系统肯定没有那么多信号，所以定义32个就足够了
+  // 注意，因为SIG从1开始数，所以这里索引的方式是，signal_callback[sig - 1]
+  uintptr_t signal_callback[SIGMAX];
+
+  // 这里是待处理的信号表
+  // 如果设为1，则表示有该信号未处理
+  // 如果设为0，则表示该信号未设置
+  // 这里吸取std::vector<bool>的教训，不用bit去实现
+  // 这也就意味着，如果在信号处理器被调用之前，某个信号被多次发射，实际上只相当于发射一次
+  unsigned char signal_pending[SIGMAX];
 #ifndef NDEBUG
   uint32_t debug_current_syscall;
 #endif
