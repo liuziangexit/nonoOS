@@ -1217,8 +1217,8 @@ void task_switch(ktask_t *next, bool enable_schd, enum task_state tostate) {
   assert(prev->state != EXITED);
 
   // 恢复cr2
-  if (next->cr2) {
-    lcr2(next->cr2);
+  if (prev->cr2) {
+    lcr2(prev->cr2);
   }
 }
 
