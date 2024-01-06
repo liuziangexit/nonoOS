@@ -149,8 +149,6 @@ struct ktask {
   enum task_state state;
   pid_t id;
   char *name;
-  // 父进程
-  struct ktask *parent;
   // 内核栈
   uintptr_t kstack;
   // 寄存器

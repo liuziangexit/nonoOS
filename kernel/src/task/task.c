@@ -515,7 +515,6 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
 
   list_init(&new_task->group_head);
   new_task->state = CREATED;
-  new_task->parent = current;
   new_task->name = malloc(strlen(name) + 1);
   strcpy(new_task->name, name);
   // 生成id
