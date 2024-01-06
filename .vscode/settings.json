@@ -114,6 +114,7 @@
         "stdexcept": "c",
         "streambuf": "c",
         "variant": "c",
-        "version": "c"
+        "version": "c",
+        "signal.h": "c"
     }
 }
