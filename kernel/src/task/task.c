@@ -653,6 +653,7 @@ bool task_schd(bool force, bool allow_idle, enum task_state tostate) {
           }
           // 是内核栈
         }
+        // 这里参数enable_schd总是为true使得系统最终总会开启抢占
         task_switch(t, true, tostate);
         return true;
       } else {
