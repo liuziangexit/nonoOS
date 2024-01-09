@@ -521,6 +521,10 @@ static ktask_t *task_create_impl(const char *name, bool kernel,
   // 初始化joining
   vector_init(&new_task->joining, sizeof(pid_t), NULL);
 
+  for (int i = SIGMIN; i <= SIGMAX; i++) {
+    new_task->signal_callback[i - 1] = (uintptr_t)default_signal_handler;
+  }
+
   if (task_inited == TASK_INITED_MAGIC) {
     // mutex_create和cv_create里默认会用当前线程去引用住那些kernel_obj
     // 但是如果任务系统没有初始化的时候，也就是在创建idle进程时，这就会出问题
@@ -1110,6 +1114,8 @@ static const char *task_terminate_reason_str(int32_t number) {
     return "BAD ACCESS";
   if (number == -3)
     return "INVALID ARGUMENT";
+  if (number == -4)
+    return "QUIT ABNORMALLY";
   panic("task_terminate_reason_str");
   __unreachable;
 }

@@ -9,13 +9,14 @@ void abort(void) { panic("kernel abort has been called"); }
 
 #else
 
+#include <signal.h>
 #include <stdio.h>
 #include <syscall.h>
 #include <task.h>
 
 void abort() {
-  // printf("libno abort has been called");
-  syscall(SYSCALL_TASK, 1, USER_TASK_ACTION_ABORT);
+  // syscall(SYSCALL_TASK, 1, USER_TASK_ACTION_ABORT);
+  kill(get_pid(), SIGABRT);
 }
 
 void exit(int ret) { syscall(SYSCALL_TASK, 2, USER_TASK_ACTION_EXIT, ret); }

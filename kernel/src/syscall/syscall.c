@@ -92,8 +92,8 @@ void syscall_dispatch(struct trapframe *tf) {
       task_exit(arg[1]);
     } break;
     case USER_TASK_ACTION_ABORT: {
-      printf_color(CGA_COLOR_RED, "user called abort\n");
-      task_terminate(TASK_TERMINATE_ABORT);
+      panic("deprecated api, abort now uses signal to implement");
+      // task_terminate(TASK_TERMINATE_ABORT);
     } break;
     default:
       panic("TODO USER ABORT!");
@@ -233,9 +233,17 @@ void syscall_dispatch(struct trapframe *tf) {
     set_return_value(tf, ch);
   } break;
   case SYSCALL_SIGNAL_SET_HANDLER: {
-    // bool SYSCALL_SIGNAL_SET_HANDLER(pid_t pid, int sig, void (*handler)(int))
     bool ret =
         signal_set_handler((pid_t)arg[0], (int)arg[1], (void (*)(int))arg[2]);
+    set_return_value(tf, ret);
+  } break;
+  case SYSCALL_SIGNAL_WAIT: {
+    bool ret =
+        signal_wait((pid_t)arg[0], (const sigset_t *)arg[1], (int *)arg[2]);
+    set_return_value(tf, ret);
+  } break;
+  case SYSCALL_SIGNAL_FIRE: {
+    bool ret = signal_fire((pid_t)arg[0], (bool)arg[1], (int)arg[2]);
     set_return_value(tf, ret);
   } break;
   default: {

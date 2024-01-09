@@ -91,15 +91,32 @@ uint32_t mutex_create() {
 
 bool mutex_destroy(mutex_t *mut) {
   SMART_CRITICAL_REGION
-  if (mut->locked != 0 || mut->owner != 0 || vector_count(&mut->waitors) != 0) {
-    // 没有人引用这个内核对象，但是却有人在等待这个mutex，让一个等待者引用该对象，取消destroy
-    printf_color(CGA_COLOR_RED,
-                 "there are still tasks waiting on this mutex\n");
-    bool succ = kernel_object_ref_safe(*(pid_t *)vector_get(&mut->waitors, 0),
-                                       mut->obj_id);
-    assert(succ);
-    return false;
+  if (mut->locked != 0 || mut->owner != 0) {
+    // 析构时是加锁状态
+    // 这种情况是由于持有锁的线程异常退出所导致的
+    // 首先我们判断持有者是不是真的完蛋了
+    if (task_find(mut->owner)) {
+      panic("mutex_destroy: fail 1");
+    }
+
+    // 然后看看有没有人接盘
+    if (vector_count(&mut->waitors) != 0) {
+      // 如果有接盘侠
+      ktask_t *t = task_find(*(pid_t *)vector_get(&mut->waitors, 0));
+      t->state = YIELDED;
+      ready_queue_put(t);
+      vector_remove(&mut->waitors, 0);
+      // 强行解锁
+      atomic_store(&mut->owner, 0);
+      atomic_store(&mut->locked, 0);
+      // 让接盘侠引用这个锁
+      bool succ = kernel_object_ref(t->group, mut->obj_id);
+      assert(succ);
+      // 锁重获新生！
+      return false;
+    }
   }
+  // 这个锁没有人惦记了，杀掉
   vector_destroy(&mut->waitors);
   free(mut);
   return true;

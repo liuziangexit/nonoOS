@@ -15,4 +15,7 @@
 // task模块不需要关心它的实现，只需要在约定的地方去调用他就好啦
 void signal_handle_on_task_schd_in();
 
+// 预定义的默认信号处理器
+void default_signal_handler(int sig);
+
 #endif

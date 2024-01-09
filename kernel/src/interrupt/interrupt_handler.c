@@ -8,6 +8,7 @@
 #include <memlayout.h>
 #include <mmu.h>
 #include <panic.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -244,8 +245,7 @@ void interrupt_handler(struct trapframe *tf) {
     if (ROUNDDOWN(cr2, _4K) == 0) {
       if (is_user) {
         print_pgfault(tf, cr2);
-        task_terminate(TASK_TERMINATE_BAD_ACCESS);
-        abort();
+        kill(task_current()->id, SIGSEGV);
       } else {
         print_pgfault(tf, cr2);
         panic("system process trying to dereference a null pointer");
@@ -256,8 +256,7 @@ void interrupt_handler(struct trapframe *tf) {
     if (is_user) {
       // 如果是未处理的用户异常，那么杀进程
       print_pgfault(tf, cr2);
-      task_terminate(TASK_TERMINATE_BAD_ACCESS);
-      abort();
+      kill(task_current()->id, SIGSEGV);
       __unreachable;
     } else {
       // 如果是未处理的内核

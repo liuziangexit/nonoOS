@@ -281,6 +281,8 @@ void task_exit(int32_t ret);
 #define TASK_TERMINATE_BAD_ACCESS (-2)
 // 系统调用参数非法
 #define TASK_TERMINATE_INVALID_ARGUMENT (-3)
+// 强制退出
+#define TASK_TERMINATE_QUIT_ABNORMALLY (-4)
 void task_terminate(int32_t ret);
 
 // 切换到另一个task
