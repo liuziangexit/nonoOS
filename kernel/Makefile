@@ -73,6 +73,7 @@ kernel: $(KERNEL_OBJS) crt
 	-Wl,-b -Wl,binary -Wl,../program/abort/main.exe \
 	-Wl,-b -Wl,binary -Wl,../program/bad_access/main.exe \
 	-Wl,-b -Wl,binary -Wl,../program/user_read_input/main.exe \
+	-Wl,-b -Wl,binary -Wl,../program/signal_test/main.exe \
 	
 
 crt: crt/crti.o crt/crtn.o crt/crtbegin.o crt/crtend.o

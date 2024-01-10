@@ -39,6 +39,10 @@ int killpg(pid_t pid, int sig) {
   return (bool)syscall(SYSCALL_SIGNAL_FIRE, 3, pid, true, sig) ? 0 : -1;
 }
 
+int sigwait(const sigset_t *restrict set, int *restrict sig) {
+  return syscall(SYSCALL_SIGNAL_WAIT, 2, set, sig);
+}
+
 #endif
 
 // This function initializes the signal set set to exclude all of the defined

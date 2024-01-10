@@ -1,7 +1,8 @@
 #ifndef __LIBNO_SIGNAL_H__
 #define __LIBNO_SIGNAL_H__
-#include "../../kernel/include/task.h"
 #include "signal_def.h"
+#include <stdint.h>
+typedef uint32_t pid_t;
 
 // 这个文件里面按照POSIX标准定义了信号相关的宏和函数
 // 实际的实现在kernel里的那个signal.h和signal.c里
@@ -46,6 +47,8 @@ void signal(int sig, void (*handler)(int));
 
 // 等待本线程发生指定的信号
 // 是对signal_wait的包装
+//  On success, sigwait() returns 0.  On error, it returns a positive
+//        error number (listed in ERRORS).
 int sigwait(const sigset_t *restrict set, int *restrict sig);
 
 // 向某个线程发送信号

@@ -1,6 +1,7 @@
 #include <ctl_char_handler.h>
 #include <kbd.h>
 #include <shell.h>
+#include <signal.h>
 #include <stdio.h>
 #include <sync.h>
 #include <task.h>
@@ -35,7 +36,10 @@ void control_character_handler(int32_t *c, uint32_t shift) {
 
   // shell中止正在执行的程序
   if (shift == CTL && *c == 'c') {
-    printf("\nCTL+C\n");
+    pid_t fg = shell_fg();
+    if (fg != shell_pid()) {
+      kill(fg, SIGINT);
+    }
     *c = EOF;
     return;
   }
@@ -43,6 +47,7 @@ void control_character_handler(int32_t *c, uint32_t shift) {
   // shell将前台程序退至后台
   if (shift == CTL && *c == 'z') {
     printf("\nCTL+Z\n");
+
     *c = EOF;
     return;
   }

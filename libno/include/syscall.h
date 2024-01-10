@@ -35,7 +35,7 @@
 // bool SYSCALL_SIGNAL_SET_HANDLER(pid_t pid, int sig, void (*handler)(int))
 #define SYSCALL_SIGNAL_SET_HANDLER 11
 
-// bool SYSCALL_SIGNAL_WAIT(pid_t pid, const sigset_t *set, int *sig)
+// int SYSCALL_SIGNAL_WAIT(const sigset_t *restrict set, int *restrict sig)
 #define SYSCALL_SIGNAL_WAIT 12
 
 // bool SYSCALL_SIGNAL_FIRE(pid_t pid, bool group, int sig)

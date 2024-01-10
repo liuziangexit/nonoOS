@@ -182,8 +182,8 @@ struct ktask {
   // 表示都处理完了，没有新的信号要处理了
   // 这使得我们可以支持某个信号在被处理之前，多次被发射的情形
   // 而且可以实现sigwait的功能
-  uint32_t signal_fire_seq[SIGMAX];
-  uint32_t signal_fin_seq[SIGMAX];
+  unsigned char signal_fire_seq[SIGMAX];
+  unsigned char signal_fin_seq[SIGMAX];
   uint32_t signal_seq_mut;
   uint32_t signal_seq_fire_cv;
 #ifndef NDEBUG

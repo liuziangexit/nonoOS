@@ -16,7 +16,8 @@ count_down/main.exe \
 task_test/main.exe \
 abort/main.exe \
 bad_access/main.exe \
-user_read_input/main.exe
+user_read_input/main.exe \
+signal_test/main.exe
 
 .PHONY: all clean crt
 .SUFFIXES: .o .c .S .exe

@@ -15,6 +15,7 @@
 uint32_t task_count();
 
 static bool __sr = false;
+static pid_t fg, pid;
 
 struct program_info {
   char *name;
@@ -67,13 +68,8 @@ static pid_t run_user_program(const char *name, int argc, char **argv) {
 
   leave_critical_region(&save);
 
-  printf_color(CGA_COLOR_DARK_GREY,
-               "shell is waiting for user process to exit...\n\n");
-
   task_join(pid, NULL);
   shell_set_fg(task_current()->id);
-
-  printf_color(CGA_COLOR_DARK_GREY, "\n\nshell is back!\n\n");
 
   return pid;
 }
@@ -91,6 +87,16 @@ static void shell_init() {
   new_program("user_read_input",
               _binary____program_user_read_input_main_exe_start,
               (uint32_t)_binary____program_user_read_input_main_exe_size);
+
+  extern char _binary____program_signal_test_main_exe_start[],
+      _binary____program_signal_test_main_exe_size[];
+  new_program("signal_test", _binary____program_signal_test_main_exe_start,
+              (uint32_t)_binary____program_signal_test_main_exe_size);
+
+  extern char _binary____program_abort_main_exe_start[],
+      _binary____program_abort_main_exe_size[];
+  new_program("abort", _binary____program_abort_main_exe_start,
+              (uint32_t)_binary____program_abort_main_exe_size);
 }
 
 int shell_main(int argc, char **argv) {
@@ -109,6 +115,7 @@ int shell_main(int argc, char **argv) {
   }
 
   shell_set_fg(task_current()->id);
+  pid = task_current()->id;
   __sr = true;
 
   shell_init();
@@ -146,7 +153,7 @@ int shell_main(int argc, char **argv) {
       goto RETRY_KGETS;
     }
 
-    //printf("you have entered: %s\n\n", str, (int)r);
+    // printf("you have entered: %s\n\n", str, (int)r);
 
     if (strlen(str) > 2 && str[0] == '.' && str[1] == '/') {
       if (!run_user_program(str + 2, 0, 0))
@@ -160,7 +167,8 @@ int shell_main(int argc, char **argv) {
 
 bool shell_ready() { return __sr; }
 
-static pid_t fg;
 void shell_set_fg(pid_t pid) { atomic_store(&fg, pid); }
 
 pid_t shell_fg() { return atomic_load(&fg); }
+
+pid_t shell_pid() { return pid; }

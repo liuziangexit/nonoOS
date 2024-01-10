@@ -237,14 +237,16 @@ void syscall_dispatch(struct trapframe *tf) {
         signal_set_handler((pid_t)arg[0], (int)arg[1], (void (*)(int))arg[2]);
     set_return_value(tf, ret);
   } break;
-  case SYSCALL_SIGNAL_WAIT: {
-    bool ret =
-        signal_wait((pid_t)arg[0], (const sigset_t *)arg[1], (int *)arg[2]);
-    set_return_value(tf, ret);
-  } break;
   case SYSCALL_SIGNAL_FIRE: {
     bool ret = signal_fire((pid_t)arg[0], (bool)arg[1], (int)arg[2]);
     set_return_value(tf, ret);
+  } break;
+  case SYSCALL_SIGNAL_WAIT: {
+    // bool SYSCALL_SIGNAL_WAIT(const sigset_t *restrict set, int *restrict sig)
+    bool ret = signal_wait(task->id, (const sigset_t *)arg[0], (int *)arg[1]);
+    //    On success, sigwait() returns 0.  On error, it returns a positive
+    //  error number (listed in ERRORS).
+    set_return_value(tf, ret ? 0 : 1);
   } break;
   default: {
     printf("unknown system call %d with args:  %d, %d, %d, %d, %d\n", no,
