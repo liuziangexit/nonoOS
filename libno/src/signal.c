@@ -1,5 +1,6 @@
 #include "../../kernel/include/signal.h"
 #include <signal.h>
+#include <string.h>
 #include <syscall.h>
 #include <task.h>
 
@@ -43,30 +44,34 @@ int killpg(pid_t pid, int sig) {
 // This function initializes the signal set set to exclude all of the defined
 // signals. It always returns 0.
 int sigemptyset(sigset_t *set) {
-  UNUSED(set);
+  memset(set->s, 0, sizeof(set->s));
   return 0;
 }
 
 // This function initializes the signal set set to include all of the defined
 // signals. Again, the return value is 0.
 int sigfillset(sigset_t *set) {
-  UNUSED(set);
+  memset(set->s, 1, sizeof(set->s));
   return 0;
 }
 
 // This function adds the signal signum to the signal set set.
 // The return value is 0 on success and -1 on failure.
 int sigaddset(sigset_t *set, int signum) {
-  UNUSED(set);
-  UNUSED(signum);
+  if (signum < SIGMIN || signum > SIGMAX) {
+    return -1;
+  }
+  set->s[signum - 1] = 1;
   return 0;
 }
 
 // This function removes the signal signum from the signal set set.
 // The return value and error conditions are the same as for sigaddset.
 int sigdelset(sigset_t *set, int signum) {
-  UNUSED(set);
-  UNUSED(signum);
+  if (signum < SIGMIN || signum > SIGMAX) {
+    return -1;
+  }
+  set->s[signum - 1] = 0;
   return 0;
 }
 
@@ -74,7 +79,8 @@ int sigdelset(sigset_t *set, int signum) {
 // signal set set. It returns 1 if the signal is in the set, 0 if not, and -1 if
 // there is an error.
 int sigismember(const sigset_t *set, int signum) {
-  UNUSED(set);
-  UNUSED(signum);
-  return 0;
+  if (signum < SIGMIN || signum > SIGMAX) {
+    return -1;
+  }
+  return set->s[signum - 1];
 }

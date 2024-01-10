@@ -6,7 +6,10 @@
 // 这个文件里面按照POSIX标准定义了信号相关的宏和函数
 // 实际的实现在kernel里的那个signal.h和signal.c里
 
-struct sigset {};
+struct sigset {
+  // 1表示true，0表示false
+  unsigned char s[SIGMAX];
+};
 typedef struct sigset sigset_t;
 
 // Interrupt from keyboard
