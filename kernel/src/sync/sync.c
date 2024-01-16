@@ -101,19 +101,24 @@ bool mutex_destroy(mutex_t *mut) {
 
     // 然后看看有没有人接盘
     if (vector_count(&mut->waitors) != 0) {
-      // 如果有接盘侠
-      ktask_t *t = task_find(*(pid_t *)vector_get(&mut->waitors, 0));
-      t->state = YIELDED;
-      ready_queue_put(t);
-      vector_remove(&mut->waitors, 0);
-      // 强行解锁
-      atomic_store(&mut->owner, 0);
-      atomic_store(&mut->locked, 0);
-      // 让接盘侠引用这个锁
-      bool succ = kernel_object_ref(t->group, mut->obj_id);
-      assert(succ);
-      // 锁重获新生！
-      return false;
+      // 这里考虑了一种情况：如果某个task在wait时被杀掉了
+      for (uint32_t i = 0; i < vector_count(&mut->waitors); i++) {
+        ktask_t *t = task_find(*(pid_t *)vector_get(&mut->waitors, i));
+        if (t) {
+          // 如果有接盘侠
+          t->state = YIELDED;
+          ready_queue_put(t);
+          vector_remove(&mut->waitors, i);
+          // 强行解锁
+          atomic_store(&mut->owner, 0);
+          atomic_store(&mut->locked, 0);
+          // 让接盘侠引用这个锁
+          bool succ = kernel_object_ref(t->group, mut->obj_id);
+          assert(succ);
+          // 锁重获新生！
+          return false;
+        }
+      }
     }
   }
   // 这个锁没有人惦记了，杀掉
@@ -248,10 +253,15 @@ void mutex_unlock(uint32_t mut_id) {
   // 找第一个等待队列里的线程出来
   // 如果没有也没关系
   if (vector_count(&mut->waitors) != 0) {
-    ktask_t *t = task_find(*(pid_t *)vector_get(&mut->waitors, 0));
-    t->state = YIELDED;
-    ready_queue_put(t);
-    vector_remove(&mut->waitors, 0);
+    // 这里考虑了一种情况：如果某个task在wait时被杀掉了
+    for (uint32_t i = 0; i < vector_count(&mut->waitors); i++) {
+      ktask_t *t = task_find(*(pid_t *)vector_get(&mut->waitors, i));
+      if (t) {
+        t->state = YIELDED;
+        ready_queue_put(t);
+        vector_remove(&mut->waitors, i);
+      }
+    }
   }
   atomic_store(&mut->locked, 0);
 }
@@ -272,12 +282,20 @@ bool condition_variable_destroy(condition_variable_t *cv) {
   SMART_CRITICAL_REGION
   if (vector_count(&cv->waitors) != 0) {
     // 没有人引用这个内核对象，但是却有人在等待这个cv，让一个等待者引用该对象，取消destroy
-    printf_color(CGA_COLOR_RED, "there are still tasks waiting on this cv\n");
-    bool succ = kernel_object_ref_safe(*(pid_t *)vector_get(&cv->waitors, 0),
-                                       cv->obj_id);
-    assert(succ);
-    return false;
+    // printf_color(CGA_COLOR_RED, "there are still tasks waiting on this
+    // cv\n");
+    // 这里考虑了一种情况：如果某个task在wait时被杀掉了
+    for (uint32_t i = 0; i < vector_count(&cv->waitors); i++) {
+      pid_t w = *(pid_t *)vector_get(&cv->waitors, i);
+      if (task_find(w)) {
+        bool succ = kernel_object_ref_safe(w, cv->obj_id);
+        assert(succ);
+        // printf_color(CGA_COLOR_RED, "cv delay destroy\n");
+        return false;
+      }
+    }
   }
+  // printf_color(CGA_COLOR_RED, "cv got destroy\n");
   vector_destroy(&cv->waitors);
   free(cv);
   return true;
@@ -363,10 +381,16 @@ void condition_variable_notify_one(uint32_t cv_id, uint32_t mut_id) {
   condition_variable_t *cv = kernel_object_get(cv_id);
   if (vector_count(&cv->waitors) != 0) {
     SMART_CRITICAL_REGION
-    ktask_t *t = task_find(*(pid_t *)vector_get(&cv->waitors, 0));
-    t->state = YIELDED;
-    ready_queue_put(t);
-    vector_remove(&cv->waitors, 0);
+    // 这里考虑了一种情况：如果某个task在wait时被杀掉了
+    for (uint32_t i = 0; i < vector_count(&cv->waitors); i++) {
+      ktask_t *t = task_find(*(pid_t *)vector_get(&cv->waitors, i));
+      if (t) {
+        t->state = YIELDED;
+        ready_queue_put(t);
+        vector_remove(&cv->waitors, i);
+        break;
+      }
+    }
   }
 
   if (!already_owned)
@@ -381,10 +405,13 @@ void condition_variable_notify_all(uint32_t cv_id, uint32_t mut_id) {
   condition_variable_t *cv = kernel_object_get(cv_id);
   if (vector_count(&cv->waitors) != 0) {
     SMART_CRITICAL_REGION
+    // 这里考虑了一种情况：如果某个task在wait时被杀掉了
     for (uint32_t i = 0; i < vector_count(&cv->waitors); i++) {
       ktask_t *t = task_find(*(pid_t *)vector_get(&cv->waitors, i));
-      t->state = YIELDED;
-      ready_queue_put(t);
+      if (t) {
+        t->state = YIELDED;
+        ready_queue_put(t);
+      }
     }
     vector_clear(&cv->waitors);
   }

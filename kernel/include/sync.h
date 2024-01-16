@@ -55,7 +55,7 @@ struct mutex {
   uint32_t ref_cnt; // 引用此对象的线程数量
   uint32_t locked;  // 当前是否已锁
   pid_t owner;      // 拥有者
-  vector_t waitors; // 等待者
+  vector_t waitors; // 等待者。这里可能有些pid已经被杀，这些不存在的pid永远不会从waitors中被移除
 };
 typedef struct mutex mutex_t;
 pid_t mutex_owner(uint32_t mut_id);
@@ -84,7 +84,7 @@ void leave_smart_lock(uint32_t *mut_id);
 struct condition_variable {
   uint32_t obj_id;  // 内核对象id
   uint32_t ref_cnt; // 引用此对象的线程数量
-  vector_t waitors; // 等待者
+  vector_t waitors; // 等待者。可能有些pid已经被杀，这些不存在的pid永远不会从waitors中被移除
   // 一个线程要不然在waitors里，要不然在readylist里，不能同时存在
 };
 typedef struct condition_variable condition_variable_t;
