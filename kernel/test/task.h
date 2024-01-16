@@ -21,7 +21,7 @@ int task2(int argc, char **argv) {
   task_display();
   printf("task2: switching back...\n");
   disable_interrupt();
-  task_switch(task_find(1), false, YIELDED);
+  task_switch(task_find(1), false, YIELDED, false);
   printf("task2: i cant believe im still alive!\n");
   task_display();
   printf("task2: exiting\n");
@@ -49,7 +49,7 @@ void utask_test() {
   task_args_destroy(&args, true);
   printf("switch to user process...\n");
   disable_interrupt();
-  task_switch(task_find(upid), false, YIELDED);
+  task_switch(task_find(upid), false, YIELDED, false);
   printf("kernel task back!\n");
 }
 
@@ -68,12 +68,12 @@ void task_test() {
   task_display();
   printf("task1: switching to task2\n");
   disable_interrupt();
-  task_switch(task_find(t2), false, YIELDED);
+  task_switch(task_find(t2), false, YIELDED, false);
   printf("task1: switched back\n");
   task_display();
   printf("task1: switching to task2 second time\n");
   disable_interrupt();
-  task_switch(task_find(t2), false, YIELDED);
+  task_switch(task_find(t2), false, YIELDED, false);
   printf("task1: switched back second time, cool!\n");
   task_display();
 

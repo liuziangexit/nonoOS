@@ -666,7 +666,7 @@ bool task_schd(bool force, bool allow_idle, enum task_state tostate) {
           // 是内核栈
         }
         // 这里参数enable_schd总是为true使得系统最终总会开启抢占
-        task_switch(t, true, tostate);
+        task_switch(t, true, tostate, false);
         return true;
       } else {
         // terminal_fgcolor(CGA_COLOR_LIGHT_BLUE);
@@ -684,54 +684,55 @@ void task_idle() {
   while (true) {
     // 把idle的时间片设置到很大，这样它永远是最低优先级的
     task_current()->tslice = 0x8000000000000000;
-    while (task_schd(false, false, YIELDED)) {
-      task_preemptive_set(false);
+    task_schd(false, false, YIELDED);
+    task_preemptive_set(false);
 #ifdef VERBOSE
-      printf_color(CGA_COLOR_LIGHT_YELLOW, "idle: back\n");
-      kernel_object_print();
-      task_display();
+    // printf_color(CGA_COLOR_LIGHT_YELLOW, "idle: back\n");
+    // kernel_object_print();
+    // task_display();
 #endif
-    HANDLE_EXITED:
-      for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
-        if (t->state == EXITED) {
-          // 处理join这个线程的线程
-          for (uint32_t i = 0; i < vector_count(&t->joining); i++) {
-            pid_t *id = vector_get(&t->joining, i);
-            ktask_t *waiting_task = task_find(*id);
-            assert(waiting_task->state == WAITING &&
-                   waiting_task->wait_type == WAIT_JOIN &&
-                   waiting_task->wait_ctx.join.id == t->id);
-            // 告诉他们返回值
-            waiting_task->wait_ctx.join.ret_val = t->ret_val;
-            // 把他们放入调度队列
-            waiting_task->state = YIELDED;
-            ready_queue_put(waiting_task);
-          }
-          // 然后可以开始删除这个线程的PCB
-          ktask_t *n = avl_tree_next(&tasks, t);
-          if (t->ref_count == 1) {
-            // 只有在没有别的线程引用时，才会删除
-            avl_tree_remove(&tasks, t);
-            kernel_object_unref(t->group, t->id, true);
-          }
-          t = n;
-          continue;
+
+  HANDLE_EXITED:
+    for (ktask_t *t = avl_tree_first(&tasks); t != 0;) {
+      if (t->state == EXITED) {
+        // 处理join这个线程的线程
+        for (uint32_t i = 0; i < vector_count(&t->joining); i++) {
+          pid_t *id = vector_get(&t->joining, i);
+          ktask_t *waiting_task = task_find(*id);
+          assert(waiting_task->state == WAITING &&
+                 waiting_task->wait_type == WAIT_JOIN &&
+                 waiting_task->wait_ctx.join.id == t->id);
+          // 告诉他们返回值
+          waiting_task->wait_ctx.join.ret_val = t->ret_val;
+          // 把他们放入调度队列
+          waiting_task->state = YIELDED;
+          ready_queue_put(waiting_task);
         }
-        t = avl_tree_next(&tasks, t);
+        // 然后可以开始删除这个线程的PCB
+        ktask_t *n = avl_tree_next(&tasks, t);
+        if (t->ref_count == 1) {
+          // 只有在没有别的线程引用时，才会删除
+          avl_tree_remove(&tasks, t);
+          kernel_object_unref(t->group, t->id, true);
+        }
+        t = n;
+        continue;
       }
-      for (ktask_t *t = avl_tree_first(&tasks); t != 0;
-           t = avl_tree_next(&tasks, t)) {
-        if (t->state == EXITED && t->ref_count == 1) {
-          // 还有线程没有退出，需要重新走一遍上面的流程
-          // 这种情况出现于一个线程（引用者）引用了另一个线程（被引用者）
-          // 而到了上面的代码时，这两个线程都处于EXITED状态了，因此他们都会被
-          // idle做退出处理。不幸的是，被引用者先于引用者进行处理，而idle看到被引用者
-          // 有2个引用，因此没有进行推出处理，而当引用者取消对于被引用者的引用时，已经晚了
-          // 因此在这里再检测一遍
-          goto HANDLE_EXITED;
-        }
+      t = avl_tree_next(&tasks, t);
+    }
+    for (ktask_t *t = avl_tree_first(&tasks); t != 0;
+         t = avl_tree_next(&tasks, t)) {
+      if (t->state == EXITED && t->ref_count == 1) {
+        // 还有线程没有退出，需要重新走一遍上面的流程
+        // 这种情况出现于一个线程（引用者）引用了另一个线程（被引用者）
+        // 而到了上面的代码时，这两个线程都处于EXITED状态了，因此他们都会被
+        // idle做退出处理。不幸的是，被引用者先于引用者进行处理，而idle看到被引用者
+        // 有2个引用，因此没有进行推出处理，而当引用者取消对于被引用者的引用时，已经晚了
+        // 因此在这里再检测一遍
+        goto HANDLE_EXITED;
       }
     }
+
     hlt();
   }
 }
@@ -1094,7 +1095,7 @@ static void task_quit(int32_t ret) {
   ktask_t *idle = task_find(1);
   // 切换到idle
   task_current()->ret_val = ret;
-  task_switch(idle, task_preemptive_enabled(), EXITED);
+  task_switch(idle, task_preemptive_enabled(), EXITED, false);
   abort();
   __unreachable;
 }
@@ -1161,25 +1162,28 @@ void task_terminate(int32_t ret) {
 }
 
 // 切换到另一个task
-void task_switch(ktask_t *next, bool enable_schd, enum task_state tostate) {
+void task_switch(ktask_t *next, bool enable_schd,
+                 enum task_state current_new_state, bool handle_signal) {
   SMART_NOINT_REGION
   assert(current && next);
-  assert(next != current);
-  assert(next && (next->state == CREATED || next->state == YIELDED));
+  assert(next &&
+         (handle_signal || (next->state == CREATED || next->state == YIELDED)));
   if (next == current) {
-    panic("task_switch");
+    panic("task_switch: next == current");
   }
+
   {
     uint32_t esp;
     resp(&esp);
     if (!(esp >= task_current()->kstack &&
           esp < task_current()->kstack + TASK_STACK_SIZE * 4096)) {
-      // 不是内核栈
-      abort();
+      // 当前不是内核栈
+      panic("task_switch: not on kernel stack");
     }
   }
+
   ktask_t *const prev = current;
-  current->state = tostate;
+  current->state = current_new_state;
   if (!current->group->is_kernel || !next->group->is_kernel) {
     // 不是内核到内核的切换
     // 1. 切换页表
@@ -1201,16 +1205,26 @@ void task_switch(ktask_t *next, bool enable_schd, enum task_state tostate) {
       load_esp0(0);
     }
   }
-  next->state = RUNNING;
+
+  if (!handle_signal) {
+    // 处理信号时，保留原先的state
+    next->state = RUNNING;
+  }
   current = next;
   current_vm = next->group->vm;
-  // next在ready队列里面，prev不在队列里面
-  assert(next->ready_queue_head.next != 0 && next->ready_queue_head.prev != 0);
+  // next在ready队列里面(若当前为了处理信号而调入next，则此项可以为假)，prev不在队列里面
+  assert(handle_signal || (next->ready_queue_head.next != 0 &&
+                           next->ready_queue_head.prev != 0));
   assert(prev->ready_queue_head.next == 0 || prev->ready_queue_head.prev == 0);
-  // 从队列移除next
-  list_del(&next->ready_queue_head);
-  next->ready_queue_head.next = 0;
-  next->ready_queue_head.prev = 0;
+
+  if (!handle_signal) {
+    // 从队列移除next
+    // 如果是处理信号，不需要这样做，因为处理信号的调入，不是正常的调入，执行完signal
+    // handler就会交出
+    list_del(&next->ready_queue_head);
+    next->ready_queue_head.next = 0;
+    next->ready_queue_head.prev = 0;
+  }
   // 向队列加入prev
   if (prev->state == YIELDED) {
     ready_queue_put(prev);
@@ -1232,13 +1246,14 @@ void task_switch(ktask_t *next, bool enable_schd, enum task_state tostate) {
 
   // 切换寄存器，包括eip、esp和ebp
   switch_to(prev->state != EXITED, &prev->regs, &next->regs);
+  // 本线程(prev)重新开始执行了
+  // 这里有两种情况
+  // 1.本线程已经是YIELD/CREATED这样的可执行状态
+  // 2.本线程是WAITING状态
+  // 情况1是正常情况，情况2是因为有信号需要处理
+  // 对于情况2，处理完信号之后继续等待
   assert((reflags() & FL_IF) == 0);
   assert(prev->state != EXITED);
-
-  // prev又被换回来了
-  // terminal_fgcolor(CGA_COLOR_BLUE);
-  // printf("%s(id=%lld) <-\n", prev->name, (int64_t)prev->id);
-  // terminal_default_color();
 
   // 恢复cr2
   if (prev->cr2) {
@@ -1249,6 +1264,12 @@ void task_switch(ktask_t *next, bool enable_schd, enum task_state tostate) {
   // 但是idle进程是例外
   if (prev->id != 1) {
     signal_handle_on_task_schd_in();
+  }
+  if (prev->state != RUNNING) {
+    // 说明本次换入只是在执行信号处理
+    // 现在已经处理好信号，那么我们交出控制权
+    // 本次处理信号不算时间片
+    task_switch(task_find(1), task_preemptive_enabled(), prev->state, false);
   }
 }
 

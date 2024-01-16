@@ -126,6 +126,7 @@ OK-1.ctrl-c中断前台程序
 
 现在发现其实是多个syscall是可以在栈上叠加的
 那么，现在还剩的问题就是，如何从用户转回内核？特别是，如果又开一个中断来转到内核，那是不是又是一层新的中断栈，把原来的中断栈埋在底下了
+这个问题目前认为可以解决，但是会比较复杂，先不解决。
 
 -图形接口参考：https://github.com/SerenityOS/serenity/blob/master/Documentation/Kernel/GraphicsSubsystem.md
 -支持更高分辨率，目前考虑使用boch图形接口，还需要调研这是否合适，主要是它最大分辨率是多少？是否能在物理设备上运行？

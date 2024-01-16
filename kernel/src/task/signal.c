@@ -30,6 +30,8 @@ bool signal_fire(pid_t pid, bool group, int sig) {
 
   if (pid == task_current()->id) {
     signal_handle_on_task_schd_in();
+  } else {
+    task_switch(target, task_preemptive_enabled(), YIELDED, true);
   }
 
   return true;
@@ -104,8 +106,13 @@ void signal_handle_on_task_schd_in() {
     for (; current->signal_fire_seq[sig - 1] > current->signal_fin_seq[sig - 1];
          current->signal_fin_seq[sig - 1]++) {
       void (*handler)(int) = (void (*)(int))current->signal_callback[sig - 1];
-      if (handler)
+      if (handler) {
+        // terminal_fgcolor(CGA_COLOR_BLUE);
+        // printf("%s(id=%lld) handle signal %d\n", current->name,
+        //        (int64_t)current->id, sig);
+        // terminal_default_color();
         handler(sig);
+      }
     }
   }
 }

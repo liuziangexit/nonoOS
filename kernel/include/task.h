@@ -286,6 +286,7 @@ void task_exit(int32_t ret);
 void task_terminate(int32_t ret);
 
 // 切换到另一个task
-void task_switch(ktask_t *, bool, enum task_state tostate);
+void task_switch(ktask_t *next, bool enable_schd,
+                 enum task_state current_new_state, bool handle_signal);
 
 #endif
