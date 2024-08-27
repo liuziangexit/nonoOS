@@ -21,6 +21,10 @@ flag:
   orl     $(CR0_PG|CR0_WP), %eax
   movl    %eax, %cr0
   
+  # calling GCC generated global constructor
+  # TODO: find out what do they do and whether it's necessary to call it
+  # call _init
+
   # Jump to kentry(), and switch to executing at
   # high addresses. The indirect call is needed because
   # the assembler produces a PC-relative instruction
