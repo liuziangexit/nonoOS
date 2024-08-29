@@ -14,6 +14,8 @@
 [128MB, 128MB + program size)代码
 [128MB + program size, 3G - 512MB)malloc区
 [3G - 512MB, 3G - 512MB + STACK_SIZE)用户栈
+实现已经改变，以上描述不准确
+
 */
 
 // 这个指的是4k页数
