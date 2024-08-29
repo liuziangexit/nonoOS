@@ -707,7 +707,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
 #ifdef VERBOSE
         printf_color(CGA_COLOR_LIGHT_YELLOW,
                      "after allocating %lld, freearea has %lld left\n",
-                     (int64_t)actual_size, (int64_t)free_area->le);
+                     (int64_t)actual_size, (int64_t)free_area->len);
 #endif
         list_init(&free_area->list_head);
         list_sort_add(&vma->free_area_sort_by_len, &free_area->list_head,
@@ -774,7 +774,7 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
         }
       }
 #ifdef VERBOSE
-      printf_color(CGA_COLOR_LIGHT_YELLOW, "****return 0x%08llx****\n",
+      printf_color(CGA_COLOR_LIGHT_YELLOW, "****umalloc return with 0x%08llx****\n",
                    (int64_t)addr);
 #endif
       return addr;
@@ -817,7 +817,7 @@ void ufree(struct virtual_memory *vm, uintptr_t addr, uint32_t vm_mut) {
 #endif
   struct virtual_memory_area *vma = virtual_memory_get_vma(vm, addr);
   assert(vma && vma->type == UMALLOC);
-  const bool in_full = list_empty(&vma->free_area_sort_by_len);
+  const bool is_full = list_empty(&vma->free_area_sort_by_len);
   // 1.查表得到size
   struct umalloc_free_area find;
   find.addr = addr;
@@ -903,17 +903,23 @@ void ufree(struct virtual_memory *vm, uintptr_t addr, uint32_t vm_mut) {
 #ifdef VERBOSE
         printf_color(CGA_COLOR_LIGHT_YELLOW, "vma deleted\n");
 #endif
+#ifdef VERBOSE
+        printf_color(CGA_COLOR_LIGHT_YELLOW, "****ufree return****\n",
+                     (int64_t)addr);
+#endif
         return;
       }
     }
   }
   // 4.更新vma所在的链表(从full移动到partial)
-  if (in_full) {
-    // 如果vma->free_area只有1个元素
+  if (is_full) {
+    // 此时vma->free_area只有1个元素
+    assert(vma->free_area_sort_by_len.next &&
+           vma->free_area_sort_by_len.next->next == 0);
     list_del(&vma->list_node);
     list_add(&vm->partial, &vma->list_node);
 #ifdef VERBOSE
-    printf_color(CGA_COLOR_LIGHT_YELLOW, "vma are been moved to partial\n");
+    printf_color(CGA_COLOR_LIGHT_YELLOW, "vma have been moved to partial\n");
 #endif
   }
 #ifdef VERBOSE

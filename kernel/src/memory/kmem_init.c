@@ -14,7 +14,7 @@
 接着是kernel代码从16MB开始
 kernel代码后的第一个4M地址上是bootstack，长度是4MB
 bootstack后第一个4M地址上是NORMAL REGION，长度不大于total memory/4
-剩下的内存都是VMA用的
+剩下的物理内存都是FREE REGION，也就是umalloc用的
 
 从虚拟内存上看，最初0-4M没有映射
 3GB开始，第一个16MB是直接映射的VMA区域
@@ -38,6 +38,7 @@ void kmem_init(struct e820map_t *memlayout) {
   */
   // 确定normal_region的虚拟地址
   normal_region_vaddr = KERNEL_VIRTUAL_BASE + boot_stack_paddr + _4M;
+  assert(normal_region_vaddr % _4M == 0);
   // 这个for只是为了计算系统内存总量
   uint32_t total_memory = 0;
   for (uint32_t i = 0; i < memlayout->count; i++) {

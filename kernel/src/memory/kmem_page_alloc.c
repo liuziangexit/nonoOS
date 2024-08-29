@@ -18,7 +18,8 @@
 
 // buddy算法实现，管理页内存
 
-//#define NDEBUG
+// #define NDEBUG
+// #define VERBOSE
 
 struct page {
   struct list_entry head;
@@ -29,9 +30,9 @@ struct page {
 struct zone {
   struct list_entry pages;
   bool distinct_struct;
-  //#ifndef NDEBUG
+  // #ifndef NDEBUG
   uint32_t cnt;
-  //#endif
+  // #endif
 };
 
 // 2^0到2^30
@@ -39,15 +40,15 @@ struct zone {
 
 // normal region的zones
 static struct zone normal_region_zones[31];
-// free space的zones
-static struct zone free_space_zones[31];
+// free region的zones
+static struct zone free_region_zones[31];
 
 static void add_page(struct zone *z, struct page *p) {
   make_sure_schd_disabled();
   assert(z->distinct_struct ? (uintptr_t)p != p->addr
                             : (uintptr_t)p == p->addr);
-  //#ifndef NDEBUG
-  // dbg模式下看看有没有重复的
+  // #ifndef NDEBUG
+  //  dbg模式下看看有没有重复的
 
   /*
   TODO
@@ -62,7 +63,7 @@ static void add_page(struct zone *z, struct page *p) {
       panic("add_page check failed 1");
   }
   z->cnt++;
-  //#endif
+  // #endif
   list_init(&p->head);
   list_add(&z->pages, &p->head);
 }
@@ -126,18 +127,18 @@ void kmem_page_init() {
     list_init(&normal_region_zones[i].pages);
     normal_region_zones[i].distinct_struct = false;
   }
-  // 初始化free_space_zones
+  // 初始化free_region_zones
   for (uint32_t i = 0; i < sizeof(normal_region_zones) / sizeof(struct zone);
        i++) {
-    list_init(&free_space_zones[i].pages);
-    free_space_zones[i].distinct_struct = true;
+    list_init(&free_region_zones[i].pages);
+    free_region_zones[i].distinct_struct = true;
   }
 
   uintptr_t p = normal_region_vaddr;
-  //这里的页都是小页
+  // 这里的页都是小页
   uint32_t page_cnt = normal_region_size / _4K;
 
-#ifndef NDEBUG
+#ifdef VERBOSE
   printf("kmem_page_init: memory starts at 0x%08llx (total %d 4k pages) are "
          "being split into ",
          (int64_t)p, page_cnt);
@@ -167,7 +168,7 @@ void kmem_page_init() {
     p += (_4K * c);
   }
 
-#ifndef NDEBUG
+#ifdef VERBOSE
   printf("\n");
   terminal_color(CGA_COLOR_LIGHT_GREEN, CGA_COLOR_DARK_GREY);
   printf("kmem_page_init: OK\n");
@@ -177,10 +178,10 @@ void kmem_page_init() {
 
 void kmem_page_init_free_region(uintptr_t addr, uint32_t len) {
   uintptr_t p = addr;
-  //这里的页都是小页
+  // 这里的页都是小页
   uint32_t page_cnt = len / _4K;
 
-#ifndef NDEBUG
+#ifdef VERBOSE
   printf("kmem_page_init_free_region: memory starts at 0x%08llx (total %d 4k "
          "pages) are "
          "being split into ",
@@ -195,7 +196,7 @@ void kmem_page_init_free_region(uintptr_t addr, uint32_t len) {
       c = prev_pow2(page_cnt);
     }
 
-#ifndef NDEBUG
+#ifdef VERBOSE
     printf("%d ", c);
     // TODO 把内存页map到内核空间，然后尝试访问
     // volatile int *test = (volatile int *)p;
@@ -207,13 +208,13 @@ void kmem_page_init_free_region(uintptr_t addr, uint32_t len) {
     assert(page_struct);
     page_struct->addr = p;
     const uint32_t log2_c = log2(c);
-    add_page(&free_space_zones[log2_c], page_struct);
+    add_page(&free_region_zones[log2_c], page_struct);
 
     page_cnt -= c;
     p += (_4K * c);
   }
 
-#ifndef NDEBUG
+#ifdef VERBOSE
   printf("\n");
 #endif
 }
@@ -229,24 +230,24 @@ static void *split(uint32_t exp, struct zone *zones, const size_t zones_size) {
 #endif
 
   if (!list_empty(&zones[exp].pages)) {
-    //本层有，返回本层的
+    // 本层有，返回本层的
     struct page *rv = (struct page *)list_next(&zones[exp].pages);
     void *addr = (void *)rv->addr;
     del_page(&zones[exp], rv);
     return addr;
   } else {
-    //本层没有
+    // 本层没有
     if (exp == zones_size / sizeof(struct zone) - 1) {
-      //本层已经是最顶层，真的没有了，失败
+      // 本层已经是最顶层，真的没有了，失败
       return 0;
     } else {
-      //本层不是最顶层，向上头要
+      // 本层不是最顶层，向上头要
       void *a = split(exp + 1, zones, zones_size);
       if (a == 0)
         return 0;
-      //把拿到的内存切两半
+      // 把拿到的内存切两半
       void *b = a + pow2(exp) * _4K;
-      //一半存本层里
+      // 一半存本层里
       struct page *page_struct;
       if (zones[exp].distinct_struct) {
         page_struct = malloc(sizeof(struct page));
@@ -256,7 +257,7 @@ static void *split(uint32_t exp, struct zone *zones, const size_t zones_size) {
       }
       page_struct->addr = (uintptr_t)a;
       add_page(&zones[exp], page_struct);
-      //一半return掉
+      // 一半return掉
       return b;
     }
   }
@@ -326,7 +327,7 @@ static struct zone *get_region_zones(enum MEMORY_REGION r) {
     return normal_region_zones;
   }
   if (r == FREE_REGION) {
-    return free_space_zones;
+    return free_region_zones;
   }
   abort();
   __unreachable;
@@ -337,7 +338,7 @@ static uint32_t get_region_zones_size(enum MEMORY_REGION r) {
     return sizeof(normal_region_zones);
   }
   if (r == FREE_REGION) {
-    return sizeof(free_space_zones);
+    return sizeof(free_region_zones);
   }
   abort();
   __unreachable;
@@ -362,6 +363,12 @@ void *alloc_page_impl(enum MEMORY_REGION r, size_t cnt) {
   } else {
     printf_color(CGA_COLOR_LIGHT_YELLOW, "alloc_page_impl failed\n");
   }
+
+#ifdef VERBOSE
+  printf_color(CGA_COLOR_LIGHT_YELLOW,
+               "alloc_page_impl(%lld) returns 0x%08llx\n", (int64_t)cnt,
+               (int64_t)(uintptr_t)p);
+#endif
   return p;
 }
 
@@ -380,6 +387,10 @@ void free_page_impl(enum MEMORY_REGION r, uintptr_t p, size_t cnt) {
   cnt = next_pow2(cnt);
   combine(log2(cnt), page_struct, get_region_zones(r),
           get_region_zones_size(r));
+#ifdef VERBOSE
+  printf_color(CGA_COLOR_LIGHT_YELLOW, "free_page_impl(0x%08llx, %lld)\n",
+               (int64_t)(uintptr_t)p, (int64_t)cnt);
+#endif
 }
 
 #ifndef NDEBUG
@@ -404,7 +415,7 @@ static uint32_t pick_biggest(uint32_t *base, uint32_t *arr, uint32_t cnt) {
   return pick;
 }
 
-//成功的话require是0，如果失败是因为dst太小的缘故
+// 成功的话require是0，如果失败是因为dst太小的缘故
 /*
 4:len
 

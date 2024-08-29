@@ -102,6 +102,11 @@ static void shell_init() {
       _binary____program_bad_access_main_exe_size[];
   new_program("bad_access", _binary____program_bad_access_main_exe_start,
               (uint32_t)_binary____program_bad_access_main_exe_size);
+
+  extern char _binary____program_hello_world_hello_exe_start[],
+      _binary____program_hello_world_hello_exe_size[];
+  new_program("hello", _binary____program_hello_world_hello_exe_start,
+              (uint32_t)_binary____program_hello_world_hello_exe_size);
 }
 
 int shell_main(int argc, char **argv) {

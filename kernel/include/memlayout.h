@@ -15,7 +15,7 @@
  */
 
 // 内核MAP的地方从896MB开始
-// 这个区域的主要作用是把FREE SPACE的某个或多个页map到这里，以便内核访问
+// 这个区域的主要作用是把FREE REION的某个或多个页map到这里，以便内核访问
 // 这个只有加上了KERNEL_VIRTUAL_BASE才有意义
 #define KERNEL_MAP_REGION 0x38000000
 #define KERNEL_MAP_REGION_SIZE (0x40000000 - 0x38000000)
