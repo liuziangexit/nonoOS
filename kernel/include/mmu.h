@@ -44,6 +44,8 @@
 #define CR0_WP 0x00010000  // Write Protect
 #define CR0_PG 0x80000000  // Paging
 #define CR4_PSE 0x00000010 // Page size extension
+#define CR4_PGE 0x00000080 // Page Global Enable
+// TODO 将内核页设置为Global页，这样在context switch时不会将内核页从TLB中刷掉
 
 // various segment selectors.
 #define SEG_IDX_KCODE 1
@@ -156,6 +158,7 @@ struct segdesc {
 #define PTE_A 0x020   // Accessed
 #define PTE_D 0x040   // Dirty
 #define PTE_PS 0x080  // Page Size
+#define PTE_G 0x100 // Global(will not be evicted from TLB even when loading another CR3)
 
 // Address in page table or page directory entry
 #define PTE_ADDR(pte) ((uint32_t)(pte) & ~0xFFF)

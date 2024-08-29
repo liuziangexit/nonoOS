@@ -73,7 +73,7 @@ void kentry() {
 
   boot_stack_paddr = physical_boot_stack;
 
-  // 在新栈上调kmain
+  // 在boot栈上调kmain
   asm volatile("movl 0, %%ebp;movl $0xFFFFFFFF, %%esp;call kmain;" ::
                    : "memory");
   __unreachable;
@@ -103,19 +103,19 @@ void kmain() {
   kbd_init();
   uint32_t esp, ebp, new_esp, new_ebp;
   const uint32_t stack_top = KERNEL_VIRTUAL_BOOT_STACK + KERNEL_BOOT_STACK_SIZE;
-  uint32_t used_stack, current_stack_frame_size;
+  uint32_t used_stack_size, current_stack_frame_size;
   extern uint32_t kernel_pd[];
   _Alignas(4096) uint32_t temp_pd[1024];
   // 将现在用的栈切换成这个内核任务的栈
   resp(&esp);
   rebp(&ebp);
-  used_stack = stack_top - esp;
+  used_stack_size = stack_top - esp;
   current_stack_frame_size = ebp - esp;
   struct ktask *init = task_find(1);
-  new_esp = init->kstack + (TASK_STACK_SIZE * 4096 - used_stack);
+  new_esp = init->kstack + (TASK_STACK_SIZE * 4096 - used_stack_size);
   new_ebp = new_esp + current_stack_frame_size;
 
-  memcpy((void *)new_esp, (void *)esp, used_stack);
+  memcpy((void *)new_esp, (void *)esp, used_stack_size);
   // 然后unmap原来的内核栈，这样如果还有代码访问那个地方，就会被暴露出来
   // 首先还需要将kernel_pd的内容拷到temp_pd，然后临时使用temp_pd
   memcpy(temp_pd, kernel_pd, _4K);
