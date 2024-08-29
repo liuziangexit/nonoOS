@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <vector.h>
+#include <virtual_memory.h>
 
 #define INITAIL_GETS_BUFFER_LEN 256
 
@@ -166,8 +167,13 @@ int shell_main(int argc, char **argv) {
     // printf("you have entered: %s\n\n", str, (int)r);
 
     if (strlen(str) > 2 && str[0] == '.' && str[1] == '/') {
-      if (!run_user_program(str + 2, 0, 0))
-        printf("program %s not found\n", str + 2);
+      if (!run_user_program(str + 2, 0, 0)) {
+        if (strcmp(str + 2, "vm") == 0) {
+          virtual_memory_print(virtual_memory_current());
+        } else {
+          printf("program %s not found\n", str + 2);
+        }
+      }
     } else if (strcmp(str, "ps") == 0) {
       task_display();
     }

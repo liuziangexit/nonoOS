@@ -16,10 +16,11 @@ kernel代码后的第一个4M地址上是bootstack，长度是4MB
 bootstack后第一个4M地址上是NORMAL REGION，长度不大于total memory/4
 剩下的物理内存都是FREE REGION，也就是umalloc用的
 
-从虚拟内存上看，最初0-4M没有映射
-3GB开始，第一个16MB是直接映射的VMA区域
+从虚拟内存(这里指的是内核的虚拟内存)上看，最初0-0xC0000000(3GB)没有映射，保留给用户态
+3GB开始，第一个16MB是VMA区域的直接映射
 接着从3G+16M开始，是内核代码直接映射
 接着是NORMAL REGION直接映射
+以上的直接映射是指物理地址=虚拟地址-3GB
 最后3GB+896MB(KERNEL_MAP_REGION)开始一直到虚拟地址末尾是MAP区域
 
 注意，下面说的页基本上是指4M页

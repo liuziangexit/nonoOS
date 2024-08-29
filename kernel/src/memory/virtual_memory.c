@@ -545,9 +545,9 @@ void virtual_memory_print(struct virtual_memory *vm) {
   printf("***************virtual_memory_print***************\n");
   for (struct virtual_memory_area *vma = avl_tree_first(&vm->vma_tree);
        vma != 0; vma = avl_tree_next(&vm->vma_tree, vma)) {
-    printf("type:%s start:0x%08llx length:%lld(%lldMB)\n",
-           vma_type_str(vma->type), (int64_t)vma->start, (int64_t)vma->size,
-           (int64_t)vma->size / 1024 / 1024);
+    printf("type:%s va:0x%08llx pa:0x%08llx length:%lld(%lldMB)\n",
+           vma_type_str(vma->type), (int64_t)vma->start, (int64_t)vma->physical,
+           (int64_t)vma->size, (int64_t)vma->size / 1024 / 1024);
   }
   printf("**************************************************\n");
 }
@@ -774,8 +774,8 @@ uintptr_t umalloc(struct virtual_memory *vm, uint32_t size, bool lazy_map,
         }
       }
 #ifdef VERBOSE
-      printf_color(CGA_COLOR_LIGHT_YELLOW, "****umalloc return with 0x%08llx****\n",
-                   (int64_t)addr);
+      printf_color(CGA_COLOR_LIGHT_YELLOW,
+                   "****umalloc return with 0x%08llx****\n", (int64_t)addr);
 #endif
       return addr;
     }
