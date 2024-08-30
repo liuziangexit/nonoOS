@@ -153,10 +153,12 @@ void kmem_page_init() {
     }
 
 #ifndef NDEBUG
-    printf("%d ", c);
     volatile int *test = (volatile int *)p;
     *test = 9710;
     assert(*test == 9710);
+#endif
+#ifdef VERBOSE
+    printf("%d ", c);
 #endif
 
     struct page *pg = (struct page *)p;
