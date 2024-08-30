@@ -38,7 +38,8 @@ void *kmem_alloc(size_t alignment, size_t size) {
   assert(alignment != 0);
   assert(size % alignment == 0);
   assert(is_pow2(alignment) && alignment <= MAX_ALIGNMENT);
-  if (size >= 4096) {
+  // 因为kmem_cache那边最大的对象是2^11，所以以此为分界点
+  if (size > pow2(11)) {
     // 页分配
     uint32_t page_cnt = ROUNDUP(size, 4096) / 4096;
     void *mem = kmem_page_alloc(page_cnt);
