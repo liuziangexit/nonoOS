@@ -250,12 +250,14 @@ void *kmem_cache_alloc(size_t alignment, size_t size) {
 
 // 将对象归还到slab中
 static void slab_free(struct slab *s, void *p) {
-  // debug检查越界
+// debug检查越界
+#ifndef NDEBUG
   if (log2(s->cache->obj_size) < 7) {
     assert(p < ((void *)s) + 4096 && p >= ((void *)s) + sizeof(struct slab));
   } else {
     assert(p < ((void *)s->mem) + 4096 && p >= ((void *)s->mem));
   }
+#endif
 
   // 修改计数
   assert(s->inuse != 0);
