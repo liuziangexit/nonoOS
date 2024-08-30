@@ -17,8 +17,12 @@ int main(int argc, char **argv) {
   *mem2 = 888;
   volatile uint32_t *mem3 = malloc(4);
   *mem3 = 777;
+  volatile uint32_t *mem4 = malloc(4095);
+  // FIXME 下面这一行内存访问将引发bug
+  //*mem4 = 777;
   free((void *)mem);
   free((void *)mem2);
   free((void *)mem3);
+  free((void *)mem4);
   return 888;
 }
