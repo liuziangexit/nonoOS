@@ -81,6 +81,7 @@ void leave_smart_lock(uint32_t *mut_id);
 // 考虑在我的线程池worker里，以及task_join里，能不能不需要锁？稍有常识的人都能看出，不能。我只想说懂的都懂，我也不想解释了
 // Java
 // Object里的notify/wait为什么不需要锁？这是一个假命题，看一下文档就知道，他们也需要锁
+// 2024 UPDATE: 上面这段话可能是有问题的
 struct condition_variable {
   uint32_t obj_id;  // 内核对象id
   uint32_t ref_cnt; // 引用此对象的线程数量
