@@ -161,7 +161,7 @@ void mutex_lock(uint32_t mut_id) {
                    "mutex_lock: lock already hold by current thread\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
-    task_current()->wait_type = WAIT_MUTEX;
+    task_current()->wait_type = WAIT_MUTEX_TIMED;
     task_current()->wait_ctx.mutex.mutex_id = mut->obj_id;
     task_current()->wait_ctx.mutex.after = 0; // 设置为0，表示没有超时
     task_current()->wait_ctx.mutex.timeout = false;
@@ -203,7 +203,7 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
       printf_color(CGA_COLOR_RED, "mutex_timedlock logic error\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
-    task_current()->wait_type = WAIT_MUTEX;
+    task_current()->wait_type = WAIT_MUTEX_TIMED;
     task_current()->wait_ctx.mutex.mutex_id = mut->obj_id;
     task_current()->wait_ctx.mutex.after =
         clock_get_ticks() * TICK_TIME_MS + timeout_ms;
@@ -312,7 +312,7 @@ void condition_variable_wait(uint32_t cv_id, uint32_t mut_id,
   // 关中断是为了确保此线程陷入等待对于另一个线程的notify具有happens-before
   SMART_CRITICAL_REGION
   mutex_unlock(mut_id);
-  task_current()->wait_type = WAIT_CV;
+  task_current()->wait_type = WAIT_CV_TIMED;
   task_current()->wait_ctx.cv.cv_id = cv->obj_id;
   task_current()->wait_ctx.cv.after = 0;
   task_current()->wait_ctx.cv.timeout = false;
@@ -346,7 +346,7 @@ bool condition_variable_timedwait(uint32_t cv_id, uint32_t mut_id,
   // 关中断是为了确保此线程陷入等待对于另一个线程的notify具有happens-before
   SMART_CRITICAL_REGION
   mutex_unlock(mut_id);
-  task_current()->wait_type = WAIT_CV;
+  task_current()->wait_type = WAIT_CV_TIMED;
   task_current()->wait_ctx.cv.cv_id = cv->obj_id;
   task_current()->wait_ctx.cv.after =
       clock_get_ticks() * TICK_TIME_MS + timeout_ms;

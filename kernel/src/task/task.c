@@ -84,7 +84,7 @@ void task_handle_wait() {
         }
       }
       // 处理timedwait没有等到mutex而超时的情况
-      if (t->wait_type == WAIT_MUTEX) {
+      if (t->wait_type == WAIT_MUTEX_TIMED) {
         if (t->wait_ctx.mutex.after != 0 &&
             clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.mutex.after) {
           t->wait_ctx.mutex.timeout = true;
@@ -102,7 +102,7 @@ void task_handle_wait() {
         }
       }
       // 处理timedwait没有等到cv而超时的情况
-      if (t->wait_type == WAIT_CV) {
+      if (t->wait_type == WAIT_CV_TIMED) {
         if (t->wait_ctx.cv.after != 0 &&
             clock_get_ticks() * TICK_TIME_MS >= t->wait_ctx.cv.after) {
           t->wait_ctx.cv.timeout = true;

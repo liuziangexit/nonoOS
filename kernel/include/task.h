@@ -40,7 +40,7 @@ enum task_state {
   EXITED,  // 已退出，但还不可删除
 };
 
-enum task_wait_type { WAIT_SLEEP, WAIT_JOIN, WAIT_MUTEX, WAIT_CV };
+enum task_wait_type { WAIT_SLEEP, WAIT_JOIN, WAIT_MUTEX_TIMED, WAIT_CV_TIMED };
 
 struct sleep_ctx {
   uint64_t after; // 当ticks * TICK_TIME_MS >= after，就等到了
