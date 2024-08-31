@@ -1,6 +1,8 @@
 # FIXME 这里没有保存eax寄存器，考虑这有没有问题？看看别的OS/协程在这里是怎么做的
+# UPDATE 是的，至少xv6的实现也是这样的
 # call进来以后的栈是这样的: 低地址  eip/save/from/to  高地址
 # esp指向eip
+# eip是被call指令压进去的
 .text
 .globl switch_to
 switch_to:                      # switch_to(save, from, to)
@@ -9,6 +11,7 @@ switch_to:                      # switch_to(save, from, to)
     cmpl $0x0, %eax             # if(save != 0) goto save;
     jne save
 
+    # 不需要保存寄存器
     popl %eax                   #扔掉eip    
     jmp restore
 

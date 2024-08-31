@@ -1033,12 +1033,12 @@ bool task_join(pid_t pid, int32_t *ret_val) {
     return true;
   } else {
     SMART_NOINT_REGION
-    task_current()->tslice++;
     task_current()->wait_type = WAIT_JOIN;
     task_current()->wait_ctx.join.id = pid;
     // 把本线程的值加到那个线程的joining里
     uint32_t idx = vector_add(&task->joining, &task_current()->id);
     // 开始等待那个线程退出
+    task_current()->tslice++;
     task_schd(true, true, WAITING);
     // 等再回来的时候，那个线程的返回值已经被存给我们了
     if (ret_val)
@@ -1072,10 +1072,10 @@ void task_sleep(uint64_t millisecond) {
   assert(task_current()->id != 1);
   {
     SMART_NOINT_REGION
-    task_current()->tslice++;
     task_current()->wait_type = WAIT_SLEEP;
     task_current()->wait_ctx.sleep.after =
         clock_get_ticks() * TICK_TIME_MS + millisecond;
+    task_current()->tslice++;
     task_schd(true, true, WAITING);
     assert(clock_get_ticks() * TICK_TIME_MS >=
            task_current()->wait_ctx.sleep.after);
