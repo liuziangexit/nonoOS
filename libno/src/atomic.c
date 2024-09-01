@@ -15,7 +15,10 @@ uint32_t atomic_load(uint32_t *src) {
 
 uint32_t atomic_exchange(uint32_t *dst, uint32_t val) {
   uint32_t prev = val;
-  // xchg自带了acq-rel语义
+  // "The XCHG instruction always asserts the LOCK# signal regardless of the
+  // presence or absence of the LOCK prefix."
+  // 实际上，LOCK就是ACQ-REL语义
+  // xchg自带了lock，因此具有acq-rel语义
   // memory_barrier(RELEASE);
   asm volatile("xchg %0, %1" : "+a"(prev), "=m"(*dst) : : "cc", "memory");
   // memory_barrier(ACQUIRE);
