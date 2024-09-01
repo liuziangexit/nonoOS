@@ -21,8 +21,8 @@ void atomic_test() {
   assert(val == 878);
   assert(atomic_fetch_add(&val, 1) == 878);
   assert(val == 879);
-  // assert(atomic_fetch_sub(&val, 1) == 879);
-  // assert(val == 878);
+  assert(atomic_fetch_sub(&val, 1) == 879);
+  assert(val == 878);
 
   uint32_t expect = 0;
   val = 878;

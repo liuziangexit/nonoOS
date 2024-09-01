@@ -1,12 +1,20 @@
+#include <assert.h>
 #include <atomic.h>
 #include <memory_barrier.h>
 
+void make_sure_aligned(uint32_t *ptr) {
+  uintptr_t addr = (uintptr_t)ptr;
+  assert(addr % 4 == 0);
+}
+
 void atomic_store(uint32_t *dst, uint32_t val) {
+  make_sure_aligned(dst);
   memory_barrier(RELEASE);
   asm volatile("movl %1, %0" : "=m"(*dst) : "r"(val) : "memory");
 }
 
 uint32_t atomic_load(uint32_t *src) {
+  make_sure_aligned(src);
   uint32_t val;
   asm volatile("movl %1, %0" : "=r"(val) : "m"(*src) : "memory");
   memory_barrier(ACQUIRE);
@@ -14,6 +22,7 @@ uint32_t atomic_load(uint32_t *src) {
 }
 
 uint32_t atomic_exchange(uint32_t *dst, uint32_t val) {
+  make_sure_aligned(dst);
   uint32_t prev = val;
   // "The XCHG instruction always asserts the LOCK# signal regardless of the
   // presence or absence of the LOCK prefix."
@@ -27,6 +36,8 @@ uint32_t atomic_exchange(uint32_t *dst, uint32_t val) {
 
 bool atomic_compare_exchange(uint32_t *dst, uint32_t *expected,
                              uint32_t desired) {
+  make_sure_aligned(dst);
+  make_sure_aligned(expected);
   uint32_t prev = *expected;
   memory_barrier(RELEASE);
   asm volatile("lock; cmpxchg %2, %0"
@@ -38,36 +49,29 @@ bool atomic_compare_exchange(uint32_t *dst, uint32_t *expected,
 }
 
 uint32_t atomic_add(uint32_t *dst, uint32_t add) {
+  make_sure_aligned(dst);
   memory_barrier(RELEASE);
-  asm volatile("lock; add %1, %0"
-               : "=m"(*dst)
-               : "r"(add), "m"(*dst)
-               : "cc", "memory");
+  asm volatile("lock; add %1, %0" : "+m"(*dst) : "r"(add) : "cc", "memory");
   memory_barrier(ACQUIRE);
   return *dst;
 }
 
 uint32_t atomic_sub(uint32_t *dst, uint32_t sub) {
+  make_sure_aligned(dst);
   memory_barrier(RELEASE);
-  asm volatile("lock; sub %1, %0"
-               : "=m"(*dst)
-               : "r"(sub), "m"(*dst)
-               : "cc", "memory");
+  asm volatile("lock; sub %1, %0" : "+m"(*dst) : "r"(sub) : "cc", "memory");
   memory_barrier(ACQUIRE);
   return *dst;
 }
 
 uint32_t atomic_fetch_add(uint32_t *dst, uint32_t add) {
+  make_sure_aligned(dst);
   memory_barrier(RELEASE);
   asm volatile("lock; xaddl %0, %1" : "+r"(add), "+m"(*dst) : : "cc", "memory");
   memory_barrier(ACQUIRE);
   return add;
 }
 
-// 不知道为什么报错说没有xsubl这个指令，先不管
-// uint32_t atomic_fetch_sub(uint32_t *dst, uint32_t sub) {
-//   memory_barrier(RELEASE);
-//   asm("lock; xsubl %0, %1" : "+r"(sub), "+m"(*dst) : : "cc", "memory");
-//   memory_barrier(ACQUIRE);
-//   return sub;
-// }
+uint32_t atomic_fetch_sub(uint32_t *dst, uint32_t sub) {
+  return atomic_fetch_add(dst, -sub);
+}
