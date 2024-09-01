@@ -30,8 +30,8 @@ bool atomic_compare_exchange(uint32_t *dst, uint32_t *expected,
   uint32_t prev = *expected;
   memory_barrier(RELEASE);
   asm volatile("lock; cmpxchg %2, %0"
-               : "=m"(*dst), "=a"(*expected)
-               : "r"(desired), "a"(*expected)
+               : "=m"(*dst), "+a"(*expected)
+               : "r"(desired)
                : "cc", "memory");
   memory_barrier(ACQUIRE);
   return prev == *expected;
