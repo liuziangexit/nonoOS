@@ -3,12 +3,12 @@
 
 void atomic_store(uint32_t *dst, uint32_t val) {
   memory_barrier(RELEASE);
-  asm volatile("movl %0, (%1)" : : "r"(val), "r"(dst) : "cc", "memory");
+  asm volatile("movl %1, %0" : "=m"(*dst) : "r"(val) : "memory");
 }
 
 uint32_t atomic_load(uint32_t *src) {
   uint32_t val;
-  asm volatile("movl (%1), %0" : "=r"(val) : "r"(src) : "cc", "memory");
+  asm volatile("movl %1, %0" : "=r"(val) : "m"(*src) : "memory");
   memory_barrier(ACQUIRE);
   return val;
 }
