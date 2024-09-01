@@ -168,7 +168,7 @@ int shell_main(int argc, char **argv) {
 
     if (strlen(str) > 2 && str[0] == '.' && str[1] == '/') {
       if (!run_user_program(str + 2, 0, 0)) {
-        if (strcmp(str + 2, "vm") == 0) {
+        if (strcmp(str + 2, "virtual_memory_print") == 0) {
           virtual_memory_print(virtual_memory_current());
         } else {
           printf("program %s not found\n", str + 2);
