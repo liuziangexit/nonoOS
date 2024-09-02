@@ -1184,9 +1184,9 @@ void task_switch(ktask_t *next, bool enable_schd,
 
   ktask_t *const prev = current;
   current->state = current_new_state;
-  if (!current->group->is_kernel || !next->group->is_kernel) {
-    // 不是内核到内核的切换
-    // 1. 切换页表
+  if (current->group != next->group) {
+    // 不是同进程切换
+    // 需要切换页表
     union {
       struct CR3 cr3;
       uintptr_t val;
@@ -1195,15 +1195,14 @@ void task_switch(ktask_t *next, bool enable_schd,
     set_cr3(&cr3.cr3, V2P((uintptr_t)next->group->vm->page_directory), false,
             false);
     lcr3(cr3.val);
+  }
 
-    // 2.切换tss栈
-    if (!next->group->is_kernel) {
-      // 如果下一个进程不是内核，加载该进程的内核栈到esp0
-      // 这样该进程在遇到中断而陷入内核态时会使用esp0指示的栈
-      load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
-    } else {
-      load_esp0(0);
-    }
+  if (!next->group->is_kernel) {
+    // 如果下一个线程是用户，加载该线程的内核栈到esp0
+    // 这样该进程在遇到中断而陷入内核态时会使用esp0指示的栈
+    load_esp0(next->kstack + _4K * TASK_STACK_SIZE);
+  } else {
+    load_esp0(0);
   }
 
   if (!handle_signal) {
