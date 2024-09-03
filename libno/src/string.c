@@ -84,3 +84,33 @@ int strcmp(const char *p1, const char *p2) {
   } while (c1 == c2);
   return c1 - c2;
 }
+
+char *strstr(const char *str, const char *substring) {
+  const char *a;
+  const char *b;
+
+  b = substring;
+
+  if (*b == 0) {
+    return (char *)str;
+  }
+
+  for (; *str != 0; str += 1) {
+    if (*str != *b) {
+      continue;
+    }
+
+    a = str;
+    while (1) {
+      if (*b == 0) {
+        return (char *)str;
+      }
+      if (*a++ != *b++) {
+        break;
+      }
+    }
+    b = substring;
+  }
+
+  return NULL;
+}

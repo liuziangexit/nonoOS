@@ -15,6 +15,7 @@ size_t strlen(const char *);
 void strrev(char *str);
 char *strcpy(char *dst, const char *src);
 int strcmp(const char *p1, const char *p2);
+char *strstr(const char *str, const char *substring);
 
 #ifdef __cplusplus
 }

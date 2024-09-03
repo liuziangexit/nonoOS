@@ -11,7 +11,7 @@
 #include <vector.h>
 #include <virtual_memory.h>
 
-#define INITAIL_GETS_BUFFER_LEN 256
+#define INITIAL_GETS_BUFFER_LEN 256
 
 uint32_t task_count();
 
@@ -141,9 +141,9 @@ int shell_main(int argc, char **argv) {
   putchar(1);
   printf("\n\n");
 
-  char *str = malloc(INITAIL_GETS_BUFFER_LEN);
+  char *str = malloc(INITIAL_GETS_BUFFER_LEN);
   assert(str);
-  size_t str_len = INITAIL_GETS_BUFFER_LEN;
+  size_t str_len = INITIAL_GETS_BUFFER_LEN;
 
   while (true) {
     printf_color(CGA_COLOR_DARK_GREY, "nonoOS:$ ");
@@ -167,8 +167,49 @@ int shell_main(int argc, char **argv) {
     // printf("you have entered: %s\n\n", str, (int)r);
 
     if (strlen(str) > 2 && str[0] == '.' && str[1] == '/') {
-      if (!run_user_program(str + 2, 0, 0)) {
-        if (strcmp(str + 2, "virtual_memory_print") == 0) {
+      const char *program_name_end = strstr(str + 2, " ");
+      if (!program_name_end)
+        program_name_end = str + strlen(str);
+      char program_name[128] = {0};
+      memcpy(program_name, str + 2, program_name_end - str - 2);
+
+      // chatgpt good job
+      uint32_t argc = 0;
+      char *argv[128]; // Fixed-size array to hold arguments
+
+      // Parse the arguments manually
+      const char *args_start = program_name_end;
+      while (args_start < str + str_len && *args_start == ' ') {
+        args_start++; // Skip leading spaces
+      }
+
+      while (args_start < str + str_len && *args_start) {
+        char temp_arg[128] = {0}; // Temporary buffer for the argument
+        char *arg_start = temp_arg;
+
+        // Read characters until a space or end of string is found
+        while (args_start < str + str_len && *args_start &&
+               *args_start != ' ') {
+          *arg_start++ = *args_start++;
+        }
+
+        // Allocate memory for the argument and copy it to argv
+        argv[argc] = (char *)malloc(strlen(temp_arg) + 1);
+        if (argv[argc] == NULL) {
+          // Handle memory allocation failure
+          panic("Memory allocation failed.\n");
+        }
+        strcpy(argv[argc], temp_arg);
+        argc++;
+
+        // Skip any spaces between arguments
+        while (args_start < str + str_len && *args_start == ' ') {
+          args_start++;
+        }
+      }
+
+      if (!run_user_program(program_name, argc, argv)) {
+        if (strcmp(program_name, "virtual_memory_print") == 0) {
           virtual_memory_print(virtual_memory_current());
         } else {
           printf("program %s not found\n", str + 2);
