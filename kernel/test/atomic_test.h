@@ -29,6 +29,9 @@ void atomic_test() {
                                  memory_order_seq_cst));
   assert(val == 0 && expect == 878);
 
+  atomic_exchange(&val, 5);
+  assert(val == 5);
+
   terminal_color(CGA_COLOR_GREEN, CGA_COLOR_GREEN);
   printf(" ");
   terminal_default_color();
