@@ -13,6 +13,8 @@ enum memory_order_t {
 };
 typedef enum memory_order_t memory_order;
 
+void atomic_thread_fence(memory_order order);
+
 void atomic_init(volatile uint32_t *obj, uint32_t desired);
 
 uint32_t atomic_load(const volatile uint32_t *obj);

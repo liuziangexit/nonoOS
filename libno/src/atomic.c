@@ -2,6 +2,11 @@
 #include <compiler_helper.h>
 #include <stdatomic.h>
 
+void atomic_thread_fence(memory_order order) {
+  if (order == memory_order_seq_cst)
+    asm volatile("mfence" ::: "memory");
+}
+
 void make_sure_aligned(const volatile uint32_t *ptr) {
   assert((uintptr_t)ptr % 4 == 0);
 }
