@@ -1,12 +1,12 @@
 #include "task.h"
 #include <assert.h>
-#include <atomic.h>
 #include <ctl_char_handler.h>
 #include <interrupt.h>
 #include <kbd.h>
 #include <picirq.h>
 #include <ring_buffer.h>
 #include <shell.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -325,7 +325,8 @@ void kbd_isr() {
     // 已有一个kbd_isr正在运行
     // 退出当前kbd_isr
     uint32_t expected = 0;
-    if (!atomic_compare_exchange(&kbd_isr_lock, &expected, 1)) {
+    if (!atomic_compare_exchange(&kbd_isr_lock, &expected, 1,
+                                 memory_order_acq_rel, memory_order_acq_rel)) {
       return;
     }
   }

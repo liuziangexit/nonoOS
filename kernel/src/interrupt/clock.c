@@ -1,6 +1,5 @@
 #include <clock.h>
 #include <interrupt.h>
-#include <memory_barrier.h>
 #include <picirq.h>
 #include <sync.h>
 #include <x86.h>
@@ -45,15 +44,12 @@ void clock_init() {
 
 uint64_t clock_count_tick() {
   SMART_CRITICAL_REGION
-  memory_barrier(RELEASE);
   uint64_t val = ++ticks;
-  memory_barrier(ACQUIRE);
   return val;
 }
 
 uint64_t clock_get_ticks() {
   SMART_CRITICAL_REGION
   uint64_t val = ticks;
-  memory_barrier(ACQUIRE);
   return val;
 }

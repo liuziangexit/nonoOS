@@ -1,10 +1,10 @@
 #include "shell.h"
 #include "sync.h"
 #include "task.h"
-#include <atomic.h>
 #include <compiler_helper.h>
 #include <kernel_object.h>
 #include <memory_manager.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

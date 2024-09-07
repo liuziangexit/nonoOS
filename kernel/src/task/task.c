@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <atomic.h>
 #include <avlmini.h>
 #include <clock.h>
 #include <compiler_helper.h>
@@ -8,12 +7,12 @@
 #include <kernel_object.h>
 #include <list.h>
 #include <memlayout.h>
-#include <memory_barrier.h>
 #include <memory_manager.h>
 #include <mmu.h>
 #include <panic.h>
 #include <ring_buffer.h>
 #include <shell.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -741,13 +740,9 @@ void task_idle() {
 static volatile bool task_preemptive = false;
 bool task_preemptive_enabled() {
   bool copy = task_preemptive;
-  memory_barrier(ACQUIRE);
   return copy;
 }
-void task_preemptive_set(bool val) {
-  memory_barrier(RELEASE);
-  task_preemptive = val;
-}
+void task_preemptive_set(bool val) { task_preemptive = val; }
 
 // 当前进程
 ktask_t *task_current() {

@@ -1,5 +1,4 @@
 #include "../../include/task.h"
-#include <atomic.h>
 #include <avlmini.h>
 #include <defs.h>
 #include <kernel_object.h>
@@ -7,6 +6,7 @@
 #include <memory_manager.h>
 #include <mmu.h>
 #include <panic.h>
+#include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>

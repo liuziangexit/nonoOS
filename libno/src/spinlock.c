@@ -1,6 +1,6 @@
 #include <assert.h>
-#include <atomic.h>
 #include <spinlock.h>
+#include <stdatomic.h>
 #ifndef NDEBUG
 #include <mmu.h>
 #include <sync.h>
@@ -16,7 +16,8 @@ void spin_lock(spinlock_t *l) {
   make_sure_schd_disabled();
 #endif
   uint32_t expected = 0;
-  while (!atomic_compare_exchange(&l->val, &expected, 1)) {
+  while (!atomic_compare_exchange(&l->val, &expected, 1, memory_order_seq_cst,
+                                  memory_order_seq_cst)) {
     expected = 0;
     asm volatile("pause");
   }
@@ -24,7 +25,8 @@ void spin_lock(spinlock_t *l) {
 
 bool spin_trylock(spinlock_t *l) {
   uint32_t expected = 0;
-  return atomic_compare_exchange(&l->val, &expected, 1);
+  return atomic_compare_exchange(&l->val, &expected, 1, memory_order_seq_cst,
+                                 memory_order_seq_cst);
 }
 
 void spin_unlock(spinlock_t *l) {

@@ -1,9 +1,8 @@
 #include <assert.h>
-#include <atomic.h>
 #include <clock.h>
 #include <kernel_object.h>
-#include <memory_barrier.h>
 #include <mmu.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <sync.h>
 #include <task.h>
@@ -42,12 +41,10 @@ void enter_critical_region(uint32_t *save) {
   } else {
     *save = 0;
   }
-  memory_barrier(SEQ_CST);
 }
 
 void leave_critical_region(uint32_t *save) {
   SMART_NOINT_REGION
-  memory_barrier(SEQ_CST);
   if (*save) {
     task_preemptive_set(true);
   }
@@ -61,12 +58,10 @@ void enter_noint_region(uint32_t *save) {
   } else {
     *save = 0;
   }
-  memory_barrier(SEQ_CST);
 }
 
 // 如果此前关闭了中断，开启中断
 void leave_noint_region(uint32_t *save) {
-  memory_barrier(SEQ_CST);
   if (*save) {
     enable_interrupt();
   }
@@ -133,7 +128,8 @@ bool mutex_trylock(uint32_t mut_id) {
   if (!mut)
     task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t expected = 0;
-  if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
+  if (!atomic_compare_exchange(&mut->locked, &expected, 1, memory_order_acq_rel,
+                               memory_order_relaxed)) {
     // 失败了
     if (atomic_load(&mut->owner) == task_current()->id) {
       // 已被自己锁上了
@@ -152,7 +148,8 @@ void mutex_lock(uint32_t mut_id) {
   if (!mut)
     task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t expected = 0;
-  if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
+  if (!atomic_compare_exchange(&mut->locked, &expected, 1, memory_order_acq_rel,
+                               memory_order_relaxed)) {
     // 失败了
     SMART_NOINT_REGION
     if (atomic_load(&mut->owner) == task_current()->id) {
@@ -181,7 +178,8 @@ void mutex_lock(uint32_t mut_id) {
 
     // 获得锁
     expected = 0;
-    if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
+    if (!atomic_compare_exchange(&mut->locked, &expected, 1,
+                                 memory_order_acq_rel, memory_order_relaxed)) {
       printf_color(CGA_COLOR_RED, "mutex_lock: logic error 2\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }
@@ -195,7 +193,8 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
   if (!mut)
     task_terminate(TASK_TERMINATE_INVALID_ARGUMENT);
   uint32_t expected = 0;
-  if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
+  if (!atomic_compare_exchange(&mut->locked, &expected, 1, memory_order_acq_rel,
+                               memory_order_relaxed)) {
     // 失败了
     SMART_NOINT_REGION
     if (atomic_load(&mut->owner) == task_current()->id) {
@@ -228,7 +227,8 @@ bool mutex_timedlock(uint32_t mut_id, uint32_t timeout_ms) {
     }
     // 获得锁
     expected = 0;
-    if (!atomic_compare_exchange(&mut->locked, &expected, 1)) {
+    if (!atomic_compare_exchange(&mut->locked, &expected, 1,
+                                 memory_order_acq_rel, memory_order_relaxed)) {
       printf_color(CGA_COLOR_RED, "mutex_timedlock logic error 2\n");
       task_terminate(TASK_TERMINATE_ABORT);
     }

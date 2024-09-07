@@ -115,6 +115,7 @@
         "streambuf": "c",
         "variant": "c",
         "version": "c",
-        "signal.h": "c"
+        "signal.h": "c",
+        "stdatomic.h": "c"
     }
 }
