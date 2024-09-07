@@ -7,6 +7,11 @@ void atomic_thread_fence(memory_order order) {
     asm volatile("mfence" ::: "memory");
 }
 
+void atomic_signal_fence(memory_order order) {
+  UNUSED(order);
+  asm volatile("" ::: "memory");
+}
+
 void make_sure_aligned(const volatile uint32_t *ptr) {
   assert((uintptr_t)ptr % 4 == 0);
 }
