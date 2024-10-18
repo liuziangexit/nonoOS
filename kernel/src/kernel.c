@@ -28,7 +28,7 @@
 // 用来测试程序映像很大的时候会怎么样
 // static char fuck[1024 * 1024 * 32];
 
-#define RUN_TEST
+//#define RUN_TEST
 
 void kmain();
 void ktask0();
