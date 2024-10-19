@@ -11,7 +11,10 @@
 #include <unistd.h>
 #include <vector.h>
 
+// condition variable
 uint32_t cv;
+
+// mutex
 uint32_t cv_mut;
 
 // 扮演一个FIFO的Q
