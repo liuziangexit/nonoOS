@@ -15,7 +15,6 @@ uint32_t cv;
 uint32_t cv_mut;
 
 // 扮演一个FIFO的Q
-// vector_t等价于std::vector
 vector_t v;
 
 int producer() {
