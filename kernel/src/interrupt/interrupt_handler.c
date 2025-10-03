@@ -25,6 +25,14 @@
  * Must be built at run time because shifted function addresses can't
  * be represented in relocation records.
  * */
+
+ /*
+ 我们知道，像page fault这样的中断在处理后需要重新运行【触发中断的指令】。
+ 而系统调用那样的中断在处理后则需要从【触发中断的指令】的下一个指令开始执行。
+ 这是由cpu来做的，refers to Intel x86 Manual Vol.3A 6.5 Exception Classifications
+ 其中提到，faults类型被触发时，处理器首先将状态恢复为"执行出错指令之前的状态"，这就是为什么返回地址会是【触发中断的指令】。
+ traps被触发时，处理器没有做任何特殊的处理，所以此时PC相对【触发的指令】已经+1了，这就是为什么返回地址是【触发的指令+1】。
+ */
 static struct gatedesc idt[256] = {{0}};
 
 static struct pseudodesc idt_pd = {sizeof(idt) - 1, (uint32_t)idt};
